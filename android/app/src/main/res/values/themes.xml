@@ -1,0 +1,8 @@
+<resources>
+    <style name="Theme.Contril" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/contril_cyan</item>
+        <item name="colorSecondary">@color/contril_cyan</item>
+        <item name="android:statusBarColor">@color/contril_dark</item>
+        <item name="android:windowBackground">@color/contril_dark</item>
+    </style>
+</resources>
