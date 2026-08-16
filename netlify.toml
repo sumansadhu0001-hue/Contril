@@ -2,6 +2,22 @@
   command = "npm run build"
   publish = "dist"
 
+[[headers]]
+  for = "/*.apk"
+  [headers.values]
+    Content-Type = "application/vnd.android.package-archive"
+    Content-Disposition = "attachment; filename=\"contril-android.apk\""
+
+[[headers]]
+  for = "/downloads/*"
+  [headers.values]
+    Content-Type = "application/vnd.android.package-archive"
+
+[[redirects]]
+  from = "/downloads/*"
+  to = "/downloads/:splat"
+  status = 200
+
 [[redirects]]
   from = "/*"
   to = "/index.html"

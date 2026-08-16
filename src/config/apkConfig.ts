@@ -16,7 +16,7 @@ export interface AndroidApkReleaseInfo {
 
 export const CONTRIL_ANDROID_APK_URL = 
   (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_CONTRIL_APK_URL) ||
-  '/release/contril-release.apk';
+  '/downloads/contril-android.apk';
 
 export const CONTRIL_APK_CONFIG: AndroidApkReleaseInfo = {
   version: '0.1.0-preview',

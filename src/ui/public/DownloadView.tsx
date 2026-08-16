@@ -72,7 +72,7 @@ export const DownloadView: React.FC<DownloadViewProps> = ({
 
             <a
               href={CONTRIL_APK_CONFIG.downloadUrl}
-              download="contril-release.apk"
+              download="contril-android.apk"
               className="w-full sm:w-auto px-8 h-13 rounded-xl bg-white/80 dark:bg-[#0E1526]/80 hover:bg-white dark:hover:bg-[#151F38] border border-[#E2E8F0] dark:border-white/15 text-[#0B1220] dark:text-white text-sm font-semibold transition-all hover:-translate-y-0.5 cursor-pointer flex items-center justify-center gap-2 shadow-sm"
             >
               <Download className="w-4 h-4 text-[#2563EB] dark:text-[#38BDF8]" />
@@ -183,7 +183,7 @@ export const DownloadView: React.FC<DownloadViewProps> = ({
               <div className="pt-4">
                 <a
                   href={CONTRIL_APK_CONFIG.downloadUrl}
-                  download="contril-release.apk"
+                  download="contril-android.apk"
                   className="w-full h-12 rounded-xl bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-sm font-semibold transition-all shadow-[0_4px_16px_rgba(37,99,235,0.2)] hover:shadow-[0_8px_24px_rgba(37,99,235,0.3)] cursor-pointer flex items-center justify-center gap-2"
                 >
                   <Download className="w-4 h-4" />
@@ -385,7 +385,7 @@ export const DownloadView: React.FC<DownloadViewProps> = ({
 
               <a
                 href={CONTRIL_APK_CONFIG.downloadUrl}
-                download="contril-release.apk"
+                download="contril-android.apk"
                 className="w-full sm:w-auto px-8 h-13 rounded-xl bg-white dark:bg-[#121B30] hover:bg-slate-50 dark:hover:bg-[#18233F] border border-[#E2E8F0] dark:border-white/15 text-[#0B1220] dark:text-white text-sm font-semibold transition-all cursor-pointer flex items-center justify-center gap-2 shadow-sm"
               >
                 <Download className="w-4 h-4 text-[#2563EB] dark:text-[#38BDF8]" />

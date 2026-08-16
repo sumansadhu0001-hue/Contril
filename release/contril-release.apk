@@ -1,7 +1,0 @@
-Contril OS Early Access Release Build APK.
-Package: com.contril.app
-Version: 0.1.2
-Signing Configuration: Production Release Signed (contril-key)
-
-This is a placeholder binary for direct APK download in the developer environment. In production, this file is replaced by the compiled binary output of the Gradle build task:
-`./gradlew assembleRelease`
