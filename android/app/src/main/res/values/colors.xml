@@ -1,7 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
-    <color name="contril_dark">#070709</color>
-    <color name="contril_cyan">#00BFA6</color>
-    <color name="contril_gray">#111114</color>
+    <color name="contril_blue">#2563EB</color>
+    <color name="contril_cyan">#38BDF8</color>
+    <color name="contril_dark">#050814</color>
+    <color name="contril_light">#F7FAFF</color>
 </resources>
