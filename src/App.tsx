@@ -46,7 +46,6 @@ import { LandingView } from './ui/public/LandingView';
 import { AboutView } from './ui/public/AboutView';
 import { HowItWorksView } from './ui/public/HowItWorksView';
 import { DownloadView } from './ui/public/DownloadView';
-import { AndroidDownloadView } from './ui/public/AndroidDownloadView';
 import { InfoPages } from './ui/public/InfoPages';
 import { AtmosphericBackground } from './components/AtmosphericBackground';
 
