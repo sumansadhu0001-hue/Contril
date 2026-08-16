@@ -1,0 +1,98 @@
+/* ==========================================================================
+   CONTRIL AI CHIEF OF STAFF — ATMOSPHERIC DESIGN SYSTEM
+   Base Canvas: #F8FAFF | Deep Navy: #0B1220 | Royal Blue: #2563EB | Bright Blue: #3B82F6
+   ========================================================================== */
+
+:root,
+html.light,
+html[data-theme="light"],
+body.light {
+  /* Atmospheric Canvas Backgrounds */
+  --background: #F8FAFF;
+  --bg-canvas: #F8FAFF;
+  --bg-hero: #F8FAFF;
+  --bg-section-alt: #F6F9FF;
+  --bg-navbar: rgba(248, 250, 255, 0.82);
+
+  /* Surfaces & Floating Cards */
+  --surface: #FFFFFF;
+  --surface-secondary: #F8FAFC;
+  --surface-soft: #F1F5F9;
+  --surface-elevated: #FFFFFF;
+  --surface-command: linear-gradient(135deg, rgba(239, 246, 255, 0.95), rgba(248, 250, 252, 0.98));
+
+  /* Typography */
+  --foreground: #0B1220;
+  --foreground-secondary: #52627A;
+  --foreground-muted: #64748B;
+  --foreground-faint: #94A3B8;
+
+  /* Contril Blue System */
+  --primary: #2563EB;
+  --primary-hover: #1D4ED8;
+  --primary-bright: #3B82F6;
+  --primary-soft: #60A5FA;
+  --primary-pale: #DBEAFE;
+  --primary-gradient: linear-gradient(135deg, #2563EB 0%, #3B82F6 100%);
+  --primary-shadow: 0 8px 24px rgba(37, 99, 235, 0.20);
+  --primary-shadow-hover: 0 12px 30px rgba(37, 99, 235, 0.28);
+
+  /* AI Cyan Accent */
+  --accent-ai: #06B6D4;
+  --accent-ai-hover: #0891B2;
+  --accent-ai-glow: rgba(6, 182, 212, 0.15);
+
+  /* Borders & Floating Shadows */
+  --border: #E5E7EB;
+  --border-subtle: #F1F5F9;
+  --border-blue: rgba(37, 99, 235, 0.18);
+  --shadow-floating: 0 30px 80px rgba(37, 99, 235, 0.08), 0 10px 30px rgba(15, 23, 42, 0.05);
+  --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.02);
+}
+
+/* Atmospheric Dark Mode */
+html.dark,
+html[data-theme="dark"],
+body.dark {
+  /* Canvas & Atmospheric Backgrounds */
+  --background: #05070B;
+  --bg-canvas: #05070B;
+  --bg-hero: #05070B;
+  --bg-section-alt: #080C14;
+  --bg-navbar: rgba(5, 7, 11, 0.82);
+
+  /* Surfaces & Floating Containers */
+  --surface: #0D121D;
+  --surface-secondary: #111827;
+  --surface-soft: #172033;
+  --surface-elevated: #151D2E;
+  --surface-command: linear-gradient(135deg, rgba(17, 24, 39, 0.95), rgba(23, 32, 51, 0.98));
+
+  /* Typography */
+  --foreground: #F8FAFC;
+  --foreground-secondary: #CBD5E1;
+  --foreground-muted: #94A3B8;
+  --foreground-faint: #64748B;
+
+  /* Contril Blue System */
+  --primary: #3B82F6;
+  --primary-hover: #60A5FA;
+  --primary-bright: #60A5FA;
+  --primary-soft: #93C5FD;
+  --primary-pale: rgba(59, 130, 246, 0.15);
+  --primary-gradient: linear-gradient(135deg, #2563EB 0%, #3B82F6 100%);
+  --primary-shadow: 0 8px 24px rgba(37, 99, 235, 0.35);
+  --primary-shadow-hover: 0 12px 30px rgba(37, 99, 235, 0.45);
+
+  /* AI Cyan Accent */
+  --accent-ai: #06B6D4;
+  --accent-ai-hover: #22D3EE;
+  --accent-ai-glow: rgba(6, 182, 212, 0.25);
+
+  /* Borders & Shadows */
+  --border: rgba(255, 255, 255, 0.08);
+  --border-subtle: rgba(255, 255, 255, 0.04);
+  --border-blue: rgba(59, 130, 246, 0.3);
+  --shadow-floating: 0 30px 80px rgba(0, 0, 0, 0.7), 0 10px 30px rgba(0, 0, 0, 0.5);
+  --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.6);
+}

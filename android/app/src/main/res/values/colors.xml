@@ -1,0 +1,7 @@
+<resources>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+    <color name="contril_dark">#070709</color>
+    <color name="contril_cyan">#00BFA6</color>
+    <color name="contril_gray">#111114</color>
+</resources>

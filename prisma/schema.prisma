@@ -1,0 +1,367 @@
+// Contril AI OS - Production Prisma Database Schema (PostgreSQL)
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  SUPER_ADMIN
+  ORG_ADMIN
+  TEAM_LEAD
+  USER
+  GUEST
+}
+
+enum PlanTier {
+  FREE
+  PRO
+  BUSINESS
+  ENTERPRISE
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  DEACTIVATED
+  LOCKED
+  PENDING_VERIFICATION
+}
+
+enum BetaStatus {
+  PENDING
+  ACTIVE
+  EXPIRED
+  SUSPENDED
+}
+
+enum WaitlistStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model User {
+  id                String       @id @default(uuid())
+  email             String       @unique
+  username          String?      @unique
+  passwordHash      String
+  fullName          String
+  avatarUrl         String?
+  role              Role         @default(USER)
+  status            UserStatus   @default(ACTIVE)
+  isEmailVerified   Boolean      @default(false)
+  failedLoginCount  Int          @default(0)
+  lockedUntil       DateTime?
+  mfaEnabled        Boolean      @default(false)
+  mfaSecret         String?
+  lastLoginAt       DateTime?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  profile           Profile?
+  sessions          Session[]
+  refreshTokens     RefreshToken[]
+  workspaces        Workspace[]  @relation("WorkspaceOwner")
+  workspaceMembers  WorkspaceMember[]
+  conversations     Conversation[]
+  memories          Memory[]
+  documents         Document[]
+  meetings          Meeting[]
+  integrations      Integration[]
+  notifications     Notification[]
+  activityLogs      ActivityLog[]
+  auditLogs         AuditLog[]
+  apiKeys           ApiKey[]
+  usageRecords      UsageRecord[]
+  subscription      Subscription?
+  betaAccount       BetaUser?
+
+  @@index([email])
+  @@index([username])
+}
+
+model Profile {
+  id             String    @id @default(uuid())
+  userId         String    @unique
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company        String?
+  title          String?
+  country        String?
+  timezone       String    @default("UTC")
+  bio            String?
+  preferences    Json      @default("{}")
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+model Session {
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token        String   @unique
+  ipAddress    String?
+  userAgent    String?
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+}
+
+model RefreshToken {
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash    String   @unique
+  revoked      Boolean  @default(false)
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+}
+
+model Workspace {
+  id           String            @id @default(uuid())
+  name         String
+  slug         String            @unique
+  ownerId      String
+  owner        User              @relation("WorkspaceOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  type         String            @default("business")
+  settings     Json              @default("{}")
+  members      WorkspaceMember[]
+  documents    Document[]
+  conversations Conversation[]
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+}
+
+model WorkspaceMember {
+  id          String    @id @default(uuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role        Role      @default(USER)
+  joinedAt    DateTime  @default(now())
+
+  @@unique([workspaceId, userId])
+}
+
+model Conversation {
+  id          String    @id @default(uuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspaceId String?
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  title       String    @default("New Conversation")
+  isPinned    Boolean   @default(false)
+  messages    Message[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Message {
+  id             String       @id @default(uuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender         String       // "user" or "assistant"
+  content        String
+  reasoning      String?
+  tokensUsed     Int          @default(0)
+  createdAt      DateTime     @default(now())
+}
+
+model Memory {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String   @default("fact") // "preference", "fact", "instruction"
+  title     String
+  snippet   String
+  tags      String[]
+  pinned    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Document {
+  id           String     @id @default(uuid())
+  userId       String
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspaceId  String?
+  workspace    Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  title        String
+  storagePath  String
+  fileSizeBytes BigInt
+  mimeType     String
+  summary      String?
+  fullText     String?
+  clauses      Json       @default("[]")
+  riskLevel    String     @default("Low")
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+}
+
+model Meeting {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String
+  startTime   DateTime
+  endTime     DateTime
+  attendees   Json     @default("[]")
+  transcript  String?
+  summary     String?
+  actionItems Json     @default("[]")
+  createdAt   DateTime @default(now())
+}
+
+model Integration {
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider     String   // "gmail", "slack", "notion", etc.
+  status       String   @default("connected")
+  accessToken  String?
+  refreshToken String?
+  metadata     Json     @default("{}")
+  connectedAt  DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([userId, provider])
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String
+  type      String   @default("info")
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model Subscription {
+  id                   String     @id @default(uuid())
+  userId               String     @unique
+  user                 User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan                 PlanTier   @default(FREE)
+  stripeCustomerId     String?
+  stripeSubscriptionId String?
+  status               String     @default("active")
+  currentPeriodEnd     DateTime?
+  cancelAtPeriodEnd    Boolean    @default(false)
+  createdAt            DateTime   @default(now())
+  updatedAt            DateTime   @updatedAt
+
+  invoices             Invoice[]
+}
+
+model Invoice {
+  id             String       @id @default(uuid())
+  subscriptionId String
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  amountUsd      Float
+  status         String       @default("paid")
+  pdfUrl         String?
+  createdAt      DateTime     @default(now())
+}
+
+model UsageRecord {
+  id              String   @id @default(uuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  aiRequests      Int      @default(0)
+  storageMb       Float    @default(0)
+  voiceMinutes    Float    @default(0)
+  automationRuns Int      @default(0)
+  researchRequests Int     @default(0)
+  recordedDate    DateTime @default(now())
+}
+
+model ActivityLog {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  action    String
+  module    String
+  metadata  Json     @default("{}")
+  ipAddress String?
+  createdAt DateTime @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  event     String
+  severity  String   @default("info")
+  details   Json     @default("{}")
+  ipAddress String?
+  createdAt DateTime @default(now())
+}
+
+model FeatureFlag {
+  key         String   @id
+  isEnabled   Boolean  @default(true)
+  description String?
+  minPlan     PlanTier @default(FREE)
+  updatedAt   DateTime @updatedAt
+}
+
+model BetaUser {
+  id             String     @id @default(uuid())
+  userId         String?    @unique
+  user           User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
+  username       String     @unique
+  email          String     @unique
+  tempPassword   String
+  plan           PlanTier   @default(PRO)
+  expiryDate     DateTime
+  status         BetaStatus @default(ACTIVE)
+  notes          String?
+  reviewerName   String     @default("Contril Ops")
+  activationCode String     @unique
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+}
+
+model WaitlistUser {
+  id           String         @id @default(uuid())
+  email        String         @unique
+  name         String
+  country      String
+  company      String?
+  referralCode String?
+  status       WaitlistStatus @default(PENDING)
+  createdAt    DateTime       @default(now())
+}
+
+model ApiKey {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  keyHash   String   @unique
+  name      String
+  lastUsed  DateTime?
+  createdAt DateTime @default(now())
+}
+
+model SystemSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
+model EmailVerificationCode {
+  id         String   @id @default(uuid())
+  userId     String?  @map("user_id")
+  email      String
+  otpHash    String   @map("otp_hash")
+  expiresAt  DateTime @map("expires_at")
+  attempts   Int      @default(0)
+  verified   Boolean  @default(false)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@map("email_verification_codes")
+}

@@ -1,0 +1,104 @@
+@import "tailwindcss";
+@import "./ui/design/tokens.css";
+
+/* Force Tailwind v4 dark variant to depend strictly on .dark class or data-theme="dark" attribute */
+@custom-variant dark (&:where(.dark, [data-theme="dark"], .dark *));
+
+@layer base {
+  html {
+    font-size: 100%;
+    -webkit-text-size-adjust: 100%;
+    background-color: var(--background);
+    color: var(--foreground);
+    scroll-behavior: smooth;
+  }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background-color: var(--background);
+    color: var(--foreground);
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    min-height: 100vh;
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+
+  ::selection {
+    background-color: #2563EB;
+    color: #FFFFFF;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    letter-spacing: -0.025em;
+  }
+
+  code, kbd, pre {
+    font-family: 'JetBrains Mono', 'SF Mono', monospace;
+  }
+}
+
+/* Atmospheric Ambient Floating Light Keyframes (25s–35s Smooth Motion) */
+@keyframes ambient-float {
+  0%, 100% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(35px, 25px) scale(1.05);
+  }
+}
+
+@keyframes ambient-float-reverse {
+  0%, 100% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(-30px, 20px) scale(1.04);
+  }
+}
+
+@keyframes ambient-float-slow {
+  0%, 100% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(20px, -25px) scale(1.03);
+  }
+}
+
+.animate-ambient-float {
+  animation: ambient-float 24s ease-in-out infinite alternate;
+}
+
+.animate-ambient-float-reverse {
+  animation: ambient-float-reverse 28s ease-in-out infinite alternate;
+}
+
+.animate-ambient-float-slow {
+  animation: ambient-float-slow 32s ease-in-out infinite alternate;
+}
+
+/* Custom Minimalist Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.3);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(37, 99, 235, 0.5);
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
