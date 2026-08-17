@@ -1,12 +1,13 @@
 package com.contril.app.ui.navigation
 
 import android.util.Log
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Scaffold
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -35,7 +36,54 @@ fun ContrilAppContent(
     repository: ContrilRepository,
     prefRepository: PreferenceRepository
 ) {
+    var isSplashComplete by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+
+    // Startup Experience (Restores state, checks backend, initializes models)
+    if (!isSplashComplete) {
+        androidx.compose.runtime.LaunchedEffect(Unit) {
+            kotlinx.coroutines.delay(1200) // Brief graceful startup animation
+            isSplashComplete = true
+        }
+
+        androidx.compose.material3.Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = androidx.compose.material3.MaterialTheme.colorScheme.background
+        ) {
+            androidx.compose.foundation.layout.Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = androidx.compose.ui.Alignment.Center
+            ) {
+                androidx.compose.foundation.layout.Column(
+                    horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
+                    verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(16.dp)
+                ) {
+                    com.contril.app.ui.components.ContrilLogoMark(modifier = Modifier.size(56.dp))
+                    androidx.compose.foundation.layout.Column(
+                        horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
+                        verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(4.dp)
+                    ) {
+                        androidx.compose.material3.Text(
+                            text = "CONTRIL",
+                            style = androidx.compose.material3.MaterialTheme.typography.headlineMedium.copy(
+                                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                                letterSpacing = 2.sp
+                            ),
+                            color = androidx.compose.material3.MaterialTheme.colorScheme.onBackground
+                        )
+                        androidx.compose.material3.Text(
+                            text = "AI Chief of Staff",
+                            style = androidx.compose.material3.MaterialTheme.typography.bodyMedium,
+                            color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        }
+        return
+    }
+
     val currentUser by prefRepository.currentUser.collectAsState()
+    val hasCompletedOnboarding by prefRepository.hasCompletedOnboarding.collectAsState()
 
     // 1. Unauthenticated Gate -> Show Premium Auth Screen
     if (currentUser == null) {
@@ -51,7 +99,18 @@ fun ContrilAppContent(
         AuthScreen(
             viewModel = authViewModel,
             onAuthSuccess = {
-                // currentUser StateFlow update triggers automatic recomposition to authenticated workspace
+                // currentUser StateFlow update triggers automatic recomposition
+            }
+        )
+        return
+    }
+
+    // 2. First-Run Onboarding Gate
+    if (!hasCompletedOnboarding) {
+        com.contril.app.ui.onboarding.OnboardingScreen(
+            prefRepository = prefRepository,
+            onFinish = {
+                // Automatically proceeds to workspace
             }
         )
         return
@@ -72,10 +131,10 @@ fun ContrilAppContent(
     }
     val briefingViewModel = androidx.compose.runtime.remember {
         try {
-            BriefingViewModel(repository)
+            BriefingViewModel(repository, prefRepository)
         } catch (e: Exception) {
             Log.e("ContrilNav", "BriefingViewModel creation failed", e)
-            BriefingViewModel()
+            BriefingViewModel(repository, prefRepository)
         }
     }
     val inboxViewModel = androidx.compose.runtime.remember {
@@ -111,14 +170,14 @@ fun ContrilAppContent(
         }
     }
 
+    var showProfileHub by remember { mutableStateOf(false) }
+
     Scaffold(
         topBar = {
             ContrilTopBar(
                 userProfile = currentUser,
                 onAvatarClick = {
-                    if (currentRoute != Screen.Settings.route) {
-                        navController.navigate(Screen.Settings.route)
-                    }
+                    showProfileHub = true
                 }
             )
         },
@@ -147,11 +206,15 @@ fun ContrilAppContent(
             composable(Screen.Home.route) {
                 HomeScreen(
                     viewModel = homeViewModel,
-                    onNavigateToTasks = { navController.navigate(Screen.Tasks.route) }
+                    onNavigateToTasks = { navController.navigate(Screen.Tasks.route) },
+                    onNavigateToBriefing = { navController.navigate(Screen.Briefing.route) }
                 )
             }
             composable(Screen.Briefing.route) {
-                BriefingScreen(viewModel = briefingViewModel)
+                BriefingScreen(
+                    viewModel = briefingViewModel,
+                    onBack = { navController.popBackStack() }
+                )
             }
             composable(Screen.Inbox.route) {
                 InboxScreen(
@@ -165,9 +228,29 @@ fun ContrilAppContent(
             composable(Screen.Integrations.route) {
                 IntegrationsScreen(viewModel = integrationsViewModel)
             }
+            composable(Screen.Plans.route) {
+                com.contril.app.ui.plans.PlansScreen(
+                    prefRepository = prefRepository,
+                    onBack = { navController.popBackStack() }
+                )
+            }
+            composable(Screen.Profile.route) {
+                SettingsScreen(viewModel = settingsViewModel)
+            }
             composable(Screen.Settings.route) {
                 SettingsScreen(viewModel = settingsViewModel)
             }
         }
+    }
+
+    if (showProfileHub) {
+        com.contril.app.ui.components.ProfileHubSheet(
+            prefRepository = prefRepository,
+            onDismiss = { showProfileHub = false },
+            onNavigateToConnected = { navController.navigate(Screen.Integrations.route) },
+            onNavigateToPlans = { navController.navigate(Screen.Plans.route) },
+            onNavigateToBriefing = { navController.navigate(Screen.Briefing.route) },
+            onSignOut = { prefRepository.clearSession() }
+        )
     }
 }

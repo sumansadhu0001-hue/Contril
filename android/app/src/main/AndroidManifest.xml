@@ -42,12 +42,35 @@
                 <data android:pathPrefix="/command" />
             </intent-filter>
 
-            <!-- Supabase & Google OAuth Deep Link -->
+            <!-- Official Contril OAuth Android Deep Link: contril://auth/callback -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="contril" android:host="login-callback" />
+                <data
+                    android:scheme="contril"
+                    android:host="auth"
+                    android:path="/callback" />
+            </intent-filter>
+
+            <!-- Netlify Web-to-App Bridge Intent Filter -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="contril.netlify.app" />
+            </intent-filter>
+
+            <!-- Fallback Deep Link Filter -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="contril"
+                    android:host="login-callback" />
             </intent-filter>
         </activity>
 

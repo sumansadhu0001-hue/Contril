@@ -215,11 +215,9 @@ class AuthViewModel(
         }
 
         viewModelScope.launch {
-            // Dispatches 4-Digit OTP via Resend directly
             val resendResult = com.contril.app.data.api.ResendClient.send4DigitOtp(email, isRecovery = false)
             if (resendResult.isFailure) {
-                // Secondary backup attempt via SupabaseAuthClient
-                SupabaseAuthClient.sendResendOtp(email, isRecovery = false)
+                SupabaseAuthClient.sendResendOtp(email)
             }
 
             _uiState.update {

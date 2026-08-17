@@ -13,47 +13,61 @@ import java.util.concurrent.TimeUnit
 
 object SupabaseAuthClient {
 
-    const val SUPABASE_URL = "https://qjyowojnvbfezznezxrr.supabase.co"
-    const val SUPABASE_ANON_KEY = "sb_publishable_FPaC7OtL6iAsYiQ_JDS9IA_ZmTuYeyT"
-    const val OAUTH_REDIRECT_URI = "contril://login-callback"
+    private const val SUPABASE_URL = "https://qjyowojnvbfezznezxrr.supabase.co"
+    private const val SUPABASE_ANON_KEY = "sb_publishable_FPaC7OtL6iAsYiQ_JDS9IA_ZmTuYeyT"
+    private const val OAUTH_REDIRECT_URI = "contril://auth/callback"
 
     private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
 
     private val httpClient = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
-        .readTimeout(20, TimeUnit.SECONDS)
+        .readTimeout(15, TimeUnit.SECONDS)
         .writeTimeout(15, TimeUnit.SECONDS)
         .build()
 
     private val encodedRedirectUri: String
         get() = java.net.URLEncoder.encode(OAUTH_REDIRECT_URI, "UTF-8")
 
+    /**
+     * Flow A: Contril User Authentication (Clean standard Supabase Google OAuth)
+     */
     fun getGoogleOAuthUrl(): String {
         return "$SUPABASE_URL/auth/v1/authorize?provider=google&redirect_to=$encodedRedirectUri"
     }
 
+    fun getGoogleLoginOAuthUrl(): String = getGoogleOAuthUrl()
+
+    /**
+     * Flow B: Google Workspace Integration (Gmail, Calendar, Drive)
+     */
     fun getGoogleWorkspaceOAuthUrl(): String {
-        return "$SUPABASE_URL/auth/v1/authorize?provider=google&scopes=https://www.googleapis.com/auth/gmail.readonly+https://www.googleapis.com/auth/calendar+https://www.googleapis.com/auth/drive.readonly&redirect_to=$encodedRedirectUri"
+        val scopes = "https://www.googleapis.com/auth/gmail.readonly+https://www.googleapis.com/auth/calendar.readonly+https://www.googleapis.com/auth/drive.readonly"
+        return "$SUPABASE_URL/auth/v1/authorize?provider=google&scopes=$scopes&redirect_to=$encodedRedirectUri"
     }
 
     fun getGmailOAuthUrl(): String {
-        return "$SUPABASE_URL/auth/v1/authorize?provider=google&scopes=https://www.googleapis.com/auth/gmail.readonly&redirect_to=$encodedRedirectUri"
+        val scopes = "https://www.googleapis.com/auth/gmail.readonly"
+        return "$SUPABASE_URL/auth/v1/authorize?provider=google&scopes=$scopes&redirect_to=$encodedRedirectUri"
     }
 
     fun getGoogleCalendarOAuthUrl(): String {
-        return "$SUPABASE_URL/auth/v1/authorize?provider=google&scopes=https://www.googleapis.com/auth/calendar&redirect_to=$encodedRedirectUri"
+        val scopes = "https://www.googleapis.com/auth/calendar.readonly"
+        return "$SUPABASE_URL/auth/v1/authorize?provider=google&scopes=$scopes&redirect_to=$encodedRedirectUri"
     }
 
     fun getGoogleDriveOAuthUrl(): String {
-        return "$SUPABASE_URL/auth/v1/authorize?provider=google&scopes=https://www.googleapis.com/auth/drive.readonly&redirect_to=$encodedRedirectUri"
+        val scopes = "https://www.googleapis.com/auth/drive.readonly"
+        return "$SUPABASE_URL/auth/v1/authorize?provider=google&scopes=$scopes&redirect_to=$encodedRedirectUri"
     }
 
     fun getMicrosoftOAuthUrl(): String {
-        return "$SUPABASE_URL/auth/v1/authorize?provider=azure&scopes=email+openid+profile+Mail.Read+Calendars.Read&redirect_to=$encodedRedirectUri"
+        val scopes = java.net.URLEncoder.encode("openid email profile Mail.Read Calendars.Read", "UTF-8")
+        return "$SUPABASE_URL/auth/v1/authorize?provider=azure&scopes=$scopes&redirect_to=$encodedRedirectUri"
     }
 
     fun getGitHubOAuthUrl(): String {
-        return "$SUPABASE_URL/auth/v1/authorize?provider=github&scopes=read:user+repo&redirect_to=$encodedRedirectUri"
+        val scopes = java.net.URLEncoder.encode("read:user repo", "UTF-8")
+        return "$SUPABASE_URL/auth/v1/authorize?provider=github&scopes=$scopes&redirect_to=$encodedRedirectUri"
     }
 
     fun getOAuthUrlForService(serviceId: String): String {
@@ -64,7 +78,8 @@ object SupabaseAuthClient {
             "drive", "google_drive" -> getGoogleDriveOAuthUrl()
             "outlook", "microsoft" -> getMicrosoftOAuthUrl()
             "github" -> getGitHubOAuthUrl()
-            else -> getGoogleOAuthUrl()
+            "notion" -> "$SUPABASE_URL/auth/v1/authorize?provider=notion&redirect_to=$encodedRedirectUri"
+            else -> "$SUPABASE_URL/auth/v1/authorize?provider=$serviceId&redirect_to=$encodedRedirectUri"
         }
     }
 
@@ -106,15 +121,14 @@ object SupabaseAuthClient {
             val accessToken = json.getString("access_token")
             val userObj = json.getJSONObject("user")
             val userId = userObj.getString("id")
-            val userEmail = userObj.optString("email", email)
             val metadata = userObj.optJSONObject("user_metadata")
             val fullName = metadata?.optString("full_name", metadata.optString("name", "")) ?: ""
             val avatarUrl = metadata?.optString("avatar_url", metadata.optString("picture", ""))
 
             val profile = UserProfile(
                 id = userId,
-                email = userEmail,
-                name = fullName.ifBlank { userEmail.substringBefore("@") },
+                email = email.trim(),
+                name = fullName.ifBlank { email.substringBefore("@") },
                 avatarUrl = avatarUrl?.takeIf { it.isNotBlank() }
             )
 
@@ -193,9 +207,9 @@ object SupabaseAuthClient {
             if (!response.isSuccessful) {
                 val errMsg = try {
                     val errJson = JSONObject(resBody)
-                    errJson.optString("error_description", errJson.optString("msg", "Failed to send code."))
+                    errJson.optString("error_description", errJson.optString("msg", "Unable to send verification code."))
                 } catch (_: Exception) {
-                    "Failed to send code."
+                    "Unable to send verification code."
                 }
                 return@withContext AuthResult(success = false, error = errMsg)
             }
@@ -203,19 +217,21 @@ object SupabaseAuthClient {
             AuthResult(success = true)
         } catch (e: Exception) {
             Log.e("SupabaseAuth", "sendEmailOtp error", e)
-            AuthResult(success = false, error = e.message ?: "Unable to dispatch verification code.")
+            AuthResult(success = false, error = e.message ?: "Network error.")
         }
     }
 
-    suspend fun sendResendOtp(email: String, isRecovery: Boolean = false): AuthResult = withContext(Dispatchers.IO) {
+    suspend fun verifyEmailOtp(email: String, token: String): AuthResult = withContext(Dispatchers.IO) {
         try {
             val jsonBody = JSONObject().apply {
                 put("email", email.trim())
-                put("isRecovery", isRecovery)
+                put("token", token.trim())
+                put("type", "email")
             }
 
             val request = Request.Builder()
-                .url("https://contril.netlify.app/.netlify/functions/auth-otp")
+                .url("$SUPABASE_URL/auth/v1/verify")
+                .header("apikey", SUPABASE_ANON_KEY)
                 .header("Content-Type", "application/json")
                 .post(jsonBody.toString().toRequestBody(jsonMediaType))
                 .build()
@@ -225,48 +241,87 @@ object SupabaseAuthClient {
 
             if (!response.isSuccessful) {
                 val errMsg = try {
-                    JSONObject(resBody).optString("error", "Failed to send code via Resend.")
+                    val errJson = JSONObject(resBody)
+                    errJson.optString("error_description", errJson.optString("msg", "Invalid or expired verification code."))
                 } catch (_: Exception) {
-                    "Failed to send code via Resend."
-                }
-                return@withContext AuthResult(success = false, error = errMsg)
-            }
-
-            AuthResult(success = true)
-        } catch (e: Exception) {
-            Log.e("SupabaseAuth", "sendResendOtp error", e)
-            AuthResult(success = false, error = e.message ?: "Unable to send verification code.")
-        }
-    }
-
-    suspend fun verifyResendOtp(email: String, code: String): AuthResult = withContext(Dispatchers.IO) {
-        try {
-            val jsonBody = JSONObject().apply {
-                put("email", email.trim())
-                put("code", code.trim())
-            }
-
-            val request = Request.Builder()
-                .url("https://contril.netlify.app/.netlify/functions/auth-otp")
-                .header("Content-Type", "application/json")
-                .post(jsonBody.toString().toRequestBody(jsonMediaType))
-                .build()
-
-            val response = httpClient.newCall(request).execute()
-            val resBody = response.body?.string() ?: ""
-
-            if (!response.isSuccessful) {
-                val errMsg = try {
-                    JSONObject(resBody).optString("error", "That code isn't correct. Try again.")
-                } catch (_: Exception) {
-                    "That code isn't correct. Try again."
+                    "Invalid or expired verification code."
                 }
                 return@withContext AuthResult(success = false, error = errMsg)
             }
 
             val json = JSONObject(resBody)
+            val accessToken = json.getString("access_token")
+            val userObj = json.getJSONObject("user")
+            val userId = userObj.getString("id")
+            val metadata = userObj.optJSONObject("user_metadata")
+            val fullName = metadata?.optString("full_name", metadata.optString("name", "")) ?: ""
+
+            val profile = UserProfile(
+                id = userId,
+                email = email.trim(),
+                name = fullName.ifBlank { email.substringBefore("@") }
+            )
+
+            AuthResult(success = true, token = accessToken, user = profile)
+        } catch (e: Exception) {
+            Log.e("SupabaseAuth", "verifyEmailOtp error", e)
+            AuthResult(success = false, error = e.message ?: "Verification error.")
+        }
+    }
+
+    suspend fun sendResendOtp(email: String): AuthResult = withContext(Dispatchers.IO) {
+        try {
+            val jsonBody = JSONObject().apply {
+                put("email", email.trim())
+            }
+
+            val request = Request.Builder()
+                .url("$SUPABASE_URL/functions/v1/send-otp")
+                .header("apikey", SUPABASE_ANON_KEY)
+                .header("Content-Type", "application/json")
+                .post(jsonBody.toString().toRequestBody(jsonMediaType))
+                .build()
+
+            val response = httpClient.newCall(request).execute()
+            val resBody = response.body?.string() ?: ""
+
+            if (!response.isSuccessful) {
+                // Graceful fallback to Supabase standard OTP
+                return@withContext sendEmailOtp(email)
+            }
+
+            AuthResult(success = true)
+        } catch (e: Exception) {
+            Log.w("SupabaseAuth", "sendResendOtp failed, falling back to Supabase standard OTP: ${e.message}")
+            sendEmailOtp(email)
+        }
+    }
+
+    suspend fun verifyResendOtp(email: String, otp: String): AuthResult = withContext(Dispatchers.IO) {
+        try {
+            val jsonBody = JSONObject().apply {
+                put("email", email.trim())
+                put("otp", otp.trim())
+            }
+
+            val request = Request.Builder()
+                .url("$SUPABASE_URL/functions/v1/verify-otp")
+                .header("apikey", SUPABASE_ANON_KEY)
+                .header("Content-Type", "application/json")
+                .post(jsonBody.toString().toRequestBody(jsonMediaType))
+                .build()
+
+            val response = httpClient.newCall(request).execute()
+            val resBody = response.body?.string() ?: ""
+
+            if (!response.isSuccessful) {
+                // Graceful fallback to Supabase standard OTP verify
+                return@withContext verifyEmailOtp(email, otp)
+            }
+
+            val json = JSONObject(resBody)
+            val token = json.optString("session_token", json.optString("access_token", ""))
             val userObj = json.optJSONObject("user")
-            val token = json.optString("token", "token_${System.currentTimeMillis()}")
             val userId = userObj?.optString("id", "usr_${System.currentTimeMillis()}") ?: "usr_${System.currentTimeMillis()}"
             val userEmail = userObj?.optString("email", email) ?: email
             val userName = userObj?.optString("name", email.substringBefore("@")) ?: email.substringBefore("@")
@@ -279,8 +334,8 @@ object SupabaseAuthClient {
 
             AuthResult(success = true, token = token, user = profile)
         } catch (e: Exception) {
-            Log.e("SupabaseAuth", "verifyResendOtp error", e)
-            AuthResult(success = false, error = e.message ?: "Verification error.")
+            Log.w("SupabaseAuth", "verifyResendOtp error, falling back to verifyEmailOtp", e)
+            verifyEmailOtp(email, otp)
         }
     }
 
@@ -346,6 +401,39 @@ object SupabaseAuthClient {
         } catch (e: Exception) {
             Log.e("SupabaseAuth", "Failed to fetch user profile", e)
             null
+        }
+    }
+
+    /**
+     * Forward provider tokens securely to backend vault over authenticated HTTPS connection
+     */
+    suspend fun vaultGoogleProviderCredentials(
+        contrilSessionToken: String,
+        providerToken: String,
+        providerRefreshToken: String?
+    ): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val json = JSONObject().apply {
+                put("provider", "google")
+                put("provider_token", providerToken)
+                if (providerRefreshToken != null) {
+                    put("provider_refresh_token", providerRefreshToken)
+                }
+            }
+
+            val request = Request.Builder()
+                .url("$SUPABASE_URL/functions/v1/vault-provider-credentials")
+                .header("apikey", SUPABASE_ANON_KEY)
+                .header("Authorization", "Bearer $contrilSessionToken")
+                .header("Content-Type", "application/json")
+                .post(json.toString().toRequestBody(jsonMediaType))
+                .build()
+
+            val response = httpClient.newCall(request).execute()
+            response.isSuccessful
+        } catch (e: Exception) {
+            Log.w("SupabaseAuth", "Vault provider credentials call error: ${e.message}")
+            false
         }
     }
 }

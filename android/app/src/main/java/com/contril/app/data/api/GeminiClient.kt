@@ -173,15 +173,25 @@ object GeminiClient {
         autonomyMode: AutonomyMode,
         connectedServices: Map<String, String>
     ): CommandResponse {
-        val serviceName = if (connectedServices.isNotEmpty()) connectedServices.keys.first() else "Live Intelligence"
+        val lower = prompt.lowercase()
+        val isFoodOrder = lower.contains("pizza") || lower.contains("food") || lower.contains("burger") || lower.contains("order")
+        val isRide = lower.contains("uber") || lower.contains("cab") || lower.contains("ride") || lower.contains("ola")
+
+        val responseText = when {
+            isFoodOrder -> "I can't place that order yet. No supported food delivery service (e.g. Swiggy/Zomato) is connected. You can manage connected services in your Profile Hub."
+            isRide -> "I can't book a ride yet. No ride provider (e.g. Uber/Ola) is currently connected. You can manage integrations in your Profile Hub."
+            connectedServices.isEmpty() -> "I'm currently unable to access your workspace because no services are connected. Connect Gmail or Google Calendar in your Profile Hub to enable email and schedule actions."
+            else -> "I encountered a connection error while reaching the AI assistant. Please check your network connection and retry."
+        }
+
         return CommandResponse(
             conversationId = "conv_${UUID.randomUUID().toString().take(8)}",
-            responseText = "Processed command: \"$prompt\"\nContril AI Chief of Staff coordinated action across $serviceName.",
+            responseText = responseText,
             steps = listOf(
-                ExecutionStep("s1", "Processed prompt: \"$prompt\"", "complete"),
-                ExecutionStep("s2", "Checked authorization state", "complete"),
-                ExecutionStep("s3", "Completed autonomous execution", "complete")
-            )
+                ExecutionStep("s1", "Analyzed command: \"$prompt\"", "complete"),
+                ExecutionStep("s2", "Checked connected service capabilities", "complete")
+            ),
+            pendingAction = null
         )
     }
 }

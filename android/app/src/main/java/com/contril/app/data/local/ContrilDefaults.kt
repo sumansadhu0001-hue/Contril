@@ -19,49 +19,21 @@ object ContrilDefaults {
 
     fun getInitialTasks(): List<TaskItem> = emptyList()
 
-    fun getConnectedGmailThreads(accountEmail: String): List<EmailSummary> = listOf(
-        EmailSummary(
-            id = "mail_1",
-            sender = "Acme Leadership Team",
-            subject = "Executive Q3 Strategic Review & Board Deck",
-            summarySnippet = "Review required on slide 14 deliverables. Attached revised projections for $accountEmail.",
-            isUrgent = true,
-            hasDraftReady = true
-        ),
-        EmailSummary(
-            id = "mail_2",
-            sender = "Google Cloud Platform",
-            subject = "Security & Production Cluster Health Report",
-            summarySnippet = "All enterprise services operating within standard SLA limits. 0 critical vulnerabilities detected.",
-            isUrgent = false,
-            hasDraftReady = false
-        ),
-        EmailSummary(
-            id = "mail_3",
-            sender = "Stripe Billing Operations",
-            subject = "Enterprise Settlement & Payout Notification",
-            summarySnippet = "Monthly recurring customer subscriptions processed successfully into corporate treasury account.",
-            isUrgent = false,
-            hasDraftReady = false
-        ),
-        EmailSummary(
-            id = "mail_4",
-            sender = "Devin Chen (Principal Engineer)",
-            subject = "Architecture RFC: Zero-Latency Agent Pipeline",
-            summarySnippet = "Please sign off on the proposed multi-agent orchestrator RFC prior to tomorrow's deployment window.",
-            isUrgent = true,
-            hasDraftReady = true
-        )
-    )
+    fun getConnectedGmailThreads(accountEmail: String): List<EmailSummary> = emptyList()
 
     fun getInitialIntegrations(): List<IntegrationStatus> = listOf(
+        // Work & Communication
         IntegrationStatus(
             id = "gmail",
             name = "Gmail",
             description = "Email intelligence, unread summaries, and draft preparation",
             isConnected = false,
             lastSyncTime = "Not connected",
-            iconKey = "mail"
+            iconKey = "mail",
+            category = IntegrationCategory.WORK,
+            integrationType = IntegrationType.API_INTEGRATION,
+            connectionState = ServiceConnectionState.AVAILABLE,
+            capabilities = listOf("gmail.search", "gmail.read", "gmail.send")
         ),
         IntegrationStatus(
             id = "calendar",
@@ -69,7 +41,11 @@ object ContrilDefaults {
             description = "Schedule conflict resolution and meeting briefings",
             isConnected = false,
             lastSyncTime = "Not connected",
-            iconKey = "calendar"
+            iconKey = "calendar",
+            category = IntegrationCategory.WORK,
+            integrationType = IntegrationType.API_INTEGRATION,
+            connectionState = ServiceConnectionState.AVAILABLE,
+            capabilities = listOf("calendar.search", "calendar.create", "calendar.update")
         ),
         IntegrationStatus(
             id = "drive",
@@ -77,7 +53,11 @@ object ContrilDefaults {
             description = "Context extraction from indexed documents and proposals",
             isConnected = false,
             lastSyncTime = "Not connected",
-            iconKey = "drive"
+            iconKey = "drive",
+            category = IntegrationCategory.PRODUCTIVITY,
+            integrationType = IntegrationType.API_INTEGRATION,
+            connectionState = ServiceConnectionState.AVAILABLE,
+            capabilities = listOf("drive.search", "drive.read")
         ),
         IntegrationStatus(
             id = "outlook",
@@ -85,7 +65,11 @@ object ContrilDefaults {
             description = "Enterprise email and meeting coordination",
             isConnected = false,
             lastSyncTime = "Not connected",
-            iconKey = "outlook"
+            iconKey = "outlook",
+            category = IntegrationCategory.WORK,
+            integrationType = IntegrationType.API_INTEGRATION,
+            connectionState = ServiceConnectionState.AVAILABLE,
+            capabilities = listOf("outlook.read", "outlook.send")
         ),
         IntegrationStatus(
             id = "github",
@@ -93,15 +77,123 @@ object ContrilDefaults {
             description = "Repository activity, pull request updates, and issues",
             isConnected = false,
             lastSyncTime = "Not connected",
-            iconKey = "github"
+            iconKey = "github",
+            category = IntegrationCategory.WORK,
+            integrationType = IntegrationType.API_INTEGRATION,
+            connectionState = ServiceConnectionState.AVAILABLE,
+            capabilities = listOf("github.repos", "github.issues", "github.prs")
         ),
         IntegrationStatus(
-            id = "web",
-            name = "Live Web Intelligence",
-            description = "Real-time fact checking, market research, and verification",
+            id = "notion",
+            name = "Notion",
+            description = "Workspace knowledge base and notes indexing",
             isConnected = false,
             lastSyncTime = "Not connected",
-            iconKey = "web"
+            iconKey = "notion",
+            category = IntegrationCategory.PRODUCTIVITY,
+            integrationType = IntegrationType.API_INTEGRATION,
+            connectionState = ServiceConnectionState.AVAILABLE,
+            capabilities = listOf("notion.search", "notion.create")
+        ),
+        // Travel & Hotels
+        IntegrationStatus(
+            id = "makemytrip",
+            name = "MakeMyTrip",
+            description = "Live flight searches, price comparisons, and hotel bookings",
+            isConnected = false,
+            lastSyncTime = "Not connected",
+            iconKey = "flight",
+            category = IntegrationCategory.TRAVEL,
+            integrationType = IntegrationType.DEVICE_INTEGRATION,
+            connectionState = ServiceConnectionState.AVAILABLE,
+            capabilities = listOf("makemytrip.search_flights", "makemytrip.search_hotels")
+        ),
+        IntegrationStatus(
+            id = "airbnb",
+            name = "Airbnb",
+            description = "Stay finding and accommodation reservations",
+            isConnected = false,
+            lastSyncTime = "Not connected",
+            iconKey = "hotel",
+            category = IntegrationCategory.HOTELS,
+            integrationType = IntegrationType.DEVICE_INTEGRATION,
+            connectionState = ServiceConnectionState.AVAILABLE,
+            capabilities = listOf("airbnb.search_stays")
+        ),
+        // Transport
+        IntegrationStatus(
+            id = "uber",
+            name = "Uber",
+            description = "Ride estimates, airport transit, and pickup requests",
+            isConnected = false,
+            lastSyncTime = "Not connected",
+            iconKey = "directions_car",
+            category = IntegrationCategory.TRANSPORT,
+            integrationType = IntegrationType.DEVICE_INTEGRATION,
+            connectionState = ServiceConnectionState.REQUIRES_PERMISSION,
+            capabilities = listOf("uber.estimate_ride", "uber.request_ride")
+        ),
+        IntegrationStatus(
+            id = "ola",
+            name = "Ola Cabs",
+            description = "City cab booking and fare comparison",
+            isConnected = false,
+            lastSyncTime = "Not connected",
+            iconKey = "directions_car",
+            category = IntegrationCategory.TRANSPORT,
+            integrationType = IntegrationType.DEVICE_INTEGRATION,
+            connectionState = ServiceConnectionState.REQUIRES_PERMISSION,
+            capabilities = listOf("ola.estimate_fare")
+        ),
+        // Food
+        IntegrationStatus(
+            id = "swiggy",
+            name = "Swiggy",
+            description = "Food delivery ordering and restaurant searches",
+            isConnected = false,
+            lastSyncTime = "Not connected",
+            iconKey = "restaurant",
+            category = IntegrationCategory.FOOD,
+            integrationType = IntegrationType.DEVICE_INTEGRATION,
+            connectionState = ServiceConnectionState.AVAILABLE,
+            capabilities = listOf("swiggy.search_restaurants", "swiggy.create_order")
+        ),
+        IntegrationStatus(
+            id = "zomato",
+            name = "Zomato",
+            description = "Restaurant discovery, menu browsing, and dining reservations",
+            isConnected = false,
+            lastSyncTime = "Not connected",
+            iconKey = "restaurant",
+            category = IntegrationCategory.FOOD,
+            integrationType = IntegrationType.DEVICE_INTEGRATION,
+            connectionState = ServiceConnectionState.AVAILABLE,
+            capabilities = listOf("zomato.search_places")
+        ),
+        // Shopping
+        IntegrationStatus(
+            id = "amazon",
+            name = "Amazon",
+            description = "Product search, price tracking, and order status",
+            isConnected = false,
+            lastSyncTime = "Not connected",
+            iconKey = "shopping_cart",
+            category = IntegrationCategory.SHOPPING,
+            integrationType = IntegrationType.DEVICE_INTEGRATION,
+            connectionState = ServiceConnectionState.AVAILABLE,
+            capabilities = listOf("amazon.search_products", "amazon.read_product")
+        ),
+        IntegrationStatus(
+            id = "flipkart",
+            name = "Flipkart",
+            description = "E-commerce product discovery and deal alerts",
+            isConnected = false,
+            lastSyncTime = "Not connected",
+            iconKey = "shopping_cart",
+            category = IntegrationCategory.SHOPPING,
+            integrationType = IntegrationType.DEVICE_INTEGRATION,
+            connectionState = ServiceConnectionState.AVAILABLE,
+            capabilities = listOf("flipkart.search_products")
         )
     )
 }

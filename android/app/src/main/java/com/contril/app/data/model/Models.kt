@@ -94,6 +94,30 @@ data class EmailSummary(
     val hasDraftReady: Boolean
 )
 
+enum class IntegrationCategory {
+    WORK,
+    COMMUNICATION,
+    PRODUCTIVITY,
+    SHOPPING,
+    TRAVEL,
+    HOTELS,
+    TRANSPORT,
+    FOOD,
+    OTHER
+}
+
+enum class IntegrationType {
+    API_INTEGRATION,
+    DEVICE_INTEGRATION
+}
+
+enum class ServiceConnectionState {
+    CONNECTED,
+    AVAILABLE,
+    REQUIRES_PERMISSION,
+    COMING_SOON
+}
+
 data class IntegrationStatus(
     val id: String,
     val name: String,
@@ -103,7 +127,11 @@ data class IntegrationStatus(
     val iconKey: String,
     val connectedAccount: String? = null,
     val scopes: List<String> = emptyList(),
-    val isAlwaysAvailable: Boolean = false
+    val isAlwaysAvailable: Boolean = false,
+    val category: IntegrationCategory = IntegrationCategory.WORK,
+    val integrationType: IntegrationType = IntegrationType.API_INTEGRATION,
+    val connectionState: ServiceConnectionState = if (isConnected) ServiceConnectionState.CONNECTED else ServiceConnectionState.AVAILABLE,
+    val capabilities: List<String> = emptyList()
 )
 
 data class UserProfile(

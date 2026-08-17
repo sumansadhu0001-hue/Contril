@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -27,12 +28,44 @@ import com.contril.app.data.model.PriorityItem
 import com.contril.app.theme.*
 import com.contril.app.ui.components.*
 
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
+
 @Composable
 fun HomeScreen(
     viewModel: HomeViewModel,
-    onNavigateToTasks: () -> Unit
+    onNavigateToTasks: () -> Unit,
+    onNavigateToBriefing: () -> Unit
 ) {
+    val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
+
+    val voiceManager = remember { VoiceAssistantManager(context) }
+    val voiceState by voiceManager.voiceState.collectAsState()
+    val voiceError by voiceManager.errorMessage.collectAsState()
+
+    val micPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            voiceManager.startListening(
+                onPartialResult = { viewModel.onCommandTextChanged(it) },
+                onFinalResult = { viewModel.onCommandTextChanged(it) }
+            )
+        } else {
+            voiceManager.setError("Microphone permission was denied. Tap to grant microphone access for voice commands.")
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            voiceManager.stopListening()
+        }
+    }
 
     LazyColumn(
         modifier = Modifier
@@ -44,7 +77,13 @@ fun HomeScreen(
         // 1. Executive Greeting Section (Dynamic from authenticated user profile)
         item {
             val firstName = uiState.currentUser?.name?.trim()?.split("\\s+".toRegex())?.firstOrNull { it.isNotBlank() } ?: "there"
-            
+            val hour = java.time.LocalTime.now().hour
+            val timeGreeting = when {
+                hour < 12 -> "Good morning"
+                hour < 17 -> "Good afternoon"
+                else -> "Good evening"
+            }
+
             Column(
                 modifier = Modifier.padding(top = 4.dp, bottom = 2.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
@@ -60,7 +99,7 @@ fun HomeScreen(
                 )
 
                 Text(
-                    text = "Good morning,\n$firstName.",
+                    text = "$timeGreeting,\n$firstName.",
                     style = MaterialTheme.typography.headlineLarge.copy(
                         fontWeight = FontWeight.Bold,
                         letterSpacing = (-0.5).sp,
@@ -71,7 +110,7 @@ fun HomeScreen(
 
                 Text(
                     text = when {
-                        uiState.connectedServicesCount == 0 -> "Connect your tools to give Contril context."
+                        uiState.connectedServicesCount == 0 -> "Connect your tools in the Profile Hub to give Contril context."
                         uiState.priorities.isNotEmpty() -> "You have ${uiState.priorities.size} priority items requiring review."
                         else -> "All caught up across your ${uiState.connectedServicesCount} connected tools."
                     },
@@ -81,13 +120,169 @@ fun HomeScreen(
             }
         }
 
-        // 2. AI Command Surface
+        // Today's Briefing Hero Card
+        item {
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.surface,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onNavigateToBriefing() }
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(ContrilBlue.copy(alpha = 0.12f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Article,
+                                contentDescription = null,
+                                tint = ContrilBlue,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+
+                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(
+                                text = "Today's Briefing",
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "View schedule, meetings, and priority actions",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                        contentDescription = "View Briefing",
+                        tint = ContrilBlue,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+        }
+
+        // 2. Active Voice Listening / Feedback Surface
+        if (voiceState == VoiceState.LISTENING || voiceState == VoiceState.PROCESSING) {
+            item {
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = ContrilBlue.copy(alpha = 0.08f),
+                    border = BorderStroke(1.dp, ContrilBlue.copy(alpha = 0.35f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Mic,
+                                contentDescription = "Listening",
+                                tint = ContrilBlue,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Column {
+                                Text(
+                                    text = if (voiceState == VoiceState.LISTENING) "Listening..." else "Processing audio...",
+                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                    color = ContrilBlue
+                                )
+                                Text(
+                                    text = "Speak your request naturally to Contril",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+
+                        TextButton(onClick = { voiceManager.stopListening() }) {
+                            Text("Stop", color = ContrilBlue, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                }
+            }
+        }
+
+        if (voiceError != null) {
+            item {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.errorContainer,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = voiceError ?: "",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            modifier = Modifier.weight(1f)
+                        )
+                        TextButton(onClick = { voiceManager.clearError() }) {
+                            Text("Dismiss", color = MaterialTheme.colorScheme.error)
+                        }
+                    }
+                }
+            }
+        }
+
+        // 3. AI Command Surface
         item {
             CommandInputField(
                 value = uiState.commandText,
                 onValueChange = { viewModel.onCommandTextChanged(it) },
-                onExecute = { viewModel.executeCommand() },
-                isLoading = uiState.isLoading
+                onExecute = {
+                    voiceManager.stopListening()
+                    viewModel.executeCommand()
+                },
+                isLoading = uiState.isLoading,
+                isListening = voiceState == VoiceState.LISTENING,
+                onVoiceClick = {
+                    if (voiceState == VoiceState.LISTENING) {
+                        voiceManager.stopListening()
+                    } else {
+                        val hasMic = ContextCompat.checkSelfPermission(
+                            context,
+                            Manifest.permission.RECORD_AUDIO
+                        ) == PackageManager.PERMISSION_GRANTED
+
+                        if (hasMic) {
+                            voiceManager.startListening(
+                                onPartialResult = { viewModel.onCommandTextChanged(it) },
+                                onFinalResult = { viewModel.onCommandTextChanged(it) }
+                            )
+                        } else {
+                            micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                        }
+                    }
+                }
             )
         }
 
@@ -126,190 +321,68 @@ fun HomeScreen(
             }
         }
 
-        // 4. Executive Status Overview Row (Truthful counts)
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    text = "WORKSPACE STATUS",
-                    style = MaterialTheme.typography.labelSmall.copy(
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.2.sp
-                    ),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                Surface(
-                    shape = RoundedCornerShape(14.dp),
-                    color = MaterialTheme.colorScheme.surface,
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .padding(vertical = 12.dp, horizontal = 8.dp)
-                            .fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        // Segment 1: Autonomy
-                        Column(
-                            modifier = Modifier.weight(1f),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Text(
-                                text = "Autonomy",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(6.dp)
-                                        .clip(CircleShape)
-                                        .background(StatusActive)
-                                )
-                                Text(
-                                    text = "Active",
-                                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                            }
-                        }
-
-                        VerticalDivider(
-                            modifier = Modifier.height(28.dp),
-                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-                        )
-
-                        // Segment 2: Connected Tools
-                        Column(
-                            modifier = Modifier.weight(1f),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Text(
-                                text = "Connected",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Text(
-                                text = "${uiState.connectedServicesCount} tool${if (uiState.connectedServicesCount == 1) "" else "s"}",
-                                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
-                                color = if (uiState.connectedServicesCount > 0) ContrilBlue else MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-
-                        VerticalDivider(
-                            modifier = Modifier.height(28.dp),
-                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-                        )
-
-                        // Segment 3: Approval Gates
-                        Column(
-                            modifier = Modifier.weight(1f),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Text(
-                                text = "Approval Gates",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Text(
-                                text = "${uiState.pendingActions.size} pending",
-                                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
-                                color = if (uiState.pendingActions.isNotEmpty()) StatusWarning else MaterialTheme.colorScheme.onSurface
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        // 5. Execution Pipeline (Shown dynamically ONLY while/after a real command is executed)
+        // 4. Live AI Response Surface (Shown ONLY when the user executes a real command)
         if (uiState.latestResponse != null) {
             item {
-                AtmosphericCard {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.surface,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(18.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Text(
-                            text = "EXECUTION PIPELINE",
-                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                            color = ContrilBlue
-                        )
                         Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Surface(
-                                shape = RoundedCornerShape(4.dp),
-                                color = StatusActive.copy(alpha = 0.15f)
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
+                                ContrilLogoMark(modifier = Modifier.size(18.dp))
                                 Text(
-                                    text = "COMPLETE",
-                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                    color = StatusActive,
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    text = "CONTRIL",
+                                    style = MaterialTheme.typography.labelMedium.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        letterSpacing = 1.sp
+                                    ),
+                                    color = ContrilBlue
                                 )
                             }
 
                             IconButton(
                                 onClick = { viewModel.dismissResponse() },
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier.size(24.dp)
                             ) {
-                                Icon(Icons.Filled.Close, contentDescription = "Close", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Icon(
+                                    imageVector = Icons.Filled.Close,
+                                    contentDescription = "Dismiss",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(16.dp)
+                                )
                             }
                         }
-                    }
 
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Text(
-                        text = uiState.latestResponse?.responseText ?: "",
-                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    uiState.latestResponse?.steps?.forEach { step ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 3.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.CheckCircle,
-                                contentDescription = "Step Complete",
-                                tint = StatusActive,
-                                modifier = Modifier.size(15.dp)
-                            )
-                            Text(
-                                text = step.description,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
+                        Text(
+                            text = uiState.latestResponse?.responseText ?: "",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
                     }
                 }
             }
         }
 
-        // 6. Pending Action Gates (if any require approval)
+        // 5. Pending Action Gates (Only rendered if genuine action needs user confirmation)
         if (uiState.pendingActions.isNotEmpty()) {
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(
-                        text = "PENDING ACTION GATES",
+                        text = "CONFIRMATION REQUIRED",
                         style = MaterialTheme.typography.labelSmall.copy(
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 1.sp
@@ -354,84 +427,18 @@ fun HomeScreen(
             }
         }
 
-        if (uiState.priorities.isEmpty()) {
+        // 6. Active Priorities (Rendered ONLY if real priorities exist)
+        if (uiState.priorities.isNotEmpty()) {
             item {
-                Surface(
-                    shape = RoundedCornerShape(16.dp),
-                    color = MaterialTheme.colorScheme.surface,
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .padding(vertical = 22.dp, horizontal = 16.dp)
-                            .fillMaxWidth(),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        if (uiState.connectedServicesCount == 0) {
-                            Box(
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .clip(CircleShape)
-                                    .background(ContrilBlue.copy(alpha = 0.08f)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Outlined.Hub,
-                                    contentDescription = null,
-                                    tint = ContrilBlue,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
-
-                            Text(
-                                text = "Connect your work tools",
-                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-
-                            Text(
-                                text = "Connect Gmail or Google Calendar to surface live priorities.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                textAlign = TextAlign.Center,
-                                lineHeight = 18.sp
-                            )
-                        } else {
-                            Box(
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .clip(CircleShape)
-                                    .background(StatusActive.copy(alpha = 0.08f)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Filled.Check,
-                                    contentDescription = null,
-                                    tint = StatusActive,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
-
-                            Text(
-                                text = "All clear",
-                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-
-                            Text(
-                                text = "Nothing needs your attention right now across your connected tools.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                textAlign = TextAlign.Center,
-                                lineHeight = 18.sp
-                            )
-                        }
-                    }
-                }
+                Text(
+                    text = "ACTION ITEMS",
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp
+                    ),
+                    color = ContrilBlue
+                )
             }
-        } else {
             items(uiState.priorities) { item ->
                 PriorityRowItem(item = item)
             }

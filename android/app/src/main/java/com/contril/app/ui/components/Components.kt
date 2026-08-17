@@ -1,6 +1,7 @@
 package com.contril.app.ui.components
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.*
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
@@ -361,25 +362,34 @@ fun CommandInputField(
     onValueChange: (String) -> Unit,
     onExecute: () -> Unit,
     isLoading: Boolean = false,
-    placeholder: String = "Ask Contril anything..."
+    placeholder: String = "Tell Contril what you need...",
+    isListening: Boolean = false,
+    onVoiceClick: () -> Unit = {}
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(14.dp),
         color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, if (value.isNotBlank()) ContrilBlue.copy(alpha = 0.5f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
+        border = BorderStroke(
+            1.dp,
+            when {
+                isListening -> ContrilBlue
+                value.isNotBlank() -> ContrilBlue.copy(alpha = 0.5f)
+                else -> MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
+            }
+        )
     ) {
         Row(
             modifier = Modifier
                 .padding(horizontal = 14.dp, vertical = 6.dp)
                 .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Icon(
                 imageVector = Icons.Outlined.AutoAwesome,
                 contentDescription = "AI Prompt",
-                tint = ContrilBlue,
+                tint = if (isListening) ContrilBlue else ContrilBlue.copy(alpha = 0.85f),
                 modifier = Modifier.size(20.dp)
             )
 
@@ -388,9 +398,9 @@ fun CommandInputField(
                 onValueChange = onValueChange,
                 placeholder = {
                     Text(
-                        text = placeholder,
+                        text = if (isListening) "Listening... speak now" else placeholder,
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                        color = if (isListening) ContrilBlue else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
                     )
                 },
                 colors = TextFieldDefaults.colors(
@@ -406,6 +416,25 @@ fun CommandInputField(
                 enabled = !isLoading,
                 maxLines = 3
             )
+
+            // Voice Assistant Button
+            IconButton(
+                onClick = onVoiceClick,
+                enabled = !isLoading,
+                modifier = Modifier
+                    .size(34.dp)
+                    .clip(CircleShape)
+                    .background(
+                        if (isListening) ContrilBlue.copy(alpha = 0.15f) else Color.Transparent
+                    )
+            ) {
+                Icon(
+                    imageVector = if (isListening) Icons.Filled.Mic else Icons.Outlined.Mic,
+                    contentDescription = "Voice Assistant",
+                    tint = if (isListening) ContrilBlue else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(19.dp)
+                )
+            }
 
             if (isLoading) {
                 CircularProgressIndicator(
@@ -522,6 +551,105 @@ fun ActionApprovalCard(
                         Text("Approve", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold))
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+fun ShimmerBox(
+    modifier: Modifier = Modifier,
+    shape: androidx.compose.ui.graphics.Shape = RoundedCornerShape(8.dp)
+) {
+    val transition = androidx.compose.animation.core.rememberInfiniteTransition(label = "shimmer")
+    val alpha by transition.animateFloat(
+        initialValue = 0.25f,
+        targetValue = 0.65f,
+        animationSpec = androidx.compose.animation.core.infiniteRepeatable(
+            animation = androidx.compose.animation.core.tween(durationMillis = 800, easing = androidx.compose.animation.core.LinearEasing),
+            repeatMode = androidx.compose.animation.core.RepeatMode.Reverse
+        ),
+        label = "shimmerAlpha"
+    )
+
+    Box(
+        modifier = modifier
+            .clip(shape)
+            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = alpha * 0.18f))
+    )
+}
+
+@Composable
+fun EmailRowSkeleton() {
+    Surface(
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                ShimmerBox(modifier = Modifier.size(width = 130.dp, height = 16.dp))
+                ShimmerBox(modifier = Modifier.size(width = 60.dp, height = 12.dp))
+            }
+            ShimmerBox(modifier = Modifier.fillMaxWidth(0.85f).height(14.dp))
+            ShimmerBox(modifier = Modifier.fillMaxWidth().height(12.dp))
+        }
+    }
+}
+
+@Composable
+fun EventCardSkeleton() {
+    Surface(
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            ShimmerBox(modifier = Modifier.size(width = 54.dp, height = 46.dp), shape = RoundedCornerShape(10.dp))
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                ShimmerBox(modifier = Modifier.fillMaxWidth(0.7f).height(16.dp))
+                ShimmerBox(modifier = Modifier.fillMaxWidth(0.4f).height(12.dp))
+            }
+        }
+    }
+}
+
+@Composable
+fun TaskRowSkeleton() {
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(14.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            ShimmerBox(modifier = Modifier.size(20.dp), shape = CircleShape)
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                ShimmerBox(modifier = Modifier.fillMaxWidth(0.75f).height(14.dp))
+                ShimmerBox(modifier = Modifier.fillMaxWidth(0.35f).height(10.dp))
             }
         }
     }

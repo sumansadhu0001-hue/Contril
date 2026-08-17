@@ -53,8 +53,22 @@ sealed class Screen(
         unselectedIcon = Icons.Outlined.Tune
     )
 
+    data object Profile : Screen(
+        route = "profile",
+        title = "Profile",
+        selectedIcon = Icons.Filled.Person,
+        unselectedIcon = Icons.Outlined.Person
+    )
+
+    data object Plans : Screen(
+        route = "plans",
+        title = "Plans & Billing",
+        selectedIcon = Icons.Filled.CreditCard,
+        unselectedIcon = Icons.Outlined.CreditCard
+    )
+
     companion object {
         val bottomNavItems: List<Screen>
-            get() = listOf(Home, Briefing, Inbox, Tasks, Integrations, Settings)
+            get() = listOf(Home, Inbox, Tasks, Profile)
     }
 }

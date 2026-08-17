@@ -6,6 +6,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -21,7 +22,10 @@ import com.contril.app.theme.*
 import com.contril.app.ui.components.AtmosphericCard
 
 @Composable
-fun BriefingScreen(viewModel: BriefingViewModel) {
+fun BriefingScreen(
+    viewModel: BriefingViewModel,
+    onBack: (() -> Unit)? = null
+) {
     val uiState by viewModel.uiState.collectAsState()
 
     LazyColumn(
@@ -33,6 +37,18 @@ fun BriefingScreen(viewModel: BriefingViewModel) {
     ) {
         item {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                if (onBack != null) {
+                    IconButton(
+                        onClick = onBack,
+                        modifier = Modifier.padding(bottom = 4.dp).size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back",
+                            tint = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
                 Text(
                     text = "DAILY INTELLIGENCE",
                     style = MaterialTheme.typography.labelSmall,

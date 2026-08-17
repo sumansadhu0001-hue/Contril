@@ -12,12 +12,14 @@ import kotlinx.coroutines.launch
 data class HomeUiState(
     val commandText: String = "",
     val isLoading: Boolean = false,
-    val suggestedPrompts: List<String> = ContrilDefaults.getSuggestedPrompts(),
+    val suggestedPrompts: List<String> = emptyList(),
     val priorities: List<PriorityItem> = emptyList(),
     val pendingActions: List<PendingAction> = emptyList(),
     val latestResponse: CommandResponse? = null,
     val currentUser: UserProfile? = null,
-    val connectedServicesCount: Int = 0
+    val userRole: String = "Executive",
+    val connectedServicesCount: Int = 0,
+    val aiUsage: Pair<Int, Int> = Pair(0, 5)
 )
 
 class HomeViewModel(
@@ -35,8 +37,29 @@ class HomeViewModel(
             }
         }
         viewModelScope.launch {
+            prefRepository?.userRole?.collect { role ->
+                _uiState.update { it.copy(userRole = role) }
+            }
+        }
+        viewModelScope.launch {
             prefRepository?.connectedServices?.collect { map ->
-                _uiState.update { it.copy(connectedServicesCount = map.size) }
+                val prompts = mutableListOf<String>()
+                if (map.containsKey("gmail")) {
+                    prompts.add("Summarize my unread emails")
+                }
+                if (map.containsKey("calendar")) {
+                    prompts.add("What's on my schedule today?")
+                }
+                prompts.add("Create a follow-up task for tomorrow")
+                prompts.add("Prepare briefing for today")
+
+                _uiState.update {
+                    it.copy(
+                        connectedServicesCount = map.size,
+                        suggestedPrompts = prompts,
+                        aiUsage = prefRepository.getTodayAiUsage()
+                    )
+                }
             }
         }
         viewModelScope.launch {
@@ -59,7 +82,29 @@ class HomeViewModel(
         val prompt = promptOverride ?: _uiState.value.commandText
         if (prompt.isBlank()) return
 
-        _uiState.update { it.copy(isLoading = true, commandText = "") }
+        // Daily AI Usage Enforcement
+        val canExecute = prefRepository?.incrementAiUsage() ?: true
+        if (!canExecute) {
+            _uiState.update {
+                it.copy(
+                    isLoading = false,
+                    latestResponse = CommandResponse(
+                        conversationId = "limit_notice",
+                        responseText = "You've reached today's Free plan limit of 5 AI conversations. Upgrade to Contril Pro in Settings for unlimited usage."
+                    ),
+                    aiUsage = prefRepository?.getTodayAiUsage() ?: Pair(5, 5)
+                )
+            }
+            return
+        }
+
+        _uiState.update {
+            it.copy(
+                isLoading = true,
+                commandText = "",
+                aiUsage = prefRepository?.getTodayAiUsage() ?: Pair(1, 5)
+            )
+        }
 
         viewModelScope.launch {
             val autonomy = prefRepository?.autonomyMode?.value ?: AutonomyMode.SENSITIVE_ONLY

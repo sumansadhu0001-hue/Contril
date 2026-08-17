@@ -239,8 +239,125 @@ class PreferenceRepository(context: Context? = null) {
         saveTasks(current)
     }
 
+    private val _hasCompletedOnboarding = MutableStateFlow(getSavedOnboardingState())
+    val hasCompletedOnboarding: StateFlow<Boolean> = _hasCompletedOnboarding.asStateFlow()
+
+    private val _userRole = MutableStateFlow(getSavedUserRole())
+    val userRole: StateFlow<String> = _userRole.asStateFlow()
+
+    private fun getSavedOnboardingState(): Boolean {
+        return prefs?.getBoolean("has_completed_onboarding", false) ?: false
+    }
+
+    private fun getSavedUserRole(): String {
+        return prefs?.getString("user_role", "Executive") ?: "Executive"
+    }
+
+    fun setOnboardingCompleted(completed: Boolean, role: String = "Executive", goals: List<String> = emptyList()) {
+        try {
+            prefs?.edit()
+                ?.putBoolean("has_completed_onboarding", completed)
+                ?.putString("user_role", role)
+                ?.putString("user_goals", goals.joinToString(","))
+                ?.apply()
+        } catch (e: Throwable) {
+            Log.e("ContrilPref", "Failed to write onboarding state: ${e.message}")
+        }
+        _hasCompletedOnboarding.value = completed
+        _userRole.value = role
+    }
+
+    fun updateUserRole(role: String) {
+        try {
+            prefs?.edit()?.putString("user_role", role)?.apply()
+        } catch (e: Throwable) {
+            Log.e("ContrilPref", "Failed to write user role: ${e.message}")
+        }
+        _userRole.value = role
+    }
+
+    fun getSavedSubscriptionStatus(): com.contril.app.data.model.SubscriptionStatus {
+        val raw = prefs?.getString("subscription_status", "FREE") ?: "FREE"
+        return try {
+            com.contril.app.data.model.SubscriptionStatus.valueOf(raw)
+        } catch (_: Exception) {
+            com.contril.app.data.model.SubscriptionStatus.FREE
+        }
+    }
+
+    fun setSubscriptionStatus(status: com.contril.app.data.model.SubscriptionStatus) {
+        try {
+            prefs?.edit()?.putString("subscription_status", status.name)?.apply()
+        } catch (e: Throwable) {
+            Log.e("ContrilPref", "Failed to write subscription status: ${e.message}")
+        }
+    }
+
+    private val _currentPlan = MutableStateFlow(getSavedPlan())
+    val currentPlan: StateFlow<String> = _currentPlan.asStateFlow()
+
+    private fun getSavedPlan(): String {
+        val status = getSavedSubscriptionStatus()
+        return if (status == com.contril.app.data.model.SubscriptionStatus.ACTIVE_PRO) "Pro" else "Free"
+    }
+
+    fun setPlan(plan: String) {
+        try {
+            prefs?.edit()?.putString("user_plan", plan)?.apply()
+        } catch (e: Throwable) {
+            Log.e("ContrilPref", "Failed to write user plan: ${e.message}")
+        }
+        _currentPlan.value = plan
+    }
+
+    fun isProOrExecutive(): Boolean {
+        val status = getSavedSubscriptionStatus()
+        return status == com.contril.app.data.model.SubscriptionStatus.ACTIVE_PRO
+    }
+
+    fun getTodayAiUsage(): Pair<Int, Int> {
+        val today = java.time.LocalDate.now().toString()
+        val savedDate = prefs?.getString("ai_usage_date", "") ?: ""
+        val count = if (savedDate == today) {
+            prefs?.getInt("ai_usage_count", 0) ?: 0
+        } else {
+            0
+        }
+        val maxLimit = if (isProOrExecutive()) 100 else 5
+        return Pair(count, maxLimit)
+    }
+
+    fun incrementAiUsage(): Boolean {
+        if (isProOrExecutive()) return true
+        val today = java.time.LocalDate.now().toString()
+        val savedDate = prefs?.getString("ai_usage_date", "") ?: ""
+        var count = if (savedDate == today) prefs?.getInt("ai_usage_count", 0) ?: 0 else 0
+        if (count >= 5) {
+            return false // Free limit reached
+        }
+        count += 1
+        try {
+            prefs?.edit()
+                ?.putString("ai_usage_date", today)
+                ?.putInt("ai_usage_count", count)
+                ?.apply()
+        } catch (e: Throwable) {
+            Log.e("ContrilPref", "Failed to write AI usage: ${e.message}")
+        }
+        return true
+    }
+
     fun clearSession() {
         saveUserSession(null, null)
+        try {
+            prefs?.edit()
+                ?.remove("has_completed_onboarding")
+                ?.remove("user_role")
+                ?.remove("user_goals")
+                ?.apply()
+        } catch (_: Throwable) {}
+        _hasCompletedOnboarding.value = false
+        _userRole.value = "Executive"
     }
 }
 

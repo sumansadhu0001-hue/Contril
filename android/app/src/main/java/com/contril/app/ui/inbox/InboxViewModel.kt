@@ -2,8 +2,9 @@ package com.contril.app.ui.inbox
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.contril.app.data.api.ApiResult
+import com.contril.app.data.api.ContrilBackendClient
 import com.contril.app.data.api.GeminiClient
-import com.contril.app.data.local.ContrilDefaults
 import com.contril.app.data.model.ActionStatus
 import com.contril.app.data.model.EmailSummary
 import com.contril.app.data.model.PendingAction
@@ -21,18 +22,21 @@ data class InboxUiState(
     val connectedEmail: String? = null,
     val emails: List<EmailSummary> = emptyList(),
     val isRefreshing: Boolean = false,
+    val isLoading: Boolean = false,
     val isComposing: Boolean = false,
     val composeTo: String = "",
     val composeSubject: String = "",
     val composeBody: String = "",
     val activePendingAction: PendingAction? = null,
     val statusMessage: String? = null,
+    val errorMessage: String? = null,
     val threadSummaryModal: String? = null
 )
 
 class InboxViewModel(
     private val repository: ContrilRepository = ContrilRepository(),
-    private val prefRepository: PreferenceRepository = PreferenceRepository()
+    private val prefRepository: PreferenceRepository = PreferenceRepository(),
+    private val backendClient: ContrilBackendClient = ContrilBackendClient()
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(InboxUiState())
@@ -41,23 +45,78 @@ class InboxViewModel(
     init {
         viewModelScope.launch {
             prefRepository.connectedServices.collect { services ->
-                val gmailAccount = services["gmail"] ?: services["google_workspace"] ?: services["google"]
+                val gmailAccount = services["gmail"] ?: services["google_workspace"]
                 val isConnected = gmailAccount != null
-                val userEmail = prefRepository.getUserProfile()?.email
-                val activeEmail = gmailAccount ?: userEmail ?: "connected@gmail.com"
-
-                val emailList = if (isConnected) {
-                    ContrilDefaults.getConnectedGmailThreads(activeEmail)
-                } else {
-                    emptyList()
-                }
+                val activeEmail = gmailAccount ?: prefRepository.getUserProfile()?.email
 
                 _uiState.update {
                     it.copy(
                         isGmailConnected = isConnected,
-                        connectedEmail = if (isConnected) activeEmail else null,
-                        emails = emailList
+                        connectedEmail = if (isConnected) activeEmail else null
                     )
+                }
+
+                if (isConnected) {
+                    loadLiveInbox()
+                } else {
+                    _uiState.update { it.copy(emails = emptyList()) }
+                }
+            }
+        }
+    }
+
+    fun loadLiveInbox() {
+        val token = prefRepository.userSessionToken.value ?: return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+            when (val result = backendClient.fetchGmailInbox(token)) {
+                is ApiResult.Success -> {
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            emails = result.data,
+                            errorMessage = null
+                        )
+                    }
+                }
+                is ApiResult.Error -> {
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            errorMessage = result.message
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    fun refreshInbox() {
+        val token = prefRepository.userSessionToken.value
+        if (token == null) {
+            _uiState.update { it.copy(isRefreshing = false) }
+            return
+        }
+        viewModelScope.launch {
+            _uiState.update { it.copy(isRefreshing = true, errorMessage = null) }
+            when (val result = backendClient.fetchGmailInbox(token)) {
+                is ApiResult.Success -> {
+                    _uiState.update {
+                        it.copy(
+                            isRefreshing = false,
+                            emails = result.data,
+                            errorMessage = null,
+                            statusMessage = "✓ Inbox synced with Gmail."
+                        )
+                    }
+                }
+                is ApiResult.Error -> {
+                    _uiState.update {
+                        it.copy(
+                            isRefreshing = false,
+                            errorMessage = result.message
+                        )
+                    }
                 }
             }
         }
@@ -89,14 +148,14 @@ class InboxViewModel(
 
     fun prepareAiDraftReply(email: EmailSummary) {
         viewModelScope.launch {
-            val draft = "Hi ${email.sender.substringBefore(" ")},\n\nThank you for sharing the updates regarding \"${email.subject}\". I have reviewed the details and will sign off on the proposed deliverables shortly.\n\nBest regards,\nExecutive Team"
+            val draft = "Hi ${email.sender.substringBefore(" ")},\n\nThank you for reaching out regarding \"${email.subject}\". I have reviewed the details and will follow up shortly.\n\nBest regards,\nExecutive Team"
             _uiState.update {
                 it.copy(
                     isComposing = true,
                     composeTo = email.sender,
                     composeSubject = "Re: ${email.subject}",
                     composeBody = draft,
-                    statusMessage = "AI draft generated by Contril Gemini Engine."
+                    statusMessage = "AI draft prepared."
                 )
             }
         }
@@ -117,21 +176,6 @@ class InboxViewModel(
 
     fun dismissSummaryModal() {
         _uiState.update { it.copy(threadSummaryModal = null) }
-    }
-
-    fun refreshInbox() {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isRefreshing = true) }
-            val email = _uiState.value.connectedEmail ?: "connected@gmail.com"
-            val refreshedList = ContrilDefaults.getConnectedGmailThreads(email)
-            _uiState.update {
-                it.copy(
-                    isRefreshing = false,
-                    emails = refreshedList,
-                    statusMessage = "✓ Inbox synced with Gmail."
-                )
-            }
-        }
     }
 
     fun submitDraftForApproval() {
@@ -174,6 +218,6 @@ class InboxViewModel(
     }
 
     fun dismissStatus() {
-        _uiState.update { it.copy(statusMessage = null) }
+        _uiState.update { it.copy(statusMessage = null, errorMessage = null) }
     }
 }

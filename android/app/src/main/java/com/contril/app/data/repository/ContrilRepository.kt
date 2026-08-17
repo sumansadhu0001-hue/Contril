@@ -8,7 +8,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.util.UUID
 
-class ContrilRepository {
+class ContrilRepository(
+    private val prefRepository: PreferenceRepository? = null
+) {
 
     private val apiService by lazy {
         try {
@@ -33,16 +35,58 @@ class ContrilRepository {
     private val _integrations = MutableStateFlow(ContrilDefaults.getInitialIntegrations())
     val integrations: Flow<List<IntegrationStatus>> = _integrations.asStateFlow()
 
+    private val toolRouter = com.contril.app.data.api.ToolRouter(
+        prefRepository = prefRepository,
+        calendarRepository = CalendarRepository(prefRepository = prefRepository),
+        taskRepository = if (prefRepository != null) TaskRepository(prefRepository) else null
+    )
+
     suspend fun executeCommand(
         prompt: String,
         autonomyMode: AutonomyMode,
         connectedServices: Map<String, String> = emptyMap()
     ): CommandResponse {
-        return com.contril.app.data.api.GeminiClient.generateAiResponse(
-            prompt = prompt,
-            autonomyMode = autonomyMode,
-            connectedServices = connectedServices
-        )
+        val (steps, toolResult) = toolRouter.evaluateAndExecute(prompt)
+        when (toolResult) {
+            is com.contril.app.data.api.ToolExecutionResult.RequiresConnection -> {
+                return CommandResponse(
+                    conversationId = "tool_conn_${java.util.UUID.randomUUID().toString().take(6)}",
+                    responseText = toolResult.message,
+                    steps = steps
+                )
+            }
+            is com.contril.app.data.api.ToolExecutionResult.Success -> {
+                if (toolResult.pendingAction != null) {
+                    return CommandResponse(
+                        conversationId = "tool_act_${java.util.UUID.randomUUID().toString().take(6)}",
+                        responseText = toolResult.summary,
+                        steps = steps,
+                        pendingAction = toolResult.pendingAction
+                    )
+                }
+                // Pass tool output context to Gemini for natural language synthesis
+                return com.contril.app.data.api.GeminiClient.generateAiResponse(
+                    prompt = prompt,
+                    autonomyMode = autonomyMode,
+                    connectedServices = connectedServices,
+                    userContext = "Tool Output: ${toolResult.summary}"
+                )
+            }
+            is com.contril.app.data.api.ToolExecutionResult.Failure -> {
+                return CommandResponse(
+                    conversationId = "tool_err_${java.util.UUID.randomUUID().toString().take(6)}",
+                    responseText = "Contril encountered an error: ${toolResult.errorMessage}",
+                    steps = steps
+                )
+            }
+            null -> {
+                return com.contril.app.data.api.GeminiClient.generateAiResponse(
+                    prompt = prompt,
+                    autonomyMode = autonomyMode,
+                    connectedServices = connectedServices
+                )
+            }
+        }
     }
 
     private fun generateTruthfulCommandResponse(
