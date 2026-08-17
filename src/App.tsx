@@ -489,9 +489,7 @@ export default function App() {
   // 4. Public Experience: Landing, About, How It Works, Download & Info Pages
   return (
     <div className="min-h-screen text-[#0B1220] dark:text-[#F8FAFC] flex flex-col font-sans transition-colors duration-200 relative">
-      {currentRoute !== 'download' && currentRoute !== 'download/android' && (
-        <AtmosphericBackground />
-      )}
+      <AtmosphericBackground />
 
       <PublicNavbar
         onNavigate={navigateTo}
