@@ -21,7 +21,7 @@ export const CONTRIL_ANDROID_APK_URL =
 export const CONTRIL_APK_CONFIG: AndroidApkReleaseInfo = {
   version: '0.1.0-preview',
   releaseDate: 'August 2026',
-  fileSize: '18.4 MB',
+  fileSize: '11.3 MB',
   minAndroidSdk: 'API 26',
   minAndroidVersion: 'Android 8.0 (Oreo) or higher',
   downloadUrl: CONTRIL_ANDROID_APK_URL,
