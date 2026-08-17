@@ -214,35 +214,24 @@ class AuthViewModel(
         }
 
         viewModelScope.launch {
-            // Dispatches real OTP through Resend via backend
-            val res = repository.signUpWithOtp(email, name, password)
-            if (res.error == null || res.message != null) {
-                _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        mode = AuthMode.OTP_VERIFY,
-                        otpDigits = listOf("", "", "", "", "", ""),
-                        isOtpSent = true,
-                        isPasswordResetMode = false,
-                        successMessage = "Verification code sent to $email"
-                    )
-                }
-                startResendCooldown(60)
-            } else {
-                // Fallback to custom-otp/send
-                repository.sendOtp(email, isRecovery = false)
-                _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        mode = AuthMode.OTP_VERIFY,
-                        otpDigits = listOf("", "", "", "", "", ""),
-                        isOtpSent = true,
-                        isPasswordResetMode = false,
-                        successMessage = "Verification code sent to $email"
-                    )
-                }
-                startResendCooldown(60)
+            // 1. Create account via Supabase Auth
+            val sbSignUp = SupabaseAuthClient.signUp(email, name, password)
+            // 2. Dispatch OTP email
+            val sbOtp = SupabaseAuthClient.sendEmailOtp(email)
+            // 3. Also trigger backend custom OTP as companion
+            try { repository.sendOtp(email, isRecovery = false) } catch (_: Throwable) {}
+
+            _uiState.update {
+                it.copy(
+                    isLoading = false,
+                    mode = AuthMode.OTP_VERIFY,
+                    otpDigits = listOf("", "", "", "", "", ""),
+                    isOtpSent = true,
+                    isPasswordResetMode = false,
+                    successMessage = "Verification code sent to $email"
+                )
             }
+            startResendCooldown(60)
         }
     }
 
@@ -266,10 +255,39 @@ class AuthViewModel(
 
         viewModelScope.launch {
             val verifyType = if (state.isPasswordResetMode) "recovery" else "signup"
-            val customResult = repository.verifyOtp(email, code, verifyType)
 
+            // 1. Try Supabase verification with 'email' (Magic Link/OTP)
+            var verifyResult = SupabaseAuthClient.verifyEmailOtp(email, code, "email")
+
+            // 2. Try Supabase verification with 'signup'
+            if (!verifyResult.success) {
+                verifyResult = SupabaseAuthClient.verifyEmailOtp(email, code, verifyType)
+            }
+
+            val sbUser = verifyResult.user
+            if (verifyResult.success && sbUser != null) {
+                val user = sbUser.copy(
+                    name = if (state.fullName.isNotBlank()) state.fullName else sbUser.name
+                )
+                val token = verifyResult.token ?: "session_${System.currentTimeMillis()}"
+                prefRepository.saveUserSession(token, user)
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        authenticatedUser = user,
+                        authenticatedToken = token,
+                        mode = AuthMode.ONBOARDING_ROLE
+                    )
+                }
+                return@launch
+            }
+
+            // 3. Fallback to repository OTP verification
+            val customResult = repository.verifyOtp(email, code, verifyType)
             if (customResult.success && customResult.user != null) {
-                val user = customResult.user
+                val user = customResult.user.copy(
+                    name = if (state.fullName.isNotBlank()) state.fullName else customResult.user.name
+                )
                 val token = customResult.token ?: "session_${System.currentTimeMillis()}"
                 prefRepository.saveUserSession(token, user)
                 _uiState.update {
@@ -289,7 +307,7 @@ class AuthViewModel(
                     )
                 }
             } else {
-                val err = customResult.error ?: "That code isn't correct. Try again."
+                val err = verifyResult.error ?: customResult.error ?: "That code isn't correct. Try again."
                 _uiState.update {
                     it.copy(
                         isLoading = false,
@@ -313,7 +331,8 @@ class AuthViewModel(
         }
 
         viewModelScope.launch {
-            repository.resendOtp(state.email.trim(), state.isPasswordResetMode)
+            SupabaseAuthClient.sendEmailOtp(state.email.trim())
+            try { repository.resendOtp(state.email.trim(), state.isPasswordResetMode) } catch (_: Throwable) {}
             _uiState.update {
                 it.copy(
                     isLoading = false,
