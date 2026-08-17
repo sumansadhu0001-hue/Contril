@@ -3,10 +3,18 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
+    <!-- Contril Outer Geometric Circle from favicon.svg -->
     <path
-        android:fillColor="#38BDF8"
-        android:pathData="M54,24 L80,74 L28,74 Z" />
+        android:strokeColor="#38BDF8"
+        android:strokeWidth="3.5"
+        android:fillColor="#00000000"
+        android:pathData="M 54, 27 A 27,27 0 1,0 54,81 A 27,27 0 1,0 54,27" />
+
+    <!-- Contril Core Diamond from favicon.svg -->
     <path
-        android:fillColor="#2563EB"
-        android:pathData="M54,38 L72,74 L36,74 Z" />
+        android:strokeColor="#2563EB"
+        android:strokeWidth="3.5"
+        android:strokeLineJoin="miter"
+        android:fillColor="#1D4ED8"
+        android:pathData="M 54, 38.25 L 69.75, 54 L 54, 69.75 L 38.25, 54 Z" />
 </vector>

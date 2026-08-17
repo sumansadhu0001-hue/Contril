@@ -35,11 +35,11 @@ fun ContrilAppContent(
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route ?: Screen.Home.route
 
-    val homeViewModel = HomeViewModel(repository, prefRepository)
-    val tasksViewModel = TasksViewModel(repository)
-    val briefingViewModel = BriefingViewModel(repository)
-    val integrationsViewModel = IntegrationsViewModel(repository)
-    val settingsViewModel = SettingsViewModel(prefRepository)
+    val homeViewModel = androidx.compose.runtime.remember { HomeViewModel(repository, prefRepository) }
+    val tasksViewModel = androidx.compose.runtime.remember { TasksViewModel(repository) }
+    val briefingViewModel = androidx.compose.runtime.remember { BriefingViewModel(repository) }
+    val integrationsViewModel = androidx.compose.runtime.remember { IntegrationsViewModel(repository) }
+    val settingsViewModel = androidx.compose.runtime.remember { SettingsViewModel(prefRepository) }
 
     Scaffold(
         topBar = { ContrilTopBar() },

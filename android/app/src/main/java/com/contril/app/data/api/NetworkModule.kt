@@ -10,7 +10,7 @@ import java.util.concurrent.TimeUnit
 object NetworkModule {
 
     // Default to the configured production backend gateway or staging endpoint
-    private var baseUrl: String = "https://contril.app"
+    private var baseUrl: String = "https://contril.app/"
 
     fun setCustomBaseUrl(url: String) {
         baseUrl = if (url.endsWith("/")) url else "$url/"

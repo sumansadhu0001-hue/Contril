@@ -40,32 +40,42 @@ export const DownloadView: React.FC<DownloadViewProps> = ({
         {/* =========================================================================
             1. HERO SECTION
             ========================================================================= */}
-        <section className="pt-8 pb-12 sm:pt-20 sm:pb-16 px-5 sm:px-8 max-w-4xl mx-auto text-center space-y-6">
+        <section className="relative pt-8 pb-12 sm:pt-20 sm:pb-16 px-5 sm:px-8 max-w-4xl mx-auto text-center space-y-6">
           
+          {/* Subtle Mobile Readability Atmosphere Glow */}
+          <div 
+            className="absolute inset-0 -top-10 -bottom-10 pointer-events-none -z-10 opacity-80 sm:opacity-60"
+            style={{
+              background: 'radial-gradient(ellipse at 50% 30%, rgba(255,255,255,0.75) 0%, rgba(235,243,255,0.5) 38%, transparent 72%)'
+            }}
+          />
+
           {/* Eyebrow */}
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-500/10 dark:bg-blue-500/15 border border-blue-500/20 text-[11px] sm:text-xs font-semibold text-[#2563EB] dark:text-[#38BDF8] tracking-widest uppercase select-none">
-            <ContrilLogo size="xs" strokeColor="#2563EB" />
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-500/10 dark:bg-blue-500/15 border border-blue-500/25 text-[11px] sm:text-xs font-bold text-[#1764E8] dark:text-[#38BDF8] tracking-widest uppercase select-none shadow-sm">
+            <ContrilLogo size="xs" strokeColor="#1764E8" />
             <span>GET CONTRIL</span>
           </div>
 
           {/* Headline with High Contrast & Cyan Accent */}
-          <h1 className="text-4xl sm:text-6xl md:text-7xl font-bold tracking-tight text-[#0B1220] dark:text-white leading-[1.08] max-w-3xl mx-auto">
-            Your AI chief of staff, <br className="hidden sm:inline" />
-            <span className="bg-gradient-to-r from-[#2563EB] via-[#38BDF8] to-[#60A5FA] bg-clip-text text-transparent">
-              wherever you work.
-            </span>
-          </h1>
+          <div className="max-w-[390px] sm:max-w-3xl mx-auto">
+            <h1 className="text-[40px] sm:text-6xl md:text-7xl font-bold tracking-tight text-[#07152F] dark:text-white leading-[1.02] sm:leading-[1.08] mx-auto">
+              Your AI chief of staff, <br className="hidden sm:inline" />
+              <span className="bg-gradient-to-r from-[#1764E8] to-[#168FD8] dark:from-[#38BDF8] dark:to-[#60A5FA] bg-clip-text text-transparent">
+                wherever you work.
+              </span>
+            </h1>
+          </div>
 
           {/* Supporting text */}
-          <p className="text-base sm:text-lg text-[#52627A] dark:text-[#94A3B8] font-normal leading-relaxed max-w-2xl mx-auto">
+          <p className="text-base sm:text-lg text-[#334A68] dark:text-[#94A3B8] font-medium leading-relaxed max-w-2xl mx-auto">
             Use Contril instantly on the web or install the native Android app for a dedicated mobile experience.
           </p>
 
           {/* Hero CTAs */}
-          <div className="pt-3 flex flex-col sm:flex-row items-center justify-center gap-3.5 max-w-md mx-auto w-full">
+          <div className="pt-3 flex flex-col sm:flex-row items-center justify-center gap-3.5 max-w-[360px] sm:max-w-md mx-auto w-full">
             <button
               onClick={handleOpenContril}
-              className="w-full sm:w-auto px-8 h-13 rounded-xl bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-sm font-semibold transition-all shadow-[0_8px_24px_rgba(37,99,235,0.25)] hover:shadow-[0_12px_32px_rgba(37,99,235,0.35)] hover:-translate-y-0.5 cursor-pointer flex items-center justify-center gap-2"
+              className="w-full sm:w-auto px-8 h-[52px] sm:h-13 rounded-xl bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-sm font-semibold transition-all shadow-[0_8px_24px_rgba(37,99,235,0.25)] hover:shadow-[0_12px_32px_rgba(37,99,235,0.35)] hover:-translate-y-0.5 cursor-pointer flex items-center justify-center gap-2"
             >
               <span>{isAuthenticated ? 'OPEN CONTRIL' : 'OPEN CONTRIL →'}</span>
             </button>
@@ -73,14 +83,14 @@ export const DownloadView: React.FC<DownloadViewProps> = ({
             <a
               href={CONTRIL_APK_CONFIG.downloadUrl}
               download="contril-android.apk"
-              className="w-full sm:w-auto px-8 h-13 rounded-xl bg-white/80 dark:bg-[#0E1526]/80 hover:bg-white dark:hover:bg-[#151F38] border border-[#E2E8F0] dark:border-white/15 text-[#0B1220] dark:text-white text-sm font-semibold transition-all hover:-translate-y-0.5 cursor-pointer flex items-center justify-center gap-2 shadow-sm"
+              className="w-full sm:w-auto px-8 h-[52px] sm:h-13 rounded-xl bg-white/90 dark:bg-[#0E1526]/80 hover:bg-white dark:hover:bg-[#151F38] border border-[#CBD5E1] dark:border-white/15 text-[#07152F] dark:text-white text-sm font-semibold transition-all hover:-translate-y-0.5 cursor-pointer flex items-center justify-center gap-2 shadow-sm"
             >
-              <Download className="w-4 h-4 text-[#2563EB] dark:text-[#38BDF8]" />
+              <Download className="w-4 h-4 text-[#1764E8] dark:text-[#38BDF8]" />
               <span>DOWNLOAD ANDROID APP ↓</span>
             </a>
           </div>
 
-          <div className="font-mono text-[11px] text-[#64748B] dark:text-[#94A3B8]">
+          <div className="font-mono text-[11px] text-[#475569] dark:text-[#94A3B8] font-medium">
             Instant Browser Access • Native Android (Kotlin & Jetpack Compose)
           </div>
         </section>
