@@ -92,7 +92,7 @@ object SupabaseAuthClient {
             if (!response.isSuccessful) {
                 val errMsg = try {
                     val errJson = JSONObject(resBody)
-                    errJson.optString("error_description", errJson.optString("msg", "Authentication failed."))
+                    errJson.optString("error_description", errJson.optString("msg", "Invalid email or password."))
                 } catch (_: Exception) {
                     "Invalid email or password."
                 }
@@ -118,7 +118,7 @@ object SupabaseAuthClient {
             AuthResult(success = true, token = accessToken, user = profile)
         } catch (e: Exception) {
             Log.e("SupabaseAuth", "Login network exception", e)
-            AuthResult(success = false, error = e.message ?: "Network error during authentication.")
+            AuthResult(success = false, error = e.message ?: "Unable to connect. Check your internet connection.")
         }
     }
 
@@ -170,6 +170,91 @@ object SupabaseAuthClient {
         }
     }
 
+    suspend fun sendEmailOtp(email: String): AuthResult = withContext(Dispatchers.IO) {
+        try {
+            val jsonBody = JSONObject().apply {
+                put("email", email.trim())
+                put("create_user", true)
+            }
+
+            val request = Request.Builder()
+                .url("$SUPABASE_URL/auth/v1/otp")
+                .header("apikey", SUPABASE_ANON_KEY)
+                .header("Content-Type", "application/json")
+                .post(jsonBody.toString().toRequestBody(jsonMediaType))
+                .build()
+
+            val response = httpClient.newCall(request).execute()
+            val resBody = response.body?.string() ?: ""
+
+            if (!response.isSuccessful) {
+                val errMsg = try {
+                    val errJson = JSONObject(resBody)
+                    errJson.optString("error_description", errJson.optString("msg", "Failed to send code."))
+                } catch (_: Exception) {
+                    "Failed to send code."
+                }
+                return@withContext AuthResult(success = false, error = errMsg)
+            }
+
+            AuthResult(success = true)
+        } catch (e: Exception) {
+            Log.e("SupabaseAuth", "sendEmailOtp error", e)
+            AuthResult(success = false, error = e.message ?: "Unable to dispatch verification code.")
+        }
+    }
+
+    suspend fun verifyEmailOtp(email: String, token: String, type: String = "signup"): AuthResult = withContext(Dispatchers.IO) {
+        try {
+            val jsonBody = JSONObject().apply {
+                put("type", type)
+                put("email", email.trim())
+                put("token", token.trim())
+            }
+
+            val request = Request.Builder()
+                .url("$SUPABASE_URL/auth/v1/verify")
+                .header("apikey", SUPABASE_ANON_KEY)
+                .header("Content-Type", "application/json")
+                .post(jsonBody.toString().toRequestBody(jsonMediaType))
+                .build()
+
+            val response = httpClient.newCall(request).execute()
+            val resBody = response.body?.string() ?: ""
+
+            if (!response.isSuccessful) {
+                val errMsg = try {
+                    val errJson = JSONObject(resBody)
+                    errJson.optString("error_description", errJson.optString("msg", "Invalid or expired code."))
+                } catch (_: Exception) {
+                    "Invalid or expired code."
+                }
+                return@withContext AuthResult(success = false, error = errMsg)
+            }
+
+            val json = JSONObject(resBody)
+            val accessToken = json.optString("access_token", null)
+            val userObj = json.optJSONObject("user")
+            val userId = userObj?.optString("id", "usr_${System.currentTimeMillis()}") ?: "usr_${System.currentTimeMillis()}"
+            val userEmail = userObj?.optString("email", email) ?: email
+            val metadata = userObj?.optJSONObject("user_metadata")
+            val fullName = metadata?.optString("full_name", metadata.optString("name", "")) ?: ""
+            val avatarUrl = metadata?.optString("avatar_url", metadata.optString("picture", ""))
+
+            val profile = UserProfile(
+                id = userId,
+                email = userEmail,
+                name = fullName.ifBlank { userEmail.substringBefore("@") },
+                avatarUrl = avatarUrl?.takeIf { it.isNotBlank() }
+            )
+
+            AuthResult(success = true, token = accessToken, user = profile)
+        } catch (e: Exception) {
+            Log.e("SupabaseAuth", "verifyEmailOtp error", e)
+            AuthResult(success = false, error = e.message ?: "Verification error.")
+        }
+    }
+
     suspend fun sendPasswordRecovery(email: String): AuthResult = withContext(Dispatchers.IO) {
         try {
             val jsonBody = JSONObject().apply {
@@ -184,9 +269,22 @@ object SupabaseAuthClient {
                 .build()
 
             val response = httpClient.newCall(request).execute()
-            AuthResult(success = response.isSuccessful)
+            val resBody = response.body?.string() ?: ""
+
+            if (!response.isSuccessful) {
+                val errMsg = try {
+                    val errJson = JSONObject(resBody)
+                    errJson.optString("error_description", errJson.optString("msg", "Unable to send password recovery email."))
+                } catch (_: Exception) {
+                    "Unable to send password recovery email."
+                }
+                return@withContext AuthResult(success = false, error = errMsg)
+            }
+
+            AuthResult(success = true)
         } catch (e: Exception) {
-            AuthResult(success = false, error = e.message)
+            Log.e("SupabaseAuth", "sendPasswordRecovery error", e)
+            AuthResult(success = false, error = e.message ?: "Network error.")
         }
     }
 

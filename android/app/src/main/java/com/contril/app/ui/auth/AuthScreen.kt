@@ -8,6 +8,7 @@ import android.webkit.WebViewClient
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -25,9 +26,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -54,40 +54,36 @@ fun AuthScreen(
     val scrollState = rememberScrollState()
 
     var passwordVisible by remember { mutableStateOf(false) }
+    var confirmPasswordVisible by remember { mutableStateOf(false) }
     var showOAuthDialog by remember { mutableStateOf(false) }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        MaterialTheme.colorScheme.background,
-                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
-                    )
-                )
-            )
-            .padding(horizontal = 24.dp)
+            .background(MaterialTheme.colorScheme.background)
+            .imePadding()
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .statusBarsPadding()
+                .navigationBarsPadding()
                 .verticalScroll(scrollState)
-                .padding(vertical = 36.dp),
+                .padding(horizontal = 24.dp, vertical = 20.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            // Official Contril Brand Mark
+            // 1. Elegant Contril Header
             ContrilLogoMark(
-                modifier = Modifier.size(52.dp),
+                modifier = Modifier.size(40.dp),
                 color = ContrilBlue
             )
 
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
             Text(
                 text = "CONTRIL",
-                style = MaterialTheme.typography.titleLarge.copy(
+                style = MaterialTheme.typography.titleMedium.copy(
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 2.5.sp
@@ -97,42 +93,41 @@ fun AuthScreen(
 
             Text(
                 text = "AI Chief of Staff",
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.labelSmall.copy(
+                    fontWeight = FontWeight.Normal,
+                    letterSpacing = 0.4.sp
+                ),
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
-            Spacer(modifier = Modifier.height(28.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
-            // Main Auth Container Card
-            Card(
+            // 2. Main Authentication Surface
+            Surface(
                 shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                ),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                color = MaterialTheme.colorScheme.surface,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
+                shadowElevation = 2.dp,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .border(
-                        1.dp,
-                        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f),
-                        RoundedCornerShape(20.dp)
-                    )
+                    .widthIn(max = 440.dp)
             ) {
                 Column(
                     modifier = Modifier
-                        .padding(24.dp)
+                        .padding(horizontal = 22.dp, vertical = 26.dp)
                         .fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // Global Error Banner
+                    // Global Feedback Banners
                     AnimatedVisibility(
                         visible = uiState.errorMessage != null,
                         enter = fadeIn(),
                         exit = fadeOut()
                     ) {
                         Surface(
-                            shape = RoundedCornerShape(10.dp),
-                            color = MaterialTheme.colorScheme.errorContainer,
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.85f),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.3f)),
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(bottom = 16.dp)
@@ -150,22 +145,23 @@ fun AuthScreen(
                                 )
                                 Text(
                                     text = uiState.errorMessage ?: "",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onErrorContainer
+                                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
+                                    color = MaterialTheme.colorScheme.onErrorContainer,
+                                    modifier = Modifier.weight(1f)
                                 )
                             }
                         }
                     }
 
-                    // Global Success Banner
                     AnimatedVisibility(
-                        visible = uiState.successMessage != null,
+                        visible = uiState.successMessage != null && uiState.errorMessage == null,
                         enter = fadeIn(),
                         exit = fadeOut()
                     ) {
                         Surface(
-                            shape = RoundedCornerShape(10.dp),
-                            color = StatusActive.copy(alpha = 0.15f),
+                            shape = RoundedCornerShape(12.dp),
+                            color = StatusActive.copy(alpha = 0.12f),
+                            border = BorderStroke(1.dp, StatusActive.copy(alpha = 0.3f)),
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(bottom = 16.dp)
@@ -183,51 +179,55 @@ fun AuthScreen(
                                 )
                                 Text(
                                     text = uiState.successMessage ?: "",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurface
+                                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
+                                    color = StatusActive,
+                                    modifier = Modifier.weight(1f)
                                 )
                             }
                         }
                     }
 
-                    // Dynamic Screen Content Based on AuthMode
                     when (uiState.mode) {
+                        // ----------------------------------------------------
+                        // MODE: LOGIN
+                        // ----------------------------------------------------
                         AuthMode.LOGIN -> {
                             Text(
                                 text = "Welcome back",
-                                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                                style = MaterialTheme.typography.headlineSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = (-0.3).sp
+                                ),
                                 color = MaterialTheme.colorScheme.onSurface
                             )
+
                             Text(
                                 text = "Sign in to your Contril workspace",
-                                style = MaterialTheme.typography.bodyMedium,
+                                style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(top = 4.dp)
+                                modifier = Modifier.padding(top = 2.dp, bottom = 20.dp)
                             )
 
-                            Spacer(modifier = Modifier.height(22.dp))
-
-                            // Email
+                            // Email Input
                             OutlinedTextField(
                                 value = uiState.email,
                                 onValueChange = { viewModel.onEmailChange(it) },
                                 label = { Text("Email") },
-                                placeholder = { Text("Enter your email address") },
+                                placeholder = { Text("name@example.com") },
                                 leadingIcon = {
                                     Icon(Icons.Outlined.Email, contentDescription = null, modifier = Modifier.size(20.dp))
                                 },
                                 singleLine = true,
-                                keyboardOptions = KeyboardOptions(
-                                    keyboardType = KeyboardType.Email,
-                                    imeAction = ImeAction.Next
-                                ),
-                                shape = RoundedCornerShape(12.dp),
-                                modifier = Modifier.fillMaxWidth()
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
+                                shape = RoundedCornerShape(14.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(56.dp)
                             )
 
-                            Spacer(modifier = Modifier.height(14.dp))
+                            Spacer(modifier = Modifier.height(12.dp))
 
-                            // Password
+                            // Password Input
                             OutlinedTextField(
                                 value = uiState.password,
                                 onValueChange = { viewModel.onPasswordChange(it) },
@@ -239,62 +239,62 @@ fun AuthScreen(
                                     IconButton(onClick = { passwordVisible = !passwordVisible }) {
                                         Icon(
                                             imageVector = if (passwordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
-                                            contentDescription = "Toggle password visibility",
+                                            contentDescription = if (passwordVisible) "Hide password" else "Show password",
                                             modifier = Modifier.size(20.dp)
                                         )
                                     }
                                 },
                                 visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                                 singleLine = true,
-                                keyboardOptions = KeyboardOptions(
-                                    keyboardType = KeyboardType.Password,
-                                    imeAction = ImeAction.Done
-                                ),
-                                keyboardActions = KeyboardActions(
-                                    onDone = { viewModel.login(onSuccess = onAuthSuccess) }
-                                ),
-                                shape = RoundedCornerShape(12.dp),
-                                modifier = Modifier.fillMaxWidth()
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
+                                keyboardActions = KeyboardActions(onDone = { viewModel.login(onSuccess = onAuthSuccess) }),
+                                shape = RoundedCornerShape(14.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(56.dp)
                             )
 
                             // Forgot Password Link
-                            Row(
+                            Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(top = 6.dp),
-                                horizontalArrangement = Arrangement.End
+                                    .padding(vertical = 8.dp),
+                                contentAlignment = Alignment.CenterEnd
                             ) {
                                 Text(
                                     text = "Forgot password?",
-                                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
+                                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
                                     color = ContrilBlue,
-                                    modifier = Modifier.clickable {
-                                        viewModel.setMode(AuthMode.FORGOT_PASSWORD)
-                                    }
+                                    modifier = Modifier.clickable { viewModel.setMode(AuthMode.FORGOT_PASSWORD) }
                                 )
                             }
 
-                            Spacer(modifier = Modifier.height(20.dp))
+                            Spacer(modifier = Modifier.height(4.dp))
 
-                            // Continue / Sign In Button
+                            // Primary Continue Button
                             Button(
                                 onClick = { viewModel.login(onSuccess = onAuthSuccess) },
                                 enabled = !uiState.isLoading,
-                                shape = RoundedCornerShape(12.dp),
+                                shape = RoundedCornerShape(14.dp),
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = ContrilBlue,
                                     contentColor = Color.White
                                 ),
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .height(48.dp)
+                                    .height(52.dp)
                             ) {
                                 if (uiState.isLoading) {
-                                    CircularProgressIndicator(
-                                        color = Color.White,
-                                        modifier = Modifier.size(20.dp),
-                                        strokeWidth = 2.dp
-                                    )
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        CircularProgressIndicator(color = Color.White, modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                                        Text(
+                                            text = uiState.loadingMessage.ifBlank { "Signing you in..." },
+                                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
+                                        )
+                                    }
                                 } else {
                                     Text("Continue", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold))
                                 }
@@ -302,37 +302,49 @@ fun AuthScreen(
 
                             Spacer(modifier = Modifier.height(18.dp))
 
-                            // Divider
+                            // Divider Row
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                HorizontalDivider(modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.outlineVariant)
+                                HorizontalDivider(modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                                 Text(
                                     text = "or",
-                                    style = MaterialTheme.typography.bodySmall,
+                                    style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.padding(horizontal = 12.dp)
                                 )
-                                HorizontalDivider(modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.outlineVariant)
+                                HorizontalDivider(modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                             }
 
                             Spacer(modifier = Modifier.height(18.dp))
 
-                            // Google Sign In via In-App OAuth Dialog
-                            OutlinedButton(
-                                onClick = { showOAuthDialog = true },
-                                shape = RoundedCornerShape(12.dp),
+                            // Continue with Google Button (Official 4-Color Google G Logo)
+                            Surface(
+                                shape = RoundedCornerShape(14.dp),
+                                color = MaterialTheme.colorScheme.surface,
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .height(48.dp)
+                                    .height(52.dp)
+                                    .clickable { showOAuthDialog = true }
                             ) {
-                                GoogleLogo(modifier = Modifier.size(20.dp))
-                                Spacer(modifier = Modifier.width(10.dp))
-                                Text("Continue with Google", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium))
+                                Row(
+                                    modifier = Modifier.fillMaxSize(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center
+                                ) {
+                                    GoogleLogo(modifier = Modifier.size(20.dp))
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Text(
+                                        text = "Continue with Google",
+                                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                                        color = ContrilBlue
+                                    )
+                                }
                             }
 
-                            Spacer(modifier = Modifier.height(24.dp))
+                            Spacer(modifier = Modifier.height(20.dp))
 
                             // Switch to Register
                             Row(
@@ -348,78 +360,97 @@ fun AuthScreen(
                                     text = "Create account",
                                     style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
                                     color = ContrilBlue,
-                                    modifier = Modifier.clickable {
-                                        viewModel.setMode(AuthMode.REGISTER)
-                                    }
+                                    modifier = Modifier.clickable { viewModel.setMode(AuthMode.REGISTER) }
                                 )
                             }
                         }
 
+                        // ----------------------------------------------------
+                        // MODE: REGISTER
+                        // ----------------------------------------------------
                         AuthMode.REGISTER -> {
                             Text(
-                                text = "Create Account",
-                                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                                text = "Create account",
+                                style = MaterialTheme.typography.headlineSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = (-0.3).sp
+                                ),
                                 color = MaterialTheme.colorScheme.onSurface
                             )
-                            Text(
-                                text = "Join Contril to orchestrate your workspace",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(top = 4.dp)
-                            )
 
-                            Spacer(modifier = Modifier.height(20.dp))
+                            Text(
+                                text = "Join Contril AI Chief of Staff",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(top = 2.dp, bottom = 18.dp)
+                            )
 
                             // Full Name
                             OutlinedTextField(
                                 value = uiState.fullName,
                                 onValueChange = { viewModel.onFullNameChange(it) },
                                 label = { Text("Full Name") },
-                                placeholder = { Text("Enter your full name") },
+                                placeholder = { Text("Jane Doe") },
                                 leadingIcon = {
                                     Icon(Icons.Outlined.Person, contentDescription = null, modifier = Modifier.size(20.dp))
                                 },
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text, imeAction = ImeAction.Next),
-                                shape = RoundedCornerShape(12.dp),
-                                modifier = Modifier.fillMaxWidth()
+                                shape = RoundedCornerShape(14.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(56.dp)
                             )
 
-                            Spacer(modifier = Modifier.height(12.dp))
+                            Spacer(modifier = Modifier.height(10.dp))
 
                             // Email
                             OutlinedTextField(
                                 value = uiState.email,
                                 onValueChange = { viewModel.onEmailChange(it) },
                                 label = { Text("Email") },
-                                placeholder = { Text("Enter your email address") },
+                                placeholder = { Text("jane@example.com") },
                                 leadingIcon = {
                                     Icon(Icons.Outlined.Email, contentDescription = null, modifier = Modifier.size(20.dp))
                                 },
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
-                                shape = RoundedCornerShape(12.dp),
-                                modifier = Modifier.fillMaxWidth()
+                                shape = RoundedCornerShape(14.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(56.dp)
                             )
 
-                            Spacer(modifier = Modifier.height(12.dp))
+                            Spacer(modifier = Modifier.height(10.dp))
 
                             // Password
                             OutlinedTextField(
                                 value = uiState.password,
                                 onValueChange = { viewModel.onPasswordChange(it) },
-                                label = { Text("Password (min 6 characters)") },
+                                label = { Text("Password") },
+                                placeholder = { Text("Min 8 chars, Aa1") },
                                 leadingIcon = {
                                     Icon(Icons.Outlined.Lock, contentDescription = null, modifier = Modifier.size(20.dp))
                                 },
-                                visualTransformation = PasswordVisualTransformation(),
+                                visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                                trailingIcon = {
+                                    IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                                        Icon(
+                                            imageVector = if (passwordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+                                },
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Next),
-                                shape = RoundedCornerShape(12.dp),
-                                modifier = Modifier.fillMaxWidth()
+                                shape = RoundedCornerShape(14.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(56.dp)
                             )
 
-                            Spacer(modifier = Modifier.height(12.dp))
+                            Spacer(modifier = Modifier.height(10.dp))
 
                             // Confirm Password
                             OutlinedTextField(
@@ -429,33 +460,60 @@ fun AuthScreen(
                                 leadingIcon = {
                                     Icon(Icons.Outlined.Lock, contentDescription = null, modifier = Modifier.size(20.dp))
                                 },
-                                visualTransformation = PasswordVisualTransformation(),
+                                visualTransformation = if (confirmPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                                trailingIcon = {
+                                    IconButton(onClick = { confirmPasswordVisible = !confirmPasswordVisible }) {
+                                        Icon(
+                                            imageVector = if (confirmPasswordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+                                },
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
                                 keyboardActions = KeyboardActions(onDone = { viewModel.register(onSuccess = onAuthSuccess) }),
-                                shape = RoundedCornerShape(12.dp),
-                                modifier = Modifier.fillMaxWidth()
+                                shape = RoundedCornerShape(14.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(56.dp)
                             )
 
-                            Spacer(modifier = Modifier.height(20.dp))
+                            Text(
+                                text = "At least 8 characters, with uppercase, lowercase & number",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 4.dp, bottom = 16.dp)
+                            )
 
-                            // Create Account Button
+                            // Continue (Create Account) Button
                             Button(
                                 onClick = { viewModel.register(onSuccess = onAuthSuccess) },
                                 enabled = !uiState.isLoading,
-                                shape = RoundedCornerShape(12.dp),
+                                shape = RoundedCornerShape(14.dp),
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = ContrilBlue,
                                     contentColor = Color.White
                                 ),
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .height(48.dp)
+                                    .height(52.dp)
                             ) {
                                 if (uiState.isLoading) {
-                                    CircularProgressIndicator(color = Color.White, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        CircularProgressIndicator(color = Color.White, modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                                        Text(
+                                            text = uiState.loadingMessage.ifBlank { "Creating account..." },
+                                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
+                                        )
+                                    }
                                 } else {
-                                    Text("Create Account", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold))
+                                    Text("Continue", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold))
                                 }
                             }
 
@@ -475,234 +533,258 @@ fun AuthScreen(
                                     text = "Sign in",
                                     style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
                                     color = ContrilBlue,
-                                    modifier = Modifier.clickable {
-                                        viewModel.setMode(AuthMode.LOGIN)
-                                    }
+                                    modifier = Modifier.clickable { viewModel.setMode(AuthMode.LOGIN) }
                                 )
                             }
                         }
 
+                        // ----------------------------------------------------
+                        // MODE: OTP VERIFICATION (6-Digit Individual Cells)
+                        // ----------------------------------------------------
                         AuthMode.OTP_VERIFY -> {
+                            val maskedEmail = uiState.email.let { em ->
+                                val parts = em.split("@")
+                                if (parts.size == 2 && parts[0].length > 1) {
+                                    "${parts[0].take(1)}***@${parts[1]}"
+                                } else em
+                            }
+
                             Text(
                                 text = "Verify your email",
-                                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                                style = MaterialTheme.typography.headlineSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = (-0.3).sp
+                                ),
                                 color = MaterialTheme.colorScheme.onSurface
                             )
+
                             Text(
-                                text = "Enter the 6-digit code sent to ${uiState.email}",
-                                style = MaterialTheme.typography.bodyMedium,
+                                text = "We sent a 6-digit code to\n$maskedEmail",
+                                style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(top = 4.dp),
-                                textAlign = TextAlign.Center
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.padding(top = 4.dp, bottom = 20.dp)
                             )
 
-                            Spacer(modifier = Modifier.height(24.dp))
-
+                            // 6-Digit Code Input
                             OutlinedTextField(
                                 value = uiState.otpCode,
                                 onValueChange = { viewModel.onOtpCodeChange(it) },
-                                label = { Text("6-Digit OTP Code") },
-                                placeholder = { Text("••••••") },
+                                placeholder = { Text("• • • • • •", textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth()) },
                                 singleLine = true,
-                                textStyle = MaterialTheme.typography.headlineSmall.copy(
-                                    textAlign = TextAlign.Center,
-                                    letterSpacing = 8.sp,
-                                    fontWeight = FontWeight.Bold
-                                ),
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword, imeAction = ImeAction.Done),
                                 keyboardActions = KeyboardActions(onDone = { viewModel.verifyOtp(onSuccess = onAuthSuccess) }),
-                                shape = RoundedCornerShape(12.dp),
-                                modifier = Modifier.fillMaxWidth()
+                                textStyle = MaterialTheme.typography.headlineMedium.copy(
+                                    textAlign = TextAlign.Center,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 8.sp,
+                                    color = ContrilBlue
+                                ),
+                                shape = RoundedCornerShape(14.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(60.dp)
                             )
+
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            // Resend Row
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = if (uiState.resendCooldownSeconds > 0) {
+                                        "Resend code in ${uiState.resendCooldownSeconds}s"
+                                    } else {
+                                        "Didn't receive it?"
+                                    },
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+
+                                if (uiState.resendCooldownSeconds == 0) {
+                                    Text(
+                                        text = "Resend code",
+                                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
+                                        color = ContrilBlue,
+                                        modifier = Modifier.clickable { viewModel.resendOtp() }
+                                    )
+                                }
+                            }
 
                             Spacer(modifier = Modifier.height(20.dp))
 
+                            // Verify Email Button
                             Button(
                                 onClick = { viewModel.verifyOtp(onSuccess = onAuthSuccess) },
                                 enabled = !uiState.isLoading && uiState.otpCode.length == 6,
-                                shape = RoundedCornerShape(12.dp),
+                                shape = RoundedCornerShape(14.dp),
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = ContrilBlue,
                                     contentColor = Color.White
                                 ),
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .height(48.dp)
+                                    .height(52.dp)
                             ) {
                                 if (uiState.isLoading) {
-                                    CircularProgressIndicator(color = Color.White, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        CircularProgressIndicator(color = Color.White, modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                                        Text("Verifying...", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold))
+                                    }
                                 } else {
-                                    Text("Verify & Continue", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold))
+                                    Text("Verify Email", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold))
                                 }
                             }
 
-                            Spacer(modifier = Modifier.height(16.dp))
+                            Spacer(modifier = Modifier.height(14.dp))
 
-                            if (uiState.resendCooldownSeconds > 0) {
-                                val mins = uiState.resendCooldownSeconds / 60
-                                val secs = uiState.resendCooldownSeconds % 60
-                                val timeStr = String.format("%02d:%02d", mins, secs)
-                                Text(
-                                    text = "Resend code in $timeStr",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            } else {
-                                Text(
-                                    text = "Resend Code",
-                                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
-                                    color = ContrilBlue,
-                                    modifier = Modifier.clickable { viewModel.resendOtp() }
-                                )
+                            // Back / Change Email
+                            TextButton(onClick = { viewModel.setMode(AuthMode.REGISTER) }) {
+                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, modifier = Modifier.size(14.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Change email", color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
-
-                            Spacer(modifier = Modifier.height(12.dp))
-
-                            Text(
-                                text = "Change Email",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.clickable {
-                                    viewModel.setMode(AuthMode.REGISTER)
-                                }
-                            )
                         }
 
+                        // ----------------------------------------------------
+                        // MODE: FORGOT PASSWORD
+                        // ----------------------------------------------------
                         AuthMode.FORGOT_PASSWORD -> {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                IconButton(onClick = { viewModel.setMode(AuthMode.LOGIN) }) {
-                                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                                }
-                                Text(
-                                    text = "Reset Password",
-                                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                            }
-
                             Text(
-                                text = "Enter your registered email address and we'll send you recovery instructions.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(top = 8.dp),
-                                textAlign = TextAlign.Center
+                                text = "Reset password",
+                                style = MaterialTheme.typography.headlineSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = (-0.3).sp
+                                ),
+                                color = MaterialTheme.colorScheme.onSurface
                             )
 
-                            Spacer(modifier = Modifier.height(24.dp))
+                            Text(
+                                text = "Enter your email to receive recovery instructions",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.padding(top = 2.dp, bottom = 18.dp)
+                            )
 
                             OutlinedTextField(
                                 value = uiState.email,
                                 onValueChange = { viewModel.onEmailChange(it) },
                                 label = { Text("Email") },
-                                placeholder = { Text("Enter your email address") },
+                                placeholder = { Text("name@example.com") },
+                                leadingIcon = {
+                                    Icon(Icons.Outlined.Email, contentDescription = null, modifier = Modifier.size(20.dp))
+                                },
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Done),
                                 keyboardActions = KeyboardActions(onDone = { viewModel.requestPasswordReset() }),
-                                shape = RoundedCornerShape(12.dp),
-                                modifier = Modifier.fillMaxWidth()
+                                shape = RoundedCornerShape(14.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(56.dp)
                             )
 
-                            Spacer(modifier = Modifier.height(20.dp))
+                            Spacer(modifier = Modifier.height(18.dp))
 
                             Button(
                                 onClick = { viewModel.requestPasswordReset() },
                                 enabled = !uiState.isLoading,
-                                shape = RoundedCornerShape(12.dp),
+                                shape = RoundedCornerShape(14.dp),
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = ContrilBlue,
                                     contentColor = Color.White
                                 ),
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .height(48.dp)
+                                    .height(52.dp)
                             ) {
                                 if (uiState.isLoading) {
-                                    CircularProgressIndicator(color = Color.White, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                                    CircularProgressIndicator(color = Color.White, modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
                                 } else {
                                     Text("Send Recovery Instructions", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold))
                                 }
                             }
+
+                            Spacer(modifier = Modifier.height(14.dp))
+
+                            TextButton(onClick = { viewModel.setMode(AuthMode.LOGIN) }) {
+                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, modifier = Modifier.size(14.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Back to Sign In", color = ContrilBlue)
+                            }
                         }
 
+                        // ----------------------------------------------------
+                        // MODE: RESET PASSWORD
+                        // ----------------------------------------------------
                         AuthMode.RESET_PASSWORD -> {
                             Text(
-                                text = "Set New Password",
-                                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                                text = "Create new password",
+                                style = MaterialTheme.typography.headlineSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = (-0.3).sp
+                                ),
                                 color = MaterialTheme.colorScheme.onSurface
                             )
-                            Text(
-                                text = "Enter the recovery code sent to your email and your new password.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(top = 4.dp),
-                                textAlign = TextAlign.Center
-                            )
 
-                            Spacer(modifier = Modifier.height(20.dp))
+                            Spacer(modifier = Modifier.height(16.dp))
 
-                            // OTP Code
-                            OutlinedTextField(
-                                value = uiState.otpCode,
-                                onValueChange = { viewModel.onOtpCodeChange(it) },
-                                label = { Text("6-Digit Code") },
-                                placeholder = { Text("••••••") },
-                                singleLine = true,
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
-                                shape = RoundedCornerShape(12.dp),
-                                modifier = Modifier.fillMaxWidth()
-                            )
-
-                            Spacer(modifier = Modifier.height(12.dp))
-
-                            // New Password
                             OutlinedTextField(
                                 value = uiState.password,
                                 onValueChange = { viewModel.onPasswordChange(it) },
-                                label = { Text("New Password (min 6 characters)") },
+                                label = { Text("New Password") },
+                                leadingIcon = {
+                                    Icon(Icons.Outlined.Lock, contentDescription = null, modifier = Modifier.size(20.dp))
+                                },
                                 visualTransformation = PasswordVisualTransformation(),
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Next),
-                                shape = RoundedCornerShape(12.dp),
-                                modifier = Modifier.fillMaxWidth()
+                                shape = RoundedCornerShape(14.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(56.dp)
                             )
 
-                            Spacer(modifier = Modifier.height(12.dp))
+                            Spacer(modifier = Modifier.height(10.dp))
 
-                            // Confirm New Password
                             OutlinedTextField(
                                 value = uiState.confirmPassword,
                                 onValueChange = { viewModel.onConfirmPasswordChange(it) },
                                 label = { Text("Confirm New Password") },
+                                leadingIcon = {
+                                    Icon(Icons.Outlined.Lock, contentDescription = null, modifier = Modifier.size(20.dp))
+                                },
                                 visualTransformation = PasswordVisualTransformation(),
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
-                                keyboardActions = KeyboardActions(onDone = { viewModel.resetPassword(onSuccess = { viewModel.setMode(AuthMode.LOGIN) }) }),
-                                shape = RoundedCornerShape(12.dp),
-                                modifier = Modifier.fillMaxWidth()
+                                keyboardActions = KeyboardActions(onDone = { viewModel.resetPassword(onSuccess = onAuthSuccess) }),
+                                shape = RoundedCornerShape(14.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(56.dp)
                             )
 
-                            Spacer(modifier = Modifier.height(20.dp))
+                            Spacer(modifier = Modifier.height(18.dp))
 
                             Button(
-                                onClick = { viewModel.resetPassword(onSuccess = { viewModel.setMode(AuthMode.LOGIN) }) },
+                                onClick = { viewModel.resetPassword(onSuccess = onAuthSuccess) },
                                 enabled = !uiState.isLoading,
-                                shape = RoundedCornerShape(12.dp),
+                                shape = RoundedCornerShape(14.dp),
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = ContrilBlue,
                                     contentColor = Color.White
                                 ),
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .height(48.dp)
+                                    .height(52.dp)
                             ) {
-                                if (uiState.isLoading) {
-                                    CircularProgressIndicator(color = Color.White, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                                } else {
-                                    Text("Update Password", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold))
-                                }
+                                Text("Update Password", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold))
                             }
                         }
                     }
@@ -711,6 +793,7 @@ fun AuthScreen(
         }
     }
 
+    // In-App Real Google OAuth WebView Dialog
     if (showOAuthDialog) {
         OAuthWebViewDialog(
             authUrl = SupabaseAuthClient.getGoogleOAuthUrl(),
@@ -742,6 +825,7 @@ fun OAuthWebViewDialog(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .statusBarsPadding()
                         .padding(horizontal = 16.dp, vertical = 12.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
@@ -763,7 +847,7 @@ fun OAuthWebViewDialog(
                     }
                 }
 
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
                 AndroidView(
                     modifier = Modifier.fillMaxSize(),
@@ -778,24 +862,27 @@ fun OAuthWebViewDialog(
                                     request: WebResourceRequest?
                                 ): Boolean {
                                     val url = request?.url?.toString() ?: return false
-                                    return handleTokenUrl(url, view)
-                                }
+                                    Log.i("OAuthWebView", "Redirect URL: $url")
 
-                                override fun onPageStarted(
-                                    view: WebView?,
-                                    url: String?,
-                                    favicon: Bitmap?
-                                ) {
-                                    if (url != null && handleTokenUrl(url, view)) {
-                                        view?.stopLoading()
-                                    }
-                                }
+                                    // Intercept Supabase OAuth token callback
+                                    if (url.startsWith("contril://login-callback") || url.contains("login-callback")) {
+                                        var token: String? = null
 
-                                private fun handleTokenUrl(url: String, view: WebView?): Boolean {
-                                    if (url.contains("access_token=")) {
-                                        val token = url.substringAfter("access_token=").substringBefore("&")
-                                        if (token.isNotBlank()) {
-                                            view?.stopLoading()
+                                        val fragment = request.url?.fragment
+                                        if (!fragment.isNullOrBlank()) {
+                                            val params = fragment.split("&").associate {
+                                                val pair = it.split("=")
+                                                if (pair.size == 2) pair[0] to pair[1] else "" to ""
+                                            }
+                                            token = params["access_token"]
+                                        }
+
+                                        if (token.isNullOrBlank()) {
+                                            token = request.url?.getQueryParameter("access_token")
+                                                ?: request.url?.getQueryParameter("token")
+                                        }
+
+                                        if (!token.isNullOrBlank()) {
                                             onAuthSuccess(token)
                                             return true
                                         }
