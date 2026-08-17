@@ -38,26 +38,11 @@ class ContrilRepository {
         autonomyMode: AutonomyMode,
         connectedServices: Map<String, String> = emptyMap()
     ): CommandResponse {
-        return try {
-            val service = apiService
-            if (service != null) {
-                val response = service.executeCommand(
-                    CommandRequest(
-                        prompt = prompt,
-                        autonomyLevel = autonomyMode
-                    )
-                )
-                if (response.isSuccessful && response.body() != null) {
-                    response.body()!!
-                } else {
-                    generateTruthfulCommandResponse(prompt, autonomyMode, connectedServices)
-                }
-            } else {
-                generateTruthfulCommandResponse(prompt, autonomyMode, connectedServices)
-            }
-        } catch (_: Throwable) {
-            generateTruthfulCommandResponse(prompt, autonomyMode, connectedServices)
-        }
+        return com.contril.app.data.api.GeminiClient.generateAiResponse(
+            prompt = prompt,
+            autonomyMode = autonomyMode,
+            connectedServices = connectedServices
+        )
     }
 
     private fun generateTruthfulCommandResponse(

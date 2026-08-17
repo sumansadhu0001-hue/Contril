@@ -261,12 +261,13 @@ fun InboxScreen(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Column(
-                            modifier = Modifier.padding(14.dp),
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
                                     text = email.sender,
@@ -282,21 +283,53 @@ fun InboxScreen(
                                             text = "URGENT",
                                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                                             color = StatusWarning,
-                                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                                         )
                                     }
                                 }
                             }
                             Text(
                                 text = email.subject,
-                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
                                 text = email.summarySnippet,
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                lineHeight = 18.sp
                             )
+
+                            Spacer(modifier = Modifier.height(2.dp))
+
+                            // AI Action Buttons
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                OutlinedButton(
+                                    onClick = { viewModel.summarizeThread(email) },
+                                    shape = RoundedCornerShape(8.dp),
+                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                    modifier = Modifier.height(34.dp)
+                                ) {
+                                    Icon(Icons.Outlined.AutoAwesome, contentDescription = null, tint = ContrilBlue, modifier = Modifier.size(14.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("AI Summary", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold), color = ContrilBlue)
+                                }
+
+                                Button(
+                                    onClick = { viewModel.prepareAiDraftReply(email) },
+                                    shape = RoundedCornerShape(8.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = ContrilBlue.copy(alpha = 0.12f), contentColor = ContrilBlue),
+                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                    modifier = Modifier.height(34.dp)
+                                ) {
+                                    Icon(Icons.Filled.Reply, contentDescription = null, modifier = Modifier.size(14.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("AI Draft Reply", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold))
+                                }
+                            }
                         }
                     }
                 }
@@ -371,6 +404,51 @@ fun InboxScreen(
                         ) {
                             Text("Submit for Approval")
                         }
+                    }
+                }
+            }
+        }
+    }
+
+    // Thread Summary Dialog
+    if (uiState.threadSummaryModal != null) {
+        Dialog(onDismissRequest = { viewModel.dismissSummaryModal() }) {
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = MaterialTheme.colorScheme.surface,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(22.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(Icons.Outlined.AutoAwesome, contentDescription = null, tint = ContrilBlue, modifier = Modifier.size(20.dp))
+                        Text(
+                            text = "AI Thread Summary",
+                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+
+                    Text(
+                        text = uiState.threadSummaryModal ?: "",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        lineHeight = 22.sp
+                    )
+
+                    Button(
+                        onClick = { viewModel.dismissSummaryModal() },
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = ContrilBlue),
+                        modifier = Modifier.fillMaxWidth().height(46.dp)
+                    ) {
+                        Text("Close Summary", fontWeight = FontWeight.SemiBold)
                     }
                 }
             }

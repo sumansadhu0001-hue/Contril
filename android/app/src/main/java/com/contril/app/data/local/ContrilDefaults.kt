@@ -19,6 +19,41 @@ object ContrilDefaults {
 
     fun getInitialTasks(): List<TaskItem> = emptyList()
 
+    fun getConnectedGmailThreads(accountEmail: String): List<EmailSummary> = listOf(
+        EmailSummary(
+            id = "mail_1",
+            sender = "Acme Leadership Team",
+            subject = "Executive Q3 Strategic Review & Board Deck",
+            summarySnippet = "Review required on slide 14 deliverables. Attached revised projections for $accountEmail.",
+            isUrgent = true,
+            hasDraftReady = true
+        ),
+        EmailSummary(
+            id = "mail_2",
+            sender = "Google Cloud Platform",
+            subject = "Security & Production Cluster Health Report",
+            summarySnippet = "All enterprise services operating within standard SLA limits. 0 critical vulnerabilities detected.",
+            isUrgent = false,
+            hasDraftReady = false
+        ),
+        EmailSummary(
+            id = "mail_3",
+            sender = "Stripe Billing Operations",
+            subject = "Enterprise Settlement & Payout Notification",
+            summarySnippet = "Monthly recurring customer subscriptions processed successfully into corporate treasury account.",
+            isUrgent = false,
+            hasDraftReady = false
+        ),
+        EmailSummary(
+            id = "mail_4",
+            sender = "Devin Chen (Principal Engineer)",
+            subject = "Architecture RFC: Zero-Latency Agent Pipeline",
+            summarySnippet = "Please sign off on the proposed multi-agent orchestrator RFC prior to tomorrow's deployment window.",
+            isUrgent = true,
+            hasDraftReady = true
+        )
+    )
+
     fun getInitialIntegrations(): List<IntegrationStatus> = listOf(
         IntegrationStatus(
             id = "gmail",
