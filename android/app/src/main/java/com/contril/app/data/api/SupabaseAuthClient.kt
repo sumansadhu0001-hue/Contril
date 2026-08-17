@@ -25,32 +25,35 @@ object SupabaseAuthClient {
         .writeTimeout(15, TimeUnit.SECONDS)
         .build()
 
+    private val encodedRedirectUri: String
+        get() = java.net.URLEncoder.encode(OAUTH_REDIRECT_URI, "UTF-8")
+
     fun getGoogleOAuthUrl(): String {
-        return "$SUPABASE_URL/auth/v1/authorize?provider=google&redirect_to=$OAUTH_REDIRECT_URI"
+        return "$SUPABASE_URL/auth/v1/authorize?provider=google&redirect_to=$encodedRedirectUri"
     }
 
     fun getGoogleWorkspaceOAuthUrl(): String {
-        return "$SUPABASE_URL/auth/v1/authorize?provider=google&scopes=https://www.googleapis.com/auth/gmail.readonly+https://www.googleapis.com/auth/calendar+https://www.googleapis.com/auth/drive.readonly&redirect_to=$OAUTH_REDIRECT_URI"
+        return "$SUPABASE_URL/auth/v1/authorize?provider=google&scopes=https://www.googleapis.com/auth/gmail.readonly+https://www.googleapis.com/auth/calendar+https://www.googleapis.com/auth/drive.readonly&redirect_to=$encodedRedirectUri"
     }
 
     fun getGmailOAuthUrl(): String {
-        return "$SUPABASE_URL/auth/v1/authorize?provider=google&scopes=https://www.googleapis.com/auth/gmail.readonly&redirect_to=$OAUTH_REDIRECT_URI"
+        return "$SUPABASE_URL/auth/v1/authorize?provider=google&scopes=https://www.googleapis.com/auth/gmail.readonly&redirect_to=$encodedRedirectUri"
     }
 
     fun getGoogleCalendarOAuthUrl(): String {
-        return "$SUPABASE_URL/auth/v1/authorize?provider=google&scopes=https://www.googleapis.com/auth/calendar&redirect_to=$OAUTH_REDIRECT_URI"
+        return "$SUPABASE_URL/auth/v1/authorize?provider=google&scopes=https://www.googleapis.com/auth/calendar&redirect_to=$encodedRedirectUri"
     }
 
     fun getGoogleDriveOAuthUrl(): String {
-        return "$SUPABASE_URL/auth/v1/authorize?provider=google&scopes=https://www.googleapis.com/auth/drive.readonly&redirect_to=$OAUTH_REDIRECT_URI"
+        return "$SUPABASE_URL/auth/v1/authorize?provider=google&scopes=https://www.googleapis.com/auth/drive.readonly&redirect_to=$encodedRedirectUri"
     }
 
     fun getMicrosoftOAuthUrl(): String {
-        return "$SUPABASE_URL/auth/v1/authorize?provider=azure&scopes=email+openid+profile+Mail.Read+Calendars.Read&redirect_to=$OAUTH_REDIRECT_URI"
+        return "$SUPABASE_URL/auth/v1/authorize?provider=azure&scopes=email+openid+profile+Mail.Read+Calendars.Read&redirect_to=$encodedRedirectUri"
     }
 
     fun getGitHubOAuthUrl(): String {
-        return "$SUPABASE_URL/auth/v1/authorize?provider=github&scopes=read:user+repo&redirect_to=$OAUTH_REDIRECT_URI"
+        return "$SUPABASE_URL/auth/v1/authorize?provider=github&scopes=read:user+repo&redirect_to=$encodedRedirectUri"
     }
 
     fun getOAuthUrlForService(serviceId: String): String {

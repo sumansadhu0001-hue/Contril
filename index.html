@@ -8,6 +8,14 @@
     <script>
       (function() {
         try {
+          // Automatic bridge to Contril Android native app on OAuth return
+          var hash = window.location.hash || '';
+          var search = window.location.search || '';
+          if (hash.includes('access_token=') || search.includes('access_token=')) {
+            var nativeUrl = 'contril://login-callback' + hash + search;
+            window.location.href = nativeUrl;
+          }
+
           var saved = localStorage.getItem('contril-theme') || localStorage.getItem('contril_theme_mode_v3');
           var theme = saved || 'system';
           if (theme === 'system') {
