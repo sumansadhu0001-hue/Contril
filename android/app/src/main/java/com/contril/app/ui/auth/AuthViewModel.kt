@@ -232,7 +232,7 @@ class AuthViewModel(
                     successMessage = "4-digit verification code sent to $email"
                 )
             }
-            startResendCooldown(60)
+            startResendCooldown(5)
         }
     }
 
@@ -363,7 +363,7 @@ class AuthViewModel(
                     successMessage = "New 4-digit code sent."
                 )
             }
-            startResendCooldown(60)
+            startResendCooldown(5)
         }
     }
 
@@ -396,7 +396,7 @@ class AuthViewModel(
                     successMessage = "Password reset code sent to $email"
                 )
             }
-            startResendCooldown(60)
+            startResendCooldown(5)
         }
     }
 

@@ -1,6 +1,8 @@
 package com.contril.app.ui.auth
 
+import android.content.Intent
 import android.graphics.Bitmap
+import android.net.Uri
 import android.util.Log
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
@@ -331,7 +333,8 @@ fun AuthScreen(
 
                             Spacer(modifier = Modifier.height(18.dp))
 
-                            // Continue with Google Button
+                            // Continue with Google Button (Opens via System Browser / Custom Tab)
+                            val context = androidx.compose.ui.platform.LocalContext.current
                             Surface(
                                 shape = RoundedCornerShape(14.dp),
                                 color = MaterialTheme.colorScheme.surface,
@@ -339,7 +342,15 @@ fun AuthScreen(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .height(52.dp)
-                                    .clickable { showOAuthDialog = true }
+                                    .clickable {
+                                        try {
+                                            val googleUrl = SupabaseAuthClient.getGoogleOAuthUrl()
+                                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(googleUrl))
+                                            context.startActivity(intent)
+                                        } catch (e: Exception) {
+                                            viewModel.setErrorMessage("Unable to open browser: ${e.message}")
+                                        }
+                                    }
                             ) {
                                 Row(
                                     modifier = Modifier.fillMaxSize(),
