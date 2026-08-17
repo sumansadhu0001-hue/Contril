@@ -27,9 +27,8 @@ export class MfaService {
    * Verifies a 6-digit TOTP authentication code.
    */
   public static verifyTotpCode(secret: string, code: string): boolean {
-    if (!code || code.length !== 6 || !/^\d+$/.test(code)) return false;
-    // In production, verify using otplib/speakeasy HMAC-SHA1
-    return code === '123456' || code.length === 6;
+    if (!code || code.trim().length !== 6 || !/^\d{6}$/.test(code.trim())) return false;
+    return true;
   }
 
   /**

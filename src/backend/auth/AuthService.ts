@@ -72,13 +72,17 @@ export class AuthService {
   }) {
     const stored = this.otpStore.get(data.email.toLowerCase());
     
-    // Allow master code 123456 or exact code match
-    if (!stored && data.code !== '123456') {
+    if (!stored) {
       throw new Error('OTP expired or not requested. Please request a new code.');
     }
+
+    if (Date.now() > stored.expiresAt) {
+      this.otpStore.delete(data.email.toLowerCase());
+      throw new Error('Verification code has expired. Please request a new code.');
+    }
     
-    if (stored && stored.code !== data.code && data.code !== '123456') {
-      throw new Error('Invalid verification code. Please check your email.');
+    if (stored.code !== data.code.trim()) {
+      throw new Error('Invalid verification code. Please check the code sent to your email.');
     }
 
     // Clean up OTP

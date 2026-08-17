@@ -72,6 +72,8 @@ class PreferenceRepository(context: Context? = null) {
     private val _currentUser = MutableStateFlow(getSavedUserProfile())
     val currentUser: StateFlow<com.contril.app.data.model.UserProfile?> = _currentUser.asStateFlow()
 
+    fun getUserProfile(): com.contril.app.data.model.UserProfile? = _currentUser.value
+
     private fun getSavedUserProfile(): com.contril.app.data.model.UserProfile? {
         return try {
             val id = prefs?.getString("user_id", null) ?: return null

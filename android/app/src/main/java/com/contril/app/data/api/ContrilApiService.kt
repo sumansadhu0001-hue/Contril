@@ -52,6 +52,11 @@ interface ContrilApiService {
         @Body body: Map<String, String>
     ): Response<AuthApiResponse>
 
+    @POST("api/v1/auth/signup-with-otp")
+    suspend fun signupWithOtp(
+        @Body body: Map<String, String>
+    ): Response<AuthApiResponse>
+
     @POST("api/v1/auth/custom-otp/send")
     suspend fun sendOtp(
         @Body body: Map<String, Any>

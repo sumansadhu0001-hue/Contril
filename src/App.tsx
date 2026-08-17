@@ -18,13 +18,6 @@ import {
   initialMeetings, 
   initialEmails 
 } from './initialData';
-import {
-  demoEmails,
-  demoMeetings,
-  demoDocuments,
-  demoDecisions,
-  demoTasks
-} from './data/demoData';
 
 // NEW PRODUCTION-QUALITY FRONTEND LAYER (src/ui)
 import { AppShell } from './ui/shell/AppShell';
@@ -228,20 +221,19 @@ export default function App() {
     };
   });
 
-  const [isDemoMode] = useState<boolean>(() => localStorage.getItem('contril_demo_mode') === 'true');
   const initialSynced = getLiveSyncedData(getConnectedAccounts());
-  const [decisions, setDecisions] = useState<DecisionItem[]>(() => isDemoMode ? demoDecisions : initialSynced.decisions);
+  const [decisions, setDecisions] = useState<DecisionItem[]>(() => initialSynced.decisions);
   const [memoryBank] = useState<MemoryItem[]>(() => {
     try {
       const raw = localStorage.getItem('contril_user_memory_bank_v1');
-      return raw ? JSON.parse(raw) : initialMemoryBank;
+      return raw ? JSON.parse(raw) : [];
     } catch (e) {
-      return initialMemoryBank;
+      return [];
     }
   });
-  const [documents, setDocuments] = useState<DocumentItem[]>(() => isDemoMode ? demoDocuments : initialSynced.documents);
-  const [meetings, setMeetings] = useState<MeetingItem[]>(() => isDemoMode ? demoMeetings : initialSynced.meetings);
-  const [emails, setEmails] = useState<EmailItem[]>(() => isDemoMode ? demoEmails : initialSynced.emails);
+  const [documents, setDocuments] = useState<DocumentItem[]>(() => initialSynced.documents);
+  const [meetings, setMeetings] = useState<MeetingItem[]>(() => initialSynced.meetings);
+  const [emails, setEmails] = useState<EmailItem[]>(() => initialSynced.emails);
 
   const refreshLiveData = () => {
     const live = getLiveSyncedData(getConnectedAccounts());
@@ -252,13 +244,13 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (sessionUser && !isDemoMode) {
+    if (sessionUser) {
       hydrateIntegrationsStatus()
         .then(() => checkAndVerifyGmailConnection())
         .then(() => refreshLiveData())
         .catch(err => console.error('[App] Failed to verify integrations:', err));
     }
-  }, [sessionUser, isDemoMode]);
+  }, [sessionUser]);
 
   // Modals state
   const [isSpotlightOpen, setIsSpotlightOpen] = useState(false);
@@ -393,7 +385,6 @@ export default function App() {
                 documents={documents}
                 meetings={meetings}
                 onSelectMode={(mode) => setAppMode(mode as OperatingMode)}
-                isDemoMode={isDemoMode}
               />
             )}
 

@@ -58,6 +58,67 @@ router.post('/custom-otp/reset-password', async (req: Request, res: Response) =>
   }
 });
 
+// Signup With OTP via Resend
+router.post('/signup-with-otp', async (req: Request, res: Response) => {
+  try {
+    const { fullName, email, password } = req.body;
+    if (!email || !password || !fullName) {
+      return res.status(400).json({ success: false, error: 'Full name, email, and password are required.' });
+    }
+
+    const cleanEmail = email.toLowerCase().trim();
+
+    // Create user in Supabase Auth if not present (with email_confirm = false so Supabase does NOT send default email)
+    let userId: string | undefined;
+    const { data: userList } = await supabaseAdmin.auth.admin.listUsers();
+    const existing = (userList?.users || []).find((u: { email?: string }) => u.email?.toLowerCase() === cleanEmail);
+
+    if (existing) {
+      userId = existing.id;
+    } else {
+      const { data: createData, error: createErr } = await supabaseAdmin.auth.admin.createUser({
+        email: cleanEmail,
+        password,
+        user_metadata: { full_name: fullName.trim() },
+        email_confirm: false
+      });
+      if (createErr) {
+        console.error(`[Supabase CreateUser Error]:`, createErr.message);
+        return res.status(400).json({ success: false, error: createErr.message });
+      }
+      userId = createData?.user?.id;
+    }
+
+    // Generate, store, and dispatch 6-digit OTP via Resend
+    const result = await CustomOtpService.createAndSendOtp(cleanEmail, userId, false);
+    return res.json(result);
+  } catch (error: any) {
+    console.error(`[Router Exception] /signup-with-otp error:`, error);
+    return res.status(500).json({ success: false, error: error.message || 'Failed to process signup.' });
+  }
+});
+
+// Forgot Password OTP via Resend
+router.post('/forgot-password', async (req: Request, res: Response) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ success: false, error: 'Email is required.' });
+
+    const cleanEmail = email.toLowerCase().trim();
+    let userId: string | undefined;
+
+    const { data: userList } = await supabaseAdmin.auth.admin.listUsers();
+    const existing = (userList?.users || []).find((u: { email?: string }) => u.email?.toLowerCase() === cleanEmail);
+    if (existing) userId = existing.id;
+
+    const result = await CustomOtpService.createAndSendOtp(cleanEmail, userId, true);
+    return res.json(result);
+  } catch (error: any) {
+    console.error(`[Router Exception] /forgot-password error:`, error);
+    return res.status(500).json({ success: false, error: error.message || 'Failed to send recovery code.' });
+  }
+});
+
 // 1. Send OTP Email
 router.post('/send-otp', async (req: Request, res: Response) => {
   try {

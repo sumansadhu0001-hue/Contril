@@ -245,6 +245,24 @@ class ContrilRepository {
         }
     }
 
+    suspend fun signUpWithOtp(email: String, fullName: String, password: String): AuthApiResponse {
+        return try {
+            val service = apiService ?: return AuthApiResponse(error = "Network service unavailable.")
+            val response = service.signupWithOtp(mapOf(
+                "email" to email,
+                "fullName" to fullName,
+                "password" to password
+            ))
+            if (response.isSuccessful && response.body() != null) {
+                response.body()!!
+            } else {
+                AuthApiResponse(error = response.errorBody()?.string() ?: "Registration failed.")
+            }
+        } catch (e: Throwable) {
+            AuthApiResponse(error = e.message ?: "Registration network error.")
+        }
+    }
+
     suspend fun sendOtp(email: String, isRecovery: Boolean = false): AuthApiResponse {
         return try {
             val service = apiService ?: return AuthApiResponse(error = "Network service unavailable.")

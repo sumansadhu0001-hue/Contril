@@ -156,8 +156,8 @@ export const MobileHomeView: React.FC<MobileHomeViewProps> = ({
 
   // Connected accounts integration checks
   const connections = getConnectedAccounts();
-  const hasGmail = Boolean(connections['gmail']?.isConnected || isDemoMode);
-  const hasCalendar = Boolean(connections['google_calendar']?.isConnected || isDemoMode);
+  const hasGmail = Boolean(connections['gmail']?.isConnected);
+  const hasCalendar = Boolean(connections['google_calendar']?.isConnected);
 
   // Filter actual upcoming meetings
   const todayMeetings = meetings.filter(m => m.time?.toLowerCase().includes('today') || m.time?.toLowerCase().includes('am') || m.time?.toLowerCase().includes('pm'));
@@ -178,14 +178,6 @@ export const MobileHomeView: React.FC<MobileHomeViewProps> = ({
         </div>
         
         <div className="flex items-center gap-2">
-          {isDemoMode && (
-            <span 
-              onClick={() => onToggleDemoMode(false)}
-              className="text-[9px] font-mono text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded uppercase font-semibold cursor-pointer"
-            >
-              Demo Mode
-            </span>
-          )}
           <button 
             onClick={() => onSelectMode('profile')}
             className="w-7 h-7 rounded-full bg-[#1A1A20] border border-white/[0.08] flex items-center justify-center text-xs font-semibold text-neutral-300 active:scale-95 transition-all"

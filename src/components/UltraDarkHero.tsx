@@ -48,8 +48,8 @@ export const UltraDarkHero: React.FC<UltraDarkHeroProps> = ({
 
   // Connected integrations
   const accounts = getConnectedAccounts();
-  const hasGmail = Boolean(accounts['gmail']?.isConnected || accounts['outlook']?.isConnected || isDemoMode);
-  const hasCalendar = Boolean(accounts['google_calendar']?.isConnected || accounts['microsoft_calendar']?.isConnected || isDemoMode);
+  const hasGmail = Boolean(accounts['gmail']?.isConnected || accounts['outlook']?.isConnected);
+  const hasCalendar = Boolean(accounts['google_calendar']?.isConnected || accounts['microsoft_calendar']?.isConnected);
 
   // Dynamic Greeting based on exact local time
   const [greeting, setGreeting] = useState('Good morning');

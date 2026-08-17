@@ -79,18 +79,18 @@ export const UltraDarkWorkspaceGrid: React.FC<UltraDarkWorkspaceGridProps> = ({
   const hasTasks = Boolean(accounts['linear']?.isConnected || accounts['github']?.isConnected || accounts['jira']?.isConnected || accounts['slack']?.isConnected);
   const hasFinance = Boolean(accounts['stripe']?.isConnected);
 
-  const showGmail = hasGmail || isDemoMode;
-  const showCalendar = hasCalendar || isDemoMode;
-  const showDrive = hasDrive || isDemoMode;
-  const showTasks = hasTasks || isDemoMode;
-  const showFinance = hasFinance || isDemoMode;
+  const showGmail = hasGmail;
+  const showCalendar = hasCalendar;
+  const showDrive = hasDrive;
+  const showTasks = hasTasks;
+  const showFinance = hasFinance;
 
-  // Real data calculations without fallbacks unless in Demo Mode
-  const unreadCount = showGmail ? (liveData.emails.length || 3) : 0;
+  // Real data calculations - Zero fake numbers
+  const unreadCount = hasGmail ? liveData.emails.length : 0;
   const emails = liveData.emails;
-  const upcomingMeetingsCount = showCalendar ? (liveData.meetings.length || 2) : 0;
-  const modifiedDocsCount = showDrive ? (liveData.documents.length || 2) : 0;
-  const pendingTasksCount = showTasks ? (decisions.slice(currentDecisionIndex).length || 1) : 0;
+  const upcomingMeetingsCount = hasCalendar ? liveData.meetings.length : 0;
+  const modifiedDocsCount = hasDrive ? liveData.documents.length : 0;
+  const pendingTasksCount = hasTasks ? decisions.slice(currentDecisionIndex).length : 0;
 
   // Widget States
   const [widgets, setWidgets] = useState<WidgetConfig[]>([
@@ -429,11 +429,11 @@ export const UltraDarkWorkspaceGrid: React.FC<UltraDarkWorkspaceGridProps> = ({
                   {widget.id === 'health' && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full">
                       {[
-                        { name: 'Gmail Inbox', isConnected: hasGmail || isDemoMode },
-                        { name: 'Google Calendar', isConnected: hasCalendar || isDemoMode },
-                        { name: 'Google Drive', isConnected: hasDrive || isDemoMode },
-                        { name: 'Slack Integration', isConnected: Boolean(accounts['slack']?.isConnected) || isDemoMode },
-                        { name: 'GitHub Integration', isConnected: Boolean(accounts['github']?.isConnected) || isDemoMode }
+                        { name: 'Gmail Inbox', isConnected: hasGmail },
+                        { name: 'Google Calendar', isConnected: hasCalendar },
+                        { name: 'Google Drive', isConnected: hasDrive },
+                        { name: 'Slack Integration', isConnected: Boolean(accounts['slack']?.isConnected) },
+                        { name: 'GitHub Integration', isConnected: Boolean(accounts['github']?.isConnected) }
                       ].map((svc, idx) => (
                         <div 
                           key={idx} 

@@ -42,7 +42,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
   });
 
   const rawName = userProfile?.name?.trim() || '';
-  const firstName = rawName && !rawName.toUpperCase().includes('DEMO') ? rawName.split(' ')[0] : 'Suman';
+  const firstName = rawName ? rawName.split(' ')[0] : '';
 
   useEffect(() => {
     const hour = new Date().getHours();
@@ -76,7 +76,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
         <h1 className="text-4xl sm:text-5xl md:text-6xl font-light text-[#0F172A] dark:text-white tracking-tight leading-tight">
           {greeting.salutation} <br />
           <span className="font-semibold bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] dark:from-white dark:to-slate-200 bg-clip-text text-transparent">
-            {firstName}.
+            {firstName || 'Executive'}.
           </span>
         </h1>
 

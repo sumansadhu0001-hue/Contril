@@ -13,6 +13,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -20,6 +23,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -27,7 +31,12 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -57,6 +66,9 @@ fun AuthScreen(
     var confirmPasswordVisible by remember { mutableStateOf(false) }
     var showOAuthDialog by remember { mutableStateOf(false) }
 
+    // Focus requesters for 6 OTP digit boxes
+    val focusRequesters = remember { List(6) { FocusRequester() } }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -73,9 +85,9 @@ fun AuthScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            // 1. Elegant Contril Header
+            // 1. Contril Brand Header
             ContrilLogoMark(
-                modifier = Modifier.size(40.dp),
+                modifier = Modifier.size(38.dp),
                 color = ContrilBlue
             )
 
@@ -100,7 +112,7 @@ fun AuthScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(22.dp))
 
             // 2. Main Authentication Surface
             Surface(
@@ -114,7 +126,7 @@ fun AuthScreen(
             ) {
                 Column(
                     modifier = Modifier
-                        .padding(horizontal = 22.dp, vertical = 26.dp)
+                        .padding(horizontal = 22.dp, vertical = 24.dp)
                         .fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
@@ -319,7 +331,7 @@ fun AuthScreen(
 
                             Spacer(modifier = Modifier.height(18.dp))
 
-                            // Continue with Google Button (Official 4-Color Google G Logo)
+                            // Continue with Google Button
                             Surface(
                                 shape = RoundedCornerShape(14.dp),
                                 color = MaterialTheme.colorScheme.surface,
@@ -366,20 +378,21 @@ fun AuthScreen(
                         }
 
                         // ----------------------------------------------------
-                        // MODE: REGISTER
+                        // MODE: REGISTER (Multi-Step Step 1)
                         // ----------------------------------------------------
                         AuthMode.REGISTER -> {
                             Text(
-                                text = "Create account",
+                                text = "Create your Contril account",
                                 style = MaterialTheme.typography.headlineSmall.copy(
                                     fontWeight = FontWeight.Bold,
                                     letterSpacing = (-0.3).sp
                                 ),
+                                textAlign = TextAlign.Center,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
 
                             Text(
-                                text = "Join Contril AI Chief of Staff",
+                                text = "Your enterprise AI Chief of Staff workspace",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.padding(top = 2.dp, bottom = 18.dp)
@@ -472,7 +485,7 @@ fun AuthScreen(
                                 },
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
-                                keyboardActions = KeyboardActions(onDone = { viewModel.register(onSuccess = onAuthSuccess) }),
+                                keyboardActions = KeyboardActions(onDone = { viewModel.register() }),
                                 shape = RoundedCornerShape(14.dp),
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -480,7 +493,7 @@ fun AuthScreen(
                             )
 
                             Text(
-                                text = "At least 8 characters, with uppercase, lowercase & number",
+                                text = "At least 8 characters, uppercase, lowercase, and a number",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier
@@ -488,9 +501,9 @@ fun AuthScreen(
                                     .padding(top = 4.dp, bottom = 16.dp)
                             )
 
-                            // Continue (Create Account) Button
+                            // Continue Button (Dispatches Resend OTP)
                             Button(
-                                onClick = { viewModel.register(onSuccess = onAuthSuccess) },
+                                onClick = { viewModel.register() },
                                 enabled = !uiState.isLoading,
                                 shape = RoundedCornerShape(14.dp),
                                 colors = ButtonDefaults.buttonColors(
@@ -539,7 +552,7 @@ fun AuthScreen(
                         }
 
                         // ----------------------------------------------------
-                        // MODE: OTP VERIFICATION (6-Digit Individual Cells)
+                        // MODE: OTP VERIFICATION (6 Individual Cells UX)
                         // ----------------------------------------------------
                         AuthMode.OTP_VERIFY -> {
                             val maskedEmail = uiState.email.let { em ->
@@ -550,43 +563,83 @@ fun AuthScreen(
                             }
 
                             Text(
-                                text = "Verify your email",
+                                text = "VERIFY YOUR EMAIL",
                                 style = MaterialTheme.typography.headlineSmall.copy(
                                     fontWeight = FontWeight.Bold,
-                                    letterSpacing = (-0.3).sp
+                                    letterSpacing = 0.5.sp
                                 ),
+                                textAlign = TextAlign.Center,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
 
                             Text(
-                                text = "We sent a 6-digit code to\n$maskedEmail",
+                                text = "We've sent a 6-digit verification code to:\n$maskedEmail",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 textAlign = TextAlign.Center,
                                 modifier = Modifier.padding(top = 4.dp, bottom = 20.dp)
                             )
 
-                            // 6-Digit Code Input
-                            OutlinedTextField(
-                                value = uiState.otpCode,
-                                onValueChange = { viewModel.onOtpCodeChange(it) },
-                                placeholder = { Text("• • • • • •", textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth()) },
-                                singleLine = true,
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword, imeAction = ImeAction.Done),
-                                keyboardActions = KeyboardActions(onDone = { viewModel.verifyOtp(onSuccess = onAuthSuccess) }),
-                                textStyle = MaterialTheme.typography.headlineMedium.copy(
-                                    textAlign = TextAlign.Center,
-                                    fontWeight = FontWeight.Bold,
-                                    letterSpacing = 8.sp,
-                                    color = ContrilBlue
-                                ),
-                                shape = RoundedCornerShape(14.dp),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(60.dp)
-                            )
+                            // 6 Individual OTP Boxes
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                for (i in 0 until 6) {
+                                    val digit = uiState.otpDigits.getOrElse(i) { "" }
+                                    OutlinedTextField(
+                                        value = digit,
+                                        onValueChange = { newValue ->
+                                            viewModel.onOtpDigitChange(i, newValue)
+                                            if (newValue.isNotBlank()) {
+                                                if (newValue.length > 1) {
+                                                    // Full paste: focus last box or auto verify
+                                                    if (uiState.otpDigits.all { it.isNotBlank() }) {
+                                                        viewModel.verifyOtp(onSuccess = onAuthSuccess)
+                                                    }
+                                                } else if (i < 5) {
+                                                    focusRequesters[i + 1].requestFocus()
+                                                } else {
+                                                    // 6th digit entered -> auto-verify
+                                                    viewModel.verifyOtp(onSuccess = onAuthSuccess)
+                                                }
+                                            }
+                                        },
+                                        singleLine = true,
+                                        textStyle = MaterialTheme.typography.titleLarge.copy(
+                                            textAlign = TextAlign.Center,
+                                            fontWeight = FontWeight.Bold,
+                                            color = ContrilBlue
+                                        ),
+                                        keyboardOptions = KeyboardOptions(
+                                            keyboardType = KeyboardType.Number,
+                                            imeAction = if (i == 5) ImeAction.Done else ImeAction.Next
+                                        ),
+                                        keyboardActions = KeyboardActions(
+                                            onDone = { viewModel.verifyOtp(onSuccess = onAuthSuccess) }
+                                        ),
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .height(58.dp)
+                                            .focusRequester(focusRequesters[i])
+                                            .onKeyEvent { event ->
+                                                if (event.key == Key.Backspace && digit.isEmpty() && i > 0) {
+                                                    focusRequesters[i - 1].requestFocus()
+                                                    true
+                                                } else false
+                                            },
+                                        shape = RoundedCornerShape(12.dp)
+                                    )
+                                }
+                            }
 
-                            Spacer(modifier = Modifier.height(16.dp))
+                            // Auto-focus the first empty field on initial composition
+                            LaunchedEffect(Unit) {
+                                focusRequesters.firstOrNull()?.requestFocus()
+                            }
+
+                            Spacer(modifier = Modifier.height(18.dp))
 
                             // Resend Row
                             Row(
@@ -598,7 +651,7 @@ fun AuthScreen(
                                     text = if (uiState.resendCooldownSeconds > 0) {
                                         "Resend code in ${uiState.resendCooldownSeconds}s"
                                     } else {
-                                        "Didn't receive it?"
+                                        "Didn't receive the code?"
                                     },
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -619,7 +672,7 @@ fun AuthScreen(
                             // Verify Email Button
                             Button(
                                 onClick = { viewModel.verifyOtp(onSuccess = onAuthSuccess) },
-                                enabled = !uiState.isLoading && uiState.otpCode.length == 6,
+                                enabled = !uiState.isLoading && uiState.otpDigits.all { it.isNotBlank() },
                                 shape = RoundedCornerShape(14.dp),
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = ContrilBlue,
@@ -638,17 +691,266 @@ fun AuthScreen(
                                         Text("Verifying...", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold))
                                     }
                                 } else {
-                                    Text("Verify Email", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold))
+                                    Text("Verify email", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold))
                                 }
                             }
 
                             Spacer(modifier = Modifier.height(14.dp))
 
-                            // Back / Change Email
+                            // Change email link
                             TextButton(onClick = { viewModel.setMode(AuthMode.REGISTER) }) {
                                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, modifier = Modifier.size(14.dp))
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text("Change email", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+
+                        // ----------------------------------------------------
+                        // ONBOARDING STEP 1: "WHO ARE YOU?"
+                        // ----------------------------------------------------
+                        AuthMode.ONBOARDING_ROLE -> {
+                            Text(
+                                text = "Who are you?",
+                                style = MaterialTheme.typography.headlineSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = (-0.3).sp
+                                ),
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+
+                            Text(
+                                text = "Select your role to tailor your AI Chief of Staff",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.padding(top = 2.dp, bottom = 18.dp)
+                            )
+
+                            val roles = listOf(
+                                "Student", "Founder", "CEO", "Business Owner",
+                                "Freelancer", "Developer", "Designer", "Manager",
+                                "Professional", "Creator", "Other"
+                            )
+
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                roles.chunked(2).forEach { rowRoles ->
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        rowRoles.forEach { role ->
+                                            val isSelected = uiState.selectedRole == role
+                                            Surface(
+                                                shape = RoundedCornerShape(12.dp),
+                                                color = if (isSelected) ContrilBlue.copy(alpha = 0.1f) else MaterialTheme.colorScheme.surface,
+                                                border = BorderStroke(
+                                                    1.dp,
+                                                    if (isSelected) ContrilBlue else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
+                                                ),
+                                                modifier = Modifier
+                                                    .weight(1f)
+                                                    .height(44.dp)
+                                                    .clickable { viewModel.onRoleSelected(role) }
+                                            ) {
+                                                Box(
+                                                    contentAlignment = Alignment.Center,
+                                                    modifier = Modifier.padding(horizontal = 8.dp)
+                                                ) {
+                                                    Text(
+                                                        text = role,
+                                                        style = MaterialTheme.typography.bodySmall.copy(
+                                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                                            color = if (isSelected) ContrilBlue else MaterialTheme.colorScheme.onSurface
+                                                        ),
+                                                        textAlign = TextAlign.Center
+                                                    )
+                                                }
+                                            }
+                                        }
+                                        if (rowRoles.size == 1) {
+                                            Spacer(modifier = Modifier.weight(1f))
+                                        }
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(20.dp))
+
+                            Button(
+                                onClick = { viewModel.setMode(AuthMode.ONBOARDING_DETAILS) },
+                                enabled = uiState.selectedRole.isNotBlank(),
+                                shape = RoundedCornerShape(14.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = ContrilBlue,
+                                    contentColor = Color.White
+                                ),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(52.dp)
+                            ) {
+                                Text("Continue", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(16.dp))
+                            }
+                        }
+
+                        // ----------------------------------------------------
+                        // ONBOARDING STEP 2: "TELL US ABOUT YOURSELF"
+                        // ----------------------------------------------------
+                        AuthMode.ONBOARDING_DETAILS -> {
+                            Text(
+                                text = "Tell us about yourself",
+                                style = MaterialTheme.typography.headlineSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = (-0.3).sp
+                                ),
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+
+                            Text(
+                                text = "Customize your Contril AI workspace context",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.padding(top = 2.dp, bottom = 18.dp)
+                            )
+
+                            OutlinedTextField(
+                                value = uiState.fullName,
+                                onValueChange = { viewModel.onFullNameChange(it) },
+                                label = { Text("Display Name") },
+                                placeholder = { Text("Your name") },
+                                singleLine = true,
+                                shape = RoundedCornerShape(14.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(56.dp)
+                            )
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            OutlinedTextField(
+                                value = uiState.organizationName,
+                                onValueChange = { viewModel.onOrganizationNameChange(it) },
+                                label = { Text("Company or Workspace Name") },
+                                placeholder = { Text("e.g. Acme Corp or Personal") },
+                                singleLine = true,
+                                shape = RoundedCornerShape(14.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(56.dp)
+                            )
+
+                            Spacer(modifier = Modifier.height(20.dp))
+
+                            Button(
+                                onClick = { viewModel.setMode(AuthMode.ONBOARDING_PLAN) },
+                                shape = RoundedCornerShape(14.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = ContrilBlue,
+                                    contentColor = Color.White
+                                ),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(52.dp)
+                            ) {
+                                Text("Continue", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(16.dp))
+                            }
+                        }
+
+                        // ----------------------------------------------------
+                        // ONBOARDING STEP 3: "CHOOSE CONTRIL PLAN"
+                        // ----------------------------------------------------
+                        AuthMode.ONBOARDING_PLAN -> {
+                            Text(
+                                text = "Choose Contril plan",
+                                style = MaterialTheme.typography.headlineSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = (-0.3).sp
+                                ),
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+
+                            Text(
+                                text = "Select a plan to start your workspace",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(top = 2.dp, bottom = 18.dp)
+                            )
+
+                            // Plan 1: Free Plan
+                            Surface(
+                                shape = RoundedCornerShape(14.dp),
+                                color = if (uiState.selectedPlan == "Free") ContrilBlue.copy(alpha = 0.08f) else MaterialTheme.colorScheme.surface,
+                                border = BorderStroke(
+                                    1.5.dp,
+                                    if (uiState.selectedPlan == "Free") ContrilBlue else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
+                                ),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { viewModel.onPlanSelected("Free") }
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(14.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Column {
+                                        Text("Free Plan", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold), color = ContrilBlue)
+                                        Text("Core AI assistant, 3 connected integrations", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                    Text("$0", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            // Plan 2: Pro Plan (Locked)
+                            Surface(
+                                shape = RoundedCornerShape(14.dp),
+                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(14.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Column {
+                                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                            Text("Pro Plan", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
+                                            Icon(Icons.Filled.Lock, contentDescription = "Locked", modifier = Modifier.size(12.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
+                                        Text("Autonomous execution & unlimited tools (requires billing)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                    Text("$20/mo", style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurfaceVariant))
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(20.dp))
+
+                            Button(
+                                onClick = { viewModel.completeOnboarding(onSuccess = onAuthSuccess) },
+                                shape = RoundedCornerShape(14.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = ContrilBlue,
+                                    contentColor = Color.White
+                                ),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(52.dp)
+                            ) {
+                                Text("Continue to Workspace", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold))
                             }
                         }
 
@@ -666,7 +968,7 @@ fun AuthScreen(
                             )
 
                             Text(
-                                text = "Enter your email to receive recovery instructions",
+                                text = "Enter your email to receive a recovery code via Resend",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 textAlign = TextAlign.Center,
@@ -707,7 +1009,7 @@ fun AuthScreen(
                                 if (uiState.isLoading) {
                                     CircularProgressIndicator(color = Color.White, modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
                                 } else {
-                                    Text("Send Recovery Instructions", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold))
+                                    Text("Send Recovery Code", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold))
                                 }
                             }
 
@@ -738,7 +1040,7 @@ fun AuthScreen(
                             OutlinedTextField(
                                 value = uiState.password,
                                 onValueChange = { viewModel.onPasswordChange(it) },
-                                label = { Text("New Password") },
+                                label = { Text("New Password (min 8 chars)") },
                                 leadingIcon = {
                                     Icon(Icons.Outlined.Lock, contentDescription = null, modifier = Modifier.size(20.dp))
                                 },
