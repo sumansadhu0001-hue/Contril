@@ -29,7 +29,7 @@ export const DownloadView: React.FC<DownloadViewProps> = ({
   };
 
   return (
-    <div className="relative w-full min-h-screen text-left font-sans bg-[#DDECFB] text-[#091024] overflow-x-hidden transition-colors duration-300">
+    <div className="relative w-full min-h-screen text-left font-sans bg-[#DDECFB] text-[#091024] overflow-x-hidden selection:bg-blue-500 selection:text-white">
       
       {/* =========================================================================
           SIGNATURE ATMOSPHERIC BLUE LIGHTING CANVAS (Matches Screenshot Exactly)
