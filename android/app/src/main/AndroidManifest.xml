@@ -5,8 +5,9 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
-    <!-- Contextual Permissions -->
+    <!-- Contextual System Permissions -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
     <application
         android:name=".ContrilApplication"
@@ -39,6 +40,14 @@
                 <data android:scheme="https" />
                 <data android:host="contril.app" />
                 <data android:pathPrefix="/command" />
+            </intent-filter>
+
+            <!-- Supabase & Google OAuth Deep Link -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="contril" android:host="login-callback" />
             </intent-filter>
         </activity>
 

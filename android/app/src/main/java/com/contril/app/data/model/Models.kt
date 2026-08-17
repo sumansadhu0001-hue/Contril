@@ -100,5 +100,68 @@ data class IntegrationStatus(
     val description: String,
     val isConnected: Boolean,
     val lastSyncTime: String,
-    val iconKey: String
+    val iconKey: String,
+    val connectedAccount: String? = null,
+    val scopes: List<String> = emptyList(),
+    val isAlwaysAvailable: Boolean = false
 )
+
+data class UserProfile(
+    val id: String = "",
+    val email: String = "",
+    val name: String = "",
+    val avatarUrl: String? = null,
+    val createdAt: String? = null
+) {
+    val initials: String
+        get() {
+            val parts = name.trim().split("\\s+".toRegex())
+            return if (parts.size >= 2) {
+                "${parts[0].take(1)}${parts[1].take(1)}".uppercase()
+            } else if (parts.isNotEmpty() && parts[0].isNotEmpty()) {
+                parts[0].take(2).uppercase()
+            } else if (email.isNotEmpty()) {
+                email.take(2).uppercase()
+            } else {
+                "CO"
+            }
+        }
+}
+
+data class LoginRequest(
+    val email: String,
+    val password: String
+)
+
+data class RegisterRequest(
+    val email: String,
+    val fullName: String,
+    val password: String
+)
+
+data class OtpSendRequest(
+    val email: String,
+    val userId: String? = null,
+    val isRecovery: Boolean = false
+)
+
+data class OtpVerifyRequest(
+    val email: String,
+    val code: String,
+    val type: String? = null
+)
+
+data class ResetPasswordRequest(
+    val email: String,
+    val code: String,
+    val password: String
+)
+
+data class AuthApiResponse(
+    val success: Boolean = false,
+    val message: String? = null,
+    val error: String? = null,
+    val token: String? = null,
+    val user: UserProfile? = null
+)
+

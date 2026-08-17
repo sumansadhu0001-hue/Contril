@@ -4,6 +4,7 @@ import android.util.Log
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.navigation.compose.NavHost
@@ -12,12 +13,16 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.contril.app.data.repository.ContrilRepository
 import com.contril.app.data.repository.PreferenceRepository
+import com.contril.app.ui.auth.AuthScreen
+import com.contril.app.ui.auth.AuthViewModel
 import com.contril.app.ui.briefing.BriefingScreen
 import com.contril.app.ui.briefing.BriefingViewModel
 import com.contril.app.ui.components.ContrilBottomNav
 import com.contril.app.ui.components.ContrilTopBar
 import com.contril.app.ui.home.HomeScreen
 import com.contril.app.ui.home.HomeViewModel
+import com.contril.app.ui.inbox.InboxScreen
+import com.contril.app.ui.inbox.InboxViewModel
 import com.contril.app.ui.integrations.IntegrationsScreen
 import com.contril.app.ui.integrations.IntegrationsViewModel
 import com.contril.app.ui.settings.SettingsScreen
@@ -30,26 +35,39 @@ fun ContrilAppContent(
     repository: ContrilRepository,
     prefRepository: PreferenceRepository
 ) {
+    val currentUser by prefRepository.currentUser.collectAsState()
+
+    // 1. Unauthenticated Gate -> Show Premium Auth Screen
+    if (currentUser == null) {
+        val authViewModel = androidx.compose.runtime.remember {
+            try {
+                AuthViewModel(repository, prefRepository)
+            } catch (e: Exception) {
+                Log.e("ContrilNav", "AuthViewModel creation failed", e)
+                AuthViewModel()
+            }
+        }
+
+        AuthScreen(
+            viewModel = authViewModel,
+            onAuthSuccess = {
+                // currentUser StateFlow update triggers automatic recomposition to authenticated workspace
+            }
+        )
+        return
+    }
+
+    // 2. Authenticated App -> Command Center Workspace
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route ?: Screen.Home.route
 
-    // Create ViewModels safely — wrap each in try-catch so a single ViewModel
-    // failure does not crash the entire Compose tree
     val homeViewModel = androidx.compose.runtime.remember {
         try {
             HomeViewModel(repository, prefRepository)
         } catch (e: Exception) {
             Log.e("ContrilNav", "HomeViewModel creation failed", e)
             HomeViewModel()
-        }
-    }
-    val tasksViewModel = androidx.compose.runtime.remember {
-        try {
-            TasksViewModel(repository)
-        } catch (e: Exception) {
-            Log.e("ContrilNav", "TasksViewModel creation failed", e)
-            TasksViewModel()
         }
     }
     val briefingViewModel = androidx.compose.runtime.remember {
@@ -60,12 +78,28 @@ fun ContrilAppContent(
             BriefingViewModel()
         }
     }
+    val inboxViewModel = androidx.compose.runtime.remember {
+        try {
+            InboxViewModel(repository, prefRepository)
+        } catch (e: Exception) {
+            Log.e("ContrilNav", "InboxViewModel creation failed", e)
+            InboxViewModel(repository, prefRepository)
+        }
+    }
+    val tasksViewModel = androidx.compose.runtime.remember {
+        try {
+            TasksViewModel(repository, prefRepository)
+        } catch (e: Exception) {
+            Log.e("ContrilNav", "TasksViewModel creation failed", e)
+            TasksViewModel(repository, prefRepository)
+        }
+    }
     val integrationsViewModel = androidx.compose.runtime.remember {
         try {
-            IntegrationsViewModel(repository)
+            IntegrationsViewModel(repository, prefRepository)
         } catch (e: Exception) {
             Log.e("ContrilNav", "IntegrationsViewModel creation failed", e)
-            IntegrationsViewModel()
+            IntegrationsViewModel(repository, prefRepository)
         }
     }
     val settingsViewModel = androidx.compose.runtime.remember {
@@ -78,7 +112,16 @@ fun ContrilAppContent(
     }
 
     Scaffold(
-        topBar = { ContrilTopBar() },
+        topBar = {
+            ContrilTopBar(
+                userProfile = currentUser,
+                onAvatarClick = {
+                    if (currentRoute != Screen.Settings.route) {
+                        navController.navigate(Screen.Settings.route)
+                    }
+                }
+            )
+        },
         bottomBar = {
             ContrilBottomNav(
                 currentRoute = currentRoute,
@@ -109,6 +152,12 @@ fun ContrilAppContent(
             }
             composable(Screen.Briefing.route) {
                 BriefingScreen(viewModel = briefingViewModel)
+            }
+            composable(Screen.Inbox.route) {
+                InboxScreen(
+                    viewModel = inboxViewModel,
+                    onNavigateToConnected = { navController.navigate(Screen.Integrations.route) }
+                )
             }
             composable(Screen.Tasks.route) {
                 TasksScreen(viewModel = tasksViewModel)

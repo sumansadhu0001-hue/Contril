@@ -1,6 +1,10 @@
 package com.contril.app.ui.components
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -10,90 +14,263 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowForward
-import androidx.compose.material.icons.filled.Shield
-import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import com.contril.app.data.model.ActionStatus
 import com.contril.app.data.model.PendingAction
+import com.contril.app.data.model.UserProfile
 import com.contril.app.theme.*
 import com.contril.app.ui.navigation.Screen
+
+@Composable
+fun ContrilLogoMark(
+    modifier: Modifier = Modifier.size(24.dp),
+    color: Color = ContrilBlue
+) {
+    Canvas(modifier = modifier) {
+        val strokeW = size.minDimension * 0.075f
+        val radius = (size.minDimension - strokeW) * 0.44f
+        val center = center
+
+        // Outer Ring
+        drawCircle(
+            color = color,
+            radius = radius,
+            center = center,
+            style = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeW)
+        )
+
+        // Inscribed Diamond
+        val diamondHalf = radius * 0.62f
+        val path = androidx.compose.ui.graphics.Path().apply {
+            moveTo(center.x, center.y - diamondHalf)
+            lineTo(center.x + diamondHalf, center.y)
+            lineTo(center.x, center.y + diamondHalf)
+            lineTo(center.x - diamondHalf, center.y)
+            close()
+        }
+        drawPath(
+            path = path,
+            color = color,
+            style = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeW)
+        )
+    }
+}
 
 @Composable
 fun ContrilTopBar(
     title: String = "CONTRIL",
     subtitle: String = "AI Chief of Staff",
-    isOnline: Boolean = true
+    isOnline: Boolean = true,
+    userProfile: UserProfile? = null,
+    onAvatarClick: (() -> Unit)? = null
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 16.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                // Canonical Contril Logo Dot
-                Box(
-                    modifier = Modifier
-                        .size(10.dp)
-                        .clip(CircleShape)
-                        .background(ContrilBlue)
-                )
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.sp
-                    ),
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-            }
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
+    var showProfileSheet by remember { mutableStateOf(false) }
 
-        // Live Status Badge
-        Surface(
-            shape = RoundedCornerShape(12.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant,
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+    Surface(
+        color = MaterialTheme.colorScheme.background,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .statusBarsPadding()
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
+            // LEFT: Brand Geometric Logo + Eyebrow Typography
             Row(
-                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                ContrilLogoMark(
+                    modifier = Modifier.size(26.dp),
+                    color = ContrilBlue
+                )
+                Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 2.sp
+                        ),
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+                    Text(
+                        text = subtitle,
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontWeight = FontWeight.Normal,
+                            letterSpacing = 0.2.sp
+                        ),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            // RIGHT: Active Status Capsule + Real Profile Avatar
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                // Live Status Pill
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.surface,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(6.dp)
+                                .clip(CircleShape)
+                                .background(if (isOnline) StatusActive else StatusWarning)
+                        )
+                        Text(
+                            text = if (isOnline) "Active" else "Offline",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = FontWeight.SemiBold,
+                                letterSpacing = 0.2.sp
+                            ),
+                            color = if (isOnline) StatusActive else StatusWarning
+                        )
+                    }
+                }
+
+                // Dynamic Profile Avatar (Initials from real authenticated name/email)
+                if (userProfile != null) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(ContrilBlue)
+                            .clickable {
+                                if (onAvatarClick != null) onAvatarClick() else showProfileSheet = true
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = userProfile.initials,
+                            color = Color.White,
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    if (showProfileSheet && userProfile != null) {
+        ProfileModalDialog(
+            userProfile = userProfile,
+            onDismiss = { showProfileSheet = false }
+        )
+    }
+}
+
+@Composable
+fun ProfileModalDialog(
+    userProfile: UserProfile,
+    onDismiss: () -> Unit
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = RoundedCornerShape(20.dp),
+            color = MaterialTheme.colorScheme.surface,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .padding(24.dp)
+                    .fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Box(
                     modifier = Modifier
-                        .size(6.dp)
+                        .size(56.dp)
                         .clip(CircleShape)
-                        .background(if (isOnline) StatusActive else StatusWarning)
-                )
-                Text(
-                    text = if (isOnline) "Active" else "Offline",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = if (isOnline) StatusActive else StatusWarning
-                )
+                        .background(ContrilBlue),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = userProfile.initials,
+                        color = Color.White,
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+                    )
+                }
+
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    Text(
+                        text = userProfile.name.ifBlank { "Authenticated User" },
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = userProfile.email,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Authentication Provider",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = "Google OAuth",
+                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
+                            color = ContrilBlue
+                        )
+                    }
+                }
+
+                Button(
+                    onClick = onDismiss,
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        contentColor = MaterialTheme.colorScheme.onSurface
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Close", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium))
+                }
             }
         }
     }
@@ -104,37 +281,47 @@ fun ContrilBottomNav(
     currentRoute: String,
     onNavigate: (String) -> Unit
 ) {
-    NavigationBar(
-        containerColor = MaterialTheme.colorScheme.surface,
-        tonalElevation = 0.dp,
-        modifier = Modifier.border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
+    val navItems = Screen.bottomNavItems
+
+    Surface(
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+        modifier = Modifier.fillMaxWidth()
     ) {
-        Screen.bottomNavItems.forEach { screen ->
-            val isSelected = currentRoute == screen.route
-            NavigationBarItem(
-                selected = isSelected,
-                onClick = { onNavigate(screen.route) },
-                icon = {
-                    Icon(
-                        imageVector = if (isSelected) screen.selectedIcon else screen.unselectedIcon,
-                        contentDescription = screen.title,
-                        modifier = Modifier.size(22.dp)
+        NavigationBar(
+            containerColor = Color.Transparent,
+            tonalElevation = 0.dp,
+            modifier = Modifier.navigationBarsPadding()
+        ) {
+            navItems.forEach { screen ->
+                val isSelected = currentRoute == screen.route
+                NavigationBarItem(
+                    selected = isSelected,
+                    onClick = { onNavigate(screen.route) },
+                    icon = {
+                        Icon(
+                            imageVector = if (isSelected) screen.selectedIcon else screen.unselectedIcon,
+                            contentDescription = screen.title,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    },
+                    label = {
+                        Text(
+                            text = screen.title,
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
+                            )
+                        )
+                    },
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = ContrilBlue,
+                        selectedTextColor = ContrilBlue,
+                        unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        indicatorColor = ContrilBlue.copy(alpha = 0.12f)
                     )
-                },
-                label = {
-                    Text(
-                        text = screen.title,
-                        style = MaterialTheme.typography.labelSmall
-                    )
-                },
-                colors = NavigationBarItemDefaults.colors(
-                    selectedIconColor = ContrilBlue,
-                    selectedTextColor = ContrilBlue,
-                    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                    indicatorColor = MaterialTheme.colorScheme.surfaceVariant
                 )
-            )
+            }
         }
     }
 }
@@ -146,10 +333,9 @@ fun AtmosphericCard(
 ) {
     Surface(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(16.dp),
         color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-        tonalElevation = 2.dp
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
     ) {
         Column(
             modifier = Modifier.padding(18.dp),
@@ -164,28 +350,36 @@ fun CommandInputField(
     onValueChange: (String) -> Unit,
     onExecute: () -> Unit,
     isLoading: Boolean = false,
-    placeholder: String = "Tell Contril what you need..."
+    placeholder: String = "Ask Contril anything..."
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant,
-        border = BorderStroke(1.dp, ContrilBlue.copy(alpha = 0.4f))
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, if (value.isNotBlank()) ContrilBlue.copy(alpha = 0.5f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
     ) {
         Row(
             modifier = Modifier
                 .padding(horizontal = 14.dp, vertical = 6.dp)
                 .fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
+            Icon(
+                imageVector = Icons.Outlined.AutoAwesome,
+                contentDescription = "AI Prompt",
+                tint = ContrilBlue,
+                modifier = Modifier.size(20.dp)
+            )
+
             TextField(
                 value = value,
                 onValueChange = onValueChange,
                 placeholder = {
                     Text(
                         text = placeholder,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
                     )
                 },
                 colors = TextFieldDefaults.colors(
@@ -204,7 +398,7 @@ fun CommandInputField(
 
             if (isLoading) {
                 CircularProgressIndicator(
-                    modifier = Modifier.size(24.dp),
+                    modifier = Modifier.size(22.dp),
                     strokeWidth = 2.dp,
                     color = ContrilBlue
                 )
@@ -213,15 +407,15 @@ fun CommandInputField(
                     onClick = onExecute,
                     enabled = value.isNotBlank(),
                     modifier = Modifier
-                        .size(36.dp)
+                        .size(34.dp)
                         .clip(CircleShape)
-                        .background(if (value.isNotBlank()) ContrilBlue else MaterialTheme.colorScheme.outline)
+                        .background(if (value.isNotBlank()) ContrilBlue else MaterialTheme.colorScheme.surfaceVariant)
                 ) {
                     Icon(
-                        imageVector = Icons.Filled.ArrowForward,
+                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                         contentDescription = "Send",
-                        tint = Color.White,
-                        modifier = Modifier.size(18.dp)
+                        tint = if (value.isNotBlank()) Color.White else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                        modifier = Modifier.size(16.dp)
                     )
                 }
             }
@@ -238,59 +432,55 @@ fun ActionApprovalCard(
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant,
-        border = BorderStroke(1.dp, ContrilBlue.copy(alpha = 0.5f))
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, ContrilBlue.copy(alpha = 0.4f))
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = ContrilBlue.copy(alpha = 0.12f)
                 ) {
-                    Icon(
-                        imageVector = Icons.Filled.Shield,
-                        contentDescription = "Action Gate",
-                        tint = ContrilBlue,
-                        modifier = Modifier.size(16.dp)
-                    )
                     Text(
-                        text = "PERMISSION REQUIRED",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = ContrilBlue
+                        text = "APPROVAL REQUIRED",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                        color = ContrilBlue,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                     )
                 }
 
                 Surface(
                     shape = RoundedCornerShape(6.dp),
-                    color = MaterialTheme.colorScheme.surface
+                    color = MaterialTheme.colorScheme.surfaceVariant
                 ) {
                     Text(
                         text = action.targetService.uppercase(),
                         style = MaterialTheme.typography.labelSmall,
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                     )
                 }
             }
 
-            Text(
-                text = action.title,
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-
-            Text(
-                text = action.description,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    text = action.title,
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = action.description,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
 
             if (action.status == ActionStatus.PENDING_APPROVAL) {
                 Row(
@@ -300,32 +490,26 @@ fun ActionApprovalCard(
                     OutlinedButton(
                         onClick = onReject,
                         modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(10.dp)
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = MaterialTheme.colorScheme.error
+                        ),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f))
                     ) {
-                        Text("Dismiss", style = MaterialTheme.typography.bodyMedium)
+                        Text("Reject", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold))
                     }
 
                     Button(
                         onClick = onApprove,
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = ContrilBlue)
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = ContrilBlue,
+                            contentColor = Color.White
+                        )
                     ) {
-                        Text("Approve", style = MaterialTheme.typography.bodyMedium, color = Color.White)
+                        Text("Approve", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold))
                     }
-                }
-            } else {
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(8.dp),
-                    color = if (action.status == ActionStatus.APPROVED) StatusActive.copy(alpha = 0.15f) else StatusError.copy(alpha = 0.15f)
-                ) {
-                    Text(
-                        text = if (action.status == ActionStatus.APPROVED) "✓ Action Approved & Executed" else "✕ Action Dismissed",
-                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
-                        color = if (action.status == ActionStatus.APPROVED) StatusActive else StatusError,
-                        modifier = Modifier.padding(vertical = 8.dp, horizontal = 12.dp)
-                    )
                 }
             }
         }

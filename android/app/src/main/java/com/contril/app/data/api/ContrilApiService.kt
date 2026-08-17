@@ -37,4 +37,49 @@ interface ContrilApiService {
         @Path("actionId") actionId: String,
         @Body body: Map<String, String> = emptyMap()
     ): Response<Map<String, Any>>
+
+    // ==========================================
+    // Real Authentication Endpoints
+    // ==========================================
+
+    @POST("api/v1/auth/login")
+    suspend fun login(
+        @Body body: Map<String, String>
+    ): Response<AuthApiResponse>
+
+    @POST("api/v1/auth/signup")
+    suspend fun signup(
+        @Body body: Map<String, String>
+    ): Response<AuthApiResponse>
+
+    @POST("api/v1/auth/custom-otp/send")
+    suspend fun sendOtp(
+        @Body body: Map<String, Any>
+    ): Response<AuthApiResponse>
+
+    @POST("api/v1/auth/custom-otp/verify")
+    suspend fun verifyOtp(
+        @Body body: Map<String, String>
+    ): Response<AuthApiResponse>
+
+    @POST("api/v1/auth/custom-otp/resend")
+    suspend fun resendOtp(
+        @Body body: Map<String, Any>
+    ): Response<AuthApiResponse>
+
+    @POST("api/v1/auth/custom-otp/reset-password")
+    suspend fun resetPassword(
+        @Body body: Map<String, String>
+    ): Response<AuthApiResponse>
+
+    @POST("api/v1/auth/forgot-password")
+    suspend fun forgotPassword(
+        @Body body: Map<String, String>
+    ): Response<AuthApiResponse>
+
+    @POST("api/v1/auth/oauth")
+    suspend fun oauthSignIn(
+        @Body body: Map<String, String>
+    ): Response<AuthApiResponse>
 }
+

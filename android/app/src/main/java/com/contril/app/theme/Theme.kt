@@ -3,33 +3,12 @@ package com.contril.app.theme
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
-import android.os.Build
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
-
-private val DarkColorScheme = darkColorScheme(
-    primary = ContrilBlue,
-    onPrimary = TextPrimaryDark,
-    primaryContainer = ContrilDarkSurfaceElevated,
-    onPrimaryContainer = ContrilCyan,
-    secondary = ContrilCyan,
-    onSecondary = ContrilDarkBackground,
-    background = ContrilDarkBackground,
-    onBackground = TextPrimaryDark,
-    surface = ContrilDarkSurface,
-    onSurface = TextPrimaryDark,
-    surfaceVariant = ContrilDarkSurfaceElevated,
-    onSurfaceVariant = TextSecondaryDark,
-    outline = BorderSubtleDark
-)
 
 private val LightColorScheme = lightColorScheme(
     primary = ContrilBlue,
@@ -44,14 +23,10 @@ private val LightColorScheme = lightColorScheme(
     onSurface = TextPrimaryLight,
     surfaceVariant = ContrilLightSurfaceElevated,
     onSurfaceVariant = TextSecondaryLight,
-    outline = BorderSubtleLight
+    outline = BorderSubtleLight,
+    outlineVariant = BorderSubtleLight
 )
 
-/**
- * Safely unwrap ContextWrappers to find the host Activity.
- * In Jetpack Compose, view.context is often a ContextThemeWrapper,
- * not directly castable to Activity.
- */
 private fun Context.findActivity(): Activity? {
     var ctx: Context? = this
     while (ctx != null) {
@@ -63,20 +38,12 @@ private fun Context.findActivity(): Activity? {
 
 @Composable
 fun ContrilTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    darkTheme: Boolean = false, // Locked to premium Light Theme only per product specification
     dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = androidx.compose.ui.platform.LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        }
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
-    }
+    val colorScheme = LightColorScheme
 
-    // Set status bar appearance safely
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
@@ -84,12 +51,12 @@ fun ContrilTheme(
                 val activity = view.context.findActivity()
                 if (activity != null) {
                     WindowCompat.getInsetsController(activity.window, view).apply {
-                        isAppearanceLightStatusBars = !darkTheme
-                        isAppearanceLightNavigationBars = !darkTheme
+                        isAppearanceLightStatusBars = true
+                        isAppearanceLightNavigationBars = true
                     }
                 }
             } catch (_: Exception) {
-                // Safe fallback: some OEM ROMs may not support this
+                // Safe fallback across various Android versions
             }
         }
     }

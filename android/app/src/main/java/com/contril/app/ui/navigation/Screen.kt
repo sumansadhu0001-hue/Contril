@@ -14,8 +14,8 @@ sealed class Screen(
     data object Home : Screen(
         route = "home",
         title = "Command",
-        selectedIcon = Icons.Filled.Bolt,
-        unselectedIcon = Icons.Outlined.Bolt
+        selectedIcon = Icons.Filled.Dashboard,
+        unselectedIcon = Icons.Outlined.Dashboard
     )
 
     data object Briefing : Screen(
@@ -23,6 +23,13 @@ sealed class Screen(
         title = "Briefing",
         selectedIcon = Icons.Filled.Article,
         unselectedIcon = Icons.Outlined.Article
+    )
+
+    data object Inbox : Screen(
+        route = "inbox",
+        title = "Inbox",
+        selectedIcon = Icons.Filled.Mail,
+        unselectedIcon = Icons.Outlined.Mail
     )
 
     data object Tasks : Screen(
@@ -47,6 +54,7 @@ sealed class Screen(
     )
 
     companion object {
-        val bottomNavItems = listOf(Home, Briefing, Tasks, Integrations, Settings)
+        val bottomNavItems: List<Screen>
+            get() = listOf(Home, Briefing, Inbox, Tasks, Integrations, Settings)
     }
 }

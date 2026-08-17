@@ -14,6 +14,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.contril.app.data.model.MeetingItem
 import com.contril.app.theme.*
@@ -60,35 +61,45 @@ fun BriefingScreen(viewModel: BriefingViewModel) {
                 ) {
                     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         Text(
-                            text = "MORNING BRIEFING READY",
+                            text = "INTELLIGENCE BRIEFING",
                             style = MaterialTheme.typography.labelSmall,
                             color = ContrilBlue
                         )
                         Text(
-                            text = "3 Key Schedule Updates",
+                            text = if (uiState.meetings.isNotEmpty()) {
+                                "${uiState.meetings.size} Scheduled Meeting${if (uiState.meetings.size > 1) "s" else ""}"
+                            } else {
+                                "No Upcoming Meetings"
+                            },
                             style = MaterialTheme.typography.titleLarge,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                     }
 
-                    IconButton(
-                        onClick = { viewModel.toggleAudioBriefing() },
-                        colors = IconButtonDefaults.iconButtonColors(
-                            containerColor = if (uiState.isBriefingAudioPlaying) StatusActive else ContrilBlue,
-                            contentColor = Color.White
-                        )
-                    ) {
-                        Icon(
-                            imageVector = if (uiState.isBriefingAudioPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                            contentDescription = "Play Briefing"
-                        )
+                    if (uiState.meetings.isNotEmpty()) {
+                        IconButton(
+                            onClick = { viewModel.toggleAudioBriefing() },
+                            colors = IconButtonDefaults.iconButtonColors(
+                                containerColor = if (uiState.isBriefingAudioPlaying) StatusActive else ContrilBlue,
+                                contentColor = Color.White
+                            )
+                        ) {
+                            Icon(
+                                imageVector = if (uiState.isBriefingAudioPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                                contentDescription = "Play Briefing"
+                            )
+                        }
                     }
                 }
 
                 Spacer(modifier = Modifier.height(10.dp))
 
                 Text(
-                    text = "You have 3 meetings today. A conflict was resolved at 2:00 PM by proposing 3:30 PM for Strategy Sync. Client follow-up email draft is waiting for your approval.",
+                    text = if (uiState.meetings.isNotEmpty()) {
+                        "You have ${uiState.meetings.size} meetings scheduled today across your connected calendars."
+                    } else {
+                        "Your upcoming meetings and attendee context will appear here once your Google Calendar is connected."
+                    },
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -99,13 +110,49 @@ fun BriefingScreen(viewModel: BriefingViewModel) {
             Text(
                 text = "SCHEDULE & MEETINGS (${uiState.meetings.size})",
                 style = MaterialTheme.typography.labelSmall,
-                color = ContrilBlue,
-                modifier = Modifier.padding(top = 8.dp)
+                color = ContrilBlue
             )
         }
 
-        items(uiState.meetings) { meeting ->
-            MeetingRowItem(meeting = meeting)
+        if (uiState.meetings.isEmpty()) {
+            item {
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = MaterialTheme.colorScheme.surface,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .padding(24.dp)
+                            .fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.DateRange,
+                            contentDescription = null,
+                            tint = ContrilBlue,
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Text(
+                            text = "No upcoming meetings",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "Connect Google Calendar to bring your schedule into Contril.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        )
+                    }
+                }
+            }
+        } else {
+            items(uiState.meetings) { meeting ->
+                MeetingRowItem(meeting = meeting)
+            }
         }
     }
 }

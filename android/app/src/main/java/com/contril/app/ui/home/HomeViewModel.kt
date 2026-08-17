@@ -2,7 +2,7 @@ package com.contril.app.ui.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.contril.app.data.local.DemoDataProvider
+import com.contril.app.data.local.ContrilDefaults
 import com.contril.app.data.model.*
 import com.contril.app.data.repository.ContrilRepository
 import com.contril.app.data.repository.PreferenceRepository
@@ -12,10 +12,12 @@ import kotlinx.coroutines.launch
 data class HomeUiState(
     val commandText: String = "",
     val isLoading: Boolean = false,
-    val suggestedPrompts: List<String> = DemoDataProvider.getSuggestedPrompts(),
+    val suggestedPrompts: List<String> = ContrilDefaults.getSuggestedPrompts(),
     val priorities: List<PriorityItem> = emptyList(),
     val pendingActions: List<PendingAction> = emptyList(),
-    val latestResponse: CommandResponse? = null
+    val latestResponse: CommandResponse? = null,
+    val currentUser: UserProfile? = null,
+    val connectedServicesCount: Int = 0
 )
 
 class HomeViewModel(
@@ -27,6 +29,16 @@ class HomeViewModel(
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
     init {
+        viewModelScope.launch {
+            prefRepository?.currentUser?.collect { user ->
+                _uiState.update { it.copy(currentUser = user) }
+            }
+        }
+        viewModelScope.launch {
+            prefRepository?.connectedServices?.collect { map ->
+                _uiState.update { it.copy(connectedServicesCount = map.size) }
+            }
+        }
         viewModelScope.launch {
             repository.priorities.collect { items ->
                 _uiState.update { it.copy(priorities = items) }
@@ -51,7 +63,8 @@ class HomeViewModel(
 
         viewModelScope.launch {
             val autonomy = prefRepository?.autonomyMode?.value ?: AutonomyMode.SENSITIVE_ONLY
-            val response = repository.executeCommand(prompt, autonomy)
+            val connected = prefRepository?.connectedServices?.value ?: emptyMap()
+            val response = repository.executeCommand(prompt, autonomy, connected)
             _uiState.update {
                 it.copy(
                     isLoading = false,
@@ -59,6 +72,10 @@ class HomeViewModel(
                 )
             }
         }
+    }
+
+    fun dismissResponse() {
+        _uiState.update { it.copy(latestResponse = null) }
     }
 
     fun approveAction(actionId: String) {
