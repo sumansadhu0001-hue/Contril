@@ -215,9 +215,12 @@ class AuthViewModel(
         }
 
         viewModelScope.launch {
-            // Dispatches 4-Digit OTP via Resend exclusively (no Supabase confirmation links)
-            val resendResult = SupabaseAuthClient.sendResendOtp(email, isRecovery = false)
-            try { repository.sendOtp(email, isRecovery = false) } catch (_: Throwable) {}
+            // Dispatches 4-Digit OTP via Resend directly
+            val resendResult = com.contril.app.data.api.ResendClient.send4DigitOtp(email, isRecovery = false)
+            if (resendResult.isFailure) {
+                // Secondary backup attempt via SupabaseAuthClient
+                SupabaseAuthClient.sendResendOtp(email, isRecovery = false)
+            }
 
             _uiState.update {
                 it.copy(
@@ -252,7 +255,38 @@ class AuthViewModel(
         }
 
         viewModelScope.launch {
-            // 1. Verify 4-Digit OTP via Resend Auth Service
+            // 1. Direct verify against 4-digit ResendClient
+            val localResult = com.contril.app.data.api.ResendClient.verify4DigitOtp(email, code)
+            if (localResult.isSuccess) {
+                if (state.isPasswordResetMode) {
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            mode = AuthMode.RESET_PASSWORD,
+                            successMessage = "Code verified. Please set your new password."
+                        )
+                    }
+                } else {
+                    val user = UserProfile(
+                        id = "usr_${System.currentTimeMillis()}",
+                        email = email,
+                        name = if (state.fullName.isNotBlank()) state.fullName else email.substringBefore("@")
+                    )
+                    val token = "token_${System.currentTimeMillis()}"
+                    prefRepository.saveUserSession(token, user)
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            authenticatedUser = user,
+                            authenticatedToken = token,
+                            mode = AuthMode.ONBOARDING_ROLE
+                        )
+                    }
+                }
+                return@launch
+            }
+
+            // 2. Fallback to Netlify function verification
             val resendResult = SupabaseAuthClient.verifyResendOtp(email, code)
             if (resendResult.success && resendResult.user != null) {
                 val user = resendResult.user.copy(
@@ -271,7 +305,7 @@ class AuthViewModel(
                 return@launch
             }
 
-            // 2. Fallback to repository OTP verification
+            // 3. Fallback to repository OTP verification
             val verifyType = if (state.isPasswordResetMode) "recovery" else "signup"
             val customResult = repository.verifyOtp(email, code, verifyType)
             if (customResult.success && customResult.user != null) {
@@ -297,7 +331,7 @@ class AuthViewModel(
                     )
                 }
             } else {
-                val err = resendResult.error ?: customResult.error ?: "That code isn't correct. Try again."
+                val err = localResult.exceptionOrNull()?.message ?: resendResult.error ?: "That code isn't correct. Try again."
                 _uiState.update {
                     it.copy(
                         isLoading = false,
@@ -321,8 +355,7 @@ class AuthViewModel(
         }
 
         viewModelScope.launch {
-            SupabaseAuthClient.sendResendOtp(state.email.trim(), isRecovery = state.isPasswordResetMode)
-            try { repository.resendOtp(state.email.trim(), state.isPasswordResetMode) } catch (_: Throwable) {}
+            com.contril.app.data.api.ResendClient.send4DigitOtp(state.email.trim(), isRecovery = state.isPasswordResetMode)
             _uiState.update {
                 it.copy(
                     isLoading = false,
@@ -352,8 +385,7 @@ class AuthViewModel(
         }
 
         viewModelScope.launch {
-            SupabaseAuthClient.sendResendOtp(email, isRecovery = true)
-            try { repository.forgotPassword(email) } catch (_: Throwable) {}
+            com.contril.app.data.api.ResendClient.send4DigitOtp(email, isRecovery = true)
             _uiState.update {
                 it.copy(
                     isLoading = false,
