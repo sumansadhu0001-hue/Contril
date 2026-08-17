@@ -32,57 +32,22 @@ export const DownloadView: React.FC<DownloadViewProps> = ({
     <div className="relative w-full min-h-screen text-left font-sans text-[#07152F] overflow-x-hidden selection:bg-blue-500 selection:text-white">
       
       {/* =========================================================================
-          DEDICATED MULTI-LAYER ATMOSPHERIC BACKGROUND (Matches Reference Screenshot)
+          DEDICATED MULTI-LAYER ATMOSPHERIC BACKGROUND (Exact Visual Specification)
           ========================================================================= */}
       <div 
         className="fixed inset-0 pointer-events-none overflow-hidden select-none -z-10"
         style={{
-          background: 'linear-gradient(180deg, #D4E5FA 0%, #DCEBFA 30%, #E7F1FD 60%, #F4F8FE 100%)'
+          backgroundColor: '#EAF3FF',
+          backgroundImage: `
+            radial-gradient(ellipse 70% 65% at 8% 5%, rgba(129, 151, 255, 0.55) 0%, rgba(129, 151, 255, 0.25) 35%, transparent 72%),
+            radial-gradient(ellipse 65% 60% at 92% 8%, rgba(91, 196, 255, 0.48) 0%, rgba(91, 196, 255, 0.22) 38%, transparent 75%),
+            radial-gradient(ellipse 55% 50% at 50% 35%, rgba(255, 255, 255, 0.95) 0%, rgba(239, 247, 255, 0.70) 42%, transparent 78%),
+            radial-gradient(ellipse 50% 55% at 0% 48%, rgba(115, 142, 255, 0.32) 0%, transparent 72%),
+            radial-gradient(ellipse 50% 55% at 100% 48%, rgba(71, 183, 255, 0.30) 0%, transparent 72%),
+            linear-gradient(to bottom, transparent 65%, rgba(248, 251, 255, 0.75) 100%)
+          `
         }}
-      >
-        {/* Layer 1: Top-Left Large Soft Lavender/Periwinkle Bloom */}
-        <div 
-          className="absolute -top-[120px] -left-[100px] w-[950px] sm:w-[1200px] h-[900px] sm:h-[1100px] rounded-full blur-[100px] sm:blur-[140px] opacity-90"
-          style={{
-            background: 'radial-gradient(circle at 35% 35%, #BACFF6 0%, #CCDDFC 35%, rgba(215, 230, 255, 0.4) 60%, transparent 80%)'
-          }}
-        />
-
-        {/* Layer 2: Top-Right Large Soft Sky-Cyan Bloom */}
-        <div 
-          className="absolute -top-[100px] -right-[100px] w-[950px] sm:w-[1200px] h-[900px] sm:h-[1100px] rounded-full blur-[100px] sm:blur-[140px] opacity-90"
-          style={{
-            background: 'radial-gradient(circle at 65% 35%, #9FD3FA 0%, #C4E4FD 35%, rgba(210, 235, 255, 0.4) 60%, transparent 80%)'
-          }}
-        />
-
-        {/* Layer 3: Upper-Center Atmospheric Halo (Positioned above & around the hero) */}
-        <div 
-          className="absolute top-[-80px] left-1/2 -translate-x-1/2 w-[1100px] sm:w-[1400px] h-[650px] rounded-full blur-[80px] sm:blur-[110px] opacity-80"
-          style={{
-            background: 'radial-gradient(ellipse at 50% 30%, #CEE1FA 0%, #DFECFD 40%, rgba(230, 242, 255, 0.3) 65%, transparent 80%)'
-          }}
-        />
-
-        {/* Layer 4: Center Luminous Soft Light Field (Behind typography for crisp contrast) */}
-        <div 
-          className="absolute top-[80px] sm:top-[120px] left-1/2 -translate-x-1/2 w-[850px] sm:w-[1100px] h-[480px] rounded-full blur-[50px] sm:blur-[70px] opacity-90"
-          style={{
-            background: 'radial-gradient(ellipse at 50% 45%, #F4F8FE 0%, rgba(240, 247, 254, 0.75) 45%, transparent 75%)'
-          }}
-        />
-
-        {/* Layer 5: Platform Section Atmospheric Bridge */}
-        <div 
-          className="absolute top-[680px] sm:top-[720px] left-1/2 -translate-x-1/2 w-[1200px] sm:w-[1500px] h-[750px] rounded-full blur-[100px] sm:blur-[140px] opacity-75"
-          style={{
-            background: 'radial-gradient(ellipse at 50% 50%, #C9DFF9 0%, #E0EEFE 40%, rgba(235, 245, 255, 0.3) 65%, transparent 80%)'
-          }}
-        />
-
-        {/* Layer 6: Lower Gentle White Canvas Fade */}
-        <div className="absolute inset-x-0 bottom-0 h-[380px] bg-gradient-to-b from-transparent via-[#F4F8FE]/60 to-[#F6FAFE]" />
-      </div>
+      />
 
       {/* =========================================================================
           DOWNLOAD PAGE CONTENT
