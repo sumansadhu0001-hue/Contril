@@ -7,9 +7,9 @@ export function hashOtp(otp: string): string {
   return crypto.createHash('sha256').update(otp).digest('hex');
 }
 
-// Generate cryptographically secure 6-digit random OTP
+// Generate cryptographically secure 4-digit random OTP
 export function generateOtp(): string {
-  const num = crypto.randomInt(100000, 1000000);
+  const num = crypto.randomInt(1000, 10000);
   return num.toString();
 }
 

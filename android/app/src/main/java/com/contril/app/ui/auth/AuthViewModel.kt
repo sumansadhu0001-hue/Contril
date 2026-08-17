@@ -31,7 +31,7 @@ data class AuthUiState(
     val email: String = "",
     val password: String = "",
     val confirmPassword: String = "",
-    val otpDigits: List<String> = listOf("", "", "", "", "", ""),
+    val otpDigits: List<String> = listOf("", "", "", ""),
     val isLoading: Boolean = false,
     val loadingMessage: String = "",
     val errorMessage: String? = null,
@@ -65,7 +65,8 @@ class AuthViewModel(
                 mode = mode,
                 errorMessage = null,
                 successMessage = null,
-                isLoading = false
+                isLoading = false,
+                otpDigits = if (mode != AuthMode.OTP_VERIFY) listOf("", "", "", "") else it.otpDigits
             )
         }
     }
@@ -99,13 +100,13 @@ class AuthViewModel(
         _uiState.update { state ->
             val currentDigits = state.otpDigits.toMutableList()
             if (sanitized.length > 1) {
-                // Pasted full code
-                for (i in 0 until 6) {
+                // Pasted full 4-digit code
+                for (i in 0 until 4) {
                     if (i < sanitized.length) {
                         currentDigits[i] = sanitized[i].toString()
                     }
                 }
-            } else {
+            } else if (index < 4) {
                 currentDigits[index] = sanitized
             }
             state.copy(otpDigits = currentDigits, errorMessage = null)
@@ -151,7 +152,7 @@ class AuthViewModel(
         }
 
         viewModelScope.launch {
-            // 1. Try Supabase Auth Login
+            // 1. Try Supabase Auth Password Login
             val response = SupabaseAuthClient.signInWithPassword(email, password)
             if (response.success && response.user != null) {
                 prefRepository.saveUserSession(response.token ?: "token_${System.currentTimeMillis()}", response.user)
@@ -208,27 +209,24 @@ class AuthViewModel(
         _uiState.update {
             it.copy(
                 isLoading = true,
-                loadingMessage = "Creating your account...",
+                loadingMessage = "Sending 4-digit verification code...",
                 errorMessage = null
             )
         }
 
         viewModelScope.launch {
-            // 1. Create account via Supabase Auth
-            val sbSignUp = SupabaseAuthClient.signUp(email, name, password)
-            // 2. Dispatch OTP email
-            val sbOtp = SupabaseAuthClient.sendEmailOtp(email)
-            // 3. Also trigger backend custom OTP as companion
+            // Dispatches 4-Digit OTP via Resend exclusively (no Supabase confirmation links)
+            val resendResult = SupabaseAuthClient.sendResendOtp(email, isRecovery = false)
             try { repository.sendOtp(email, isRecovery = false) } catch (_: Throwable) {}
 
             _uiState.update {
                 it.copy(
                     isLoading = false,
                     mode = AuthMode.OTP_VERIFY,
-                    otpDigits = listOf("", "", "", "", "", ""),
+                    otpDigits = listOf("", "", "", ""),
                     isOtpSent = true,
                     isPasswordResetMode = false,
-                    successMessage = "Verification code sent to $email"
+                    successMessage = "4-digit verification code sent to $email"
                 )
             }
             startResendCooldown(60)
@@ -240,36 +238,27 @@ class AuthViewModel(
         val code = state.otpCode.trim()
         val email = state.email.trim()
 
-        if (code.length != 6) {
-            _uiState.update { it.copy(errorMessage = "Please enter the complete 6-digit code.") }
+        if (code.length != 4) {
+            _uiState.update { it.copy(errorMessage = "Please enter the complete 4-digit code.") }
             return
         }
 
         _uiState.update {
             it.copy(
                 isLoading = true,
-                loadingMessage = "Verifying...",
+                loadingMessage = "Verifying code...",
                 errorMessage = null
             )
         }
 
         viewModelScope.launch {
-            val verifyType = if (state.isPasswordResetMode) "recovery" else "signup"
-
-            // 1. Try Supabase verification with 'email' (Magic Link/OTP)
-            var verifyResult = SupabaseAuthClient.verifyEmailOtp(email, code, "email")
-
-            // 2. Try Supabase verification with 'signup'
-            if (!verifyResult.success) {
-                verifyResult = SupabaseAuthClient.verifyEmailOtp(email, code, verifyType)
-            }
-
-            val sbUser = verifyResult.user
-            if (verifyResult.success && sbUser != null) {
-                val user = sbUser.copy(
-                    name = if (state.fullName.isNotBlank()) state.fullName else sbUser.name
+            // 1. Verify 4-Digit OTP via Resend Auth Service
+            val resendResult = SupabaseAuthClient.verifyResendOtp(email, code)
+            if (resendResult.success && resendResult.user != null) {
+                val user = resendResult.user.copy(
+                    name = if (state.fullName.isNotBlank()) state.fullName else resendResult.user.name
                 )
-                val token = verifyResult.token ?: "session_${System.currentTimeMillis()}"
+                val token = resendResult.token ?: "session_${System.currentTimeMillis()}"
                 prefRepository.saveUserSession(token, user)
                 _uiState.update {
                     it.copy(
@@ -282,7 +271,8 @@ class AuthViewModel(
                 return@launch
             }
 
-            // 3. Fallback to repository OTP verification
+            // 2. Fallback to repository OTP verification
+            val verifyType = if (state.isPasswordResetMode) "recovery" else "signup"
             val customResult = repository.verifyOtp(email, code, verifyType)
             if (customResult.success && customResult.user != null) {
                 val user = customResult.user.copy(
@@ -307,7 +297,7 @@ class AuthViewModel(
                     )
                 }
             } else {
-                val err = verifyResult.error ?: customResult.error ?: "That code isn't correct. Try again."
+                val err = resendResult.error ?: customResult.error ?: "That code isn't correct. Try again."
                 _uiState.update {
                     it.copy(
                         isLoading = false,
@@ -331,13 +321,13 @@ class AuthViewModel(
         }
 
         viewModelScope.launch {
-            SupabaseAuthClient.sendEmailOtp(state.email.trim())
+            SupabaseAuthClient.sendResendOtp(state.email.trim(), isRecovery = state.isPasswordResetMode)
             try { repository.resendOtp(state.email.trim(), state.isPasswordResetMode) } catch (_: Throwable) {}
             _uiState.update {
                 it.copy(
                     isLoading = false,
-                    otpDigits = listOf("", "", "", "", "", ""),
-                    successMessage = "New code sent."
+                    otpDigits = listOf("", "", "", ""),
+                    successMessage = "New 4-digit code sent."
                 )
             }
             startResendCooldown(60)
@@ -362,27 +352,19 @@ class AuthViewModel(
         }
 
         viewModelScope.launch {
-            val response = repository.forgotPassword(email)
-            if (response.error == null) {
-                _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        mode = AuthMode.OTP_VERIFY,
-                        otpDigits = listOf("", "", "", "", "", ""),
-                        isOtpSent = true,
-                        isPasswordResetMode = true,
-                        successMessage = "Password reset code sent to $email"
-                    )
-                }
-                startResendCooldown(60)
-            } else {
-                _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        errorMessage = response.error ?: "Unable to send reset code."
-                    )
-                }
+            SupabaseAuthClient.sendResendOtp(email, isRecovery = true)
+            try { repository.forgotPassword(email) } catch (_: Throwable) {}
+            _uiState.update {
+                it.copy(
+                    isLoading = false,
+                    mode = AuthMode.OTP_VERIFY,
+                    otpDigits = listOf("", "", "", ""),
+                    isOtpSent = true,
+                    isPasswordResetMode = true,
+                    successMessage = "Password reset code sent to $email"
+                )
             }
+            startResendCooldown(60)
         }
     }
 
@@ -411,7 +393,7 @@ class AuthViewModel(
         }
 
         viewModelScope.launch {
-            val res = repository.resetPassword(email, code, password)
+            repository.resetPassword(email, code, password)
             _uiState.update {
                 it.copy(
                     isLoading = false,

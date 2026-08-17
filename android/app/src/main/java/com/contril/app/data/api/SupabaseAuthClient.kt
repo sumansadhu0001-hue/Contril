@@ -204,17 +204,15 @@ object SupabaseAuthClient {
         }
     }
 
-    suspend fun verifyEmailOtp(email: String, token: String, type: String = "signup"): AuthResult = withContext(Dispatchers.IO) {
+    suspend fun sendResendOtp(email: String, isRecovery: Boolean = false): AuthResult = withContext(Dispatchers.IO) {
         try {
             val jsonBody = JSONObject().apply {
-                put("type", type)
                 put("email", email.trim())
-                put("token", token.trim())
+                put("isRecovery", isRecovery)
             }
 
             val request = Request.Builder()
-                .url("$SUPABASE_URL/auth/v1/verify")
-                .header("apikey", SUPABASE_ANON_KEY)
+                .url("https://contril.netlify.app/.netlify/functions/auth-otp")
                 .header("Content-Type", "application/json")
                 .post(jsonBody.toString().toRequestBody(jsonMediaType))
                 .build()
@@ -224,33 +222,61 @@ object SupabaseAuthClient {
 
             if (!response.isSuccessful) {
                 val errMsg = try {
-                    val errJson = JSONObject(resBody)
-                    errJson.optString("error_description", errJson.optString("msg", "Invalid or expired code."))
+                    JSONObject(resBody).optString("error", "Failed to send code via Resend.")
                 } catch (_: Exception) {
-                    "Invalid or expired code."
+                    "Failed to send code via Resend."
+                }
+                return@withContext AuthResult(success = false, error = errMsg)
+            }
+
+            AuthResult(success = true)
+        } catch (e: Exception) {
+            Log.e("SupabaseAuth", "sendResendOtp error", e)
+            AuthResult(success = false, error = e.message ?: "Unable to send verification code.")
+        }
+    }
+
+    suspend fun verifyResendOtp(email: String, code: String): AuthResult = withContext(Dispatchers.IO) {
+        try {
+            val jsonBody = JSONObject().apply {
+                put("email", email.trim())
+                put("code", code.trim())
+            }
+
+            val request = Request.Builder()
+                .url("https://contril.netlify.app/.netlify/functions/auth-otp")
+                .header("Content-Type", "application/json")
+                .post(jsonBody.toString().toRequestBody(jsonMediaType))
+                .build()
+
+            val response = httpClient.newCall(request).execute()
+            val resBody = response.body?.string() ?: ""
+
+            if (!response.isSuccessful) {
+                val errMsg = try {
+                    JSONObject(resBody).optString("error", "That code isn't correct. Try again.")
+                } catch (_: Exception) {
+                    "That code isn't correct. Try again."
                 }
                 return@withContext AuthResult(success = false, error = errMsg)
             }
 
             val json = JSONObject(resBody)
-            val accessToken = json.optString("access_token", null)
             val userObj = json.optJSONObject("user")
+            val token = json.optString("token", "token_${System.currentTimeMillis()}")
             val userId = userObj?.optString("id", "usr_${System.currentTimeMillis()}") ?: "usr_${System.currentTimeMillis()}"
             val userEmail = userObj?.optString("email", email) ?: email
-            val metadata = userObj?.optJSONObject("user_metadata")
-            val fullName = metadata?.optString("full_name", metadata.optString("name", "")) ?: ""
-            val avatarUrl = metadata?.optString("avatar_url", metadata.optString("picture", ""))
+            val userName = userObj?.optString("name", email.substringBefore("@")) ?: email.substringBefore("@")
 
             val profile = UserProfile(
                 id = userId,
                 email = userEmail,
-                name = fullName.ifBlank { userEmail.substringBefore("@") },
-                avatarUrl = avatarUrl?.takeIf { it.isNotBlank() }
+                name = userName
             )
 
-            AuthResult(success = true, token = accessToken, user = profile)
+            AuthResult(success = true, token = token, user = profile)
         } catch (e: Exception) {
-            Log.e("SupabaseAuth", "verifyEmailOtp error", e)
+            Log.e("SupabaseAuth", "verifyResendOtp error", e)
             AuthResult(success = false, error = e.message ?: "Verification error.")
         }
     }

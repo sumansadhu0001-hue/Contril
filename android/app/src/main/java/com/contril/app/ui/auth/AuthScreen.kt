@@ -66,8 +66,8 @@ fun AuthScreen(
     var confirmPasswordVisible by remember { mutableStateOf(false) }
     var showOAuthDialog by remember { mutableStateOf(false) }
 
-    // Focus requesters for 6 OTP digit boxes
-    val focusRequesters = remember { List(6) { FocusRequester() } }
+    // Focus requesters for 4 OTP digit boxes
+    val focusRequesters = remember { List(4) { FocusRequester() } }
 
     Box(
         modifier = Modifier
@@ -552,7 +552,7 @@ fun AuthScreen(
                         }
 
                         // ----------------------------------------------------
-                        // MODE: OTP VERIFICATION (6 Individual Cells UX)
+                        // MODE: OTP VERIFICATION (4 Individual Cells UX)
                         // ----------------------------------------------------
                         AuthMode.OTP_VERIFY -> {
                             val maskedEmail = uiState.email.let { em ->
@@ -573,20 +573,20 @@ fun AuthScreen(
                             )
 
                             Text(
-                                text = "We've sent a 6-digit verification code to:\n$maskedEmail",
+                                text = "We've sent a 4-digit verification code to:\n$maskedEmail",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 textAlign = TextAlign.Center,
-                                modifier = Modifier.padding(top = 4.dp, bottom = 20.dp)
+                                modifier = Modifier.padding(top = 4.dp, bottom = 22.dp)
                             )
 
-                            // 6 Individual OTP Boxes
+                            // 4 Individual OTP Boxes
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                for (i in 0 until 6) {
+                                for (i in 0 until 4) {
                                     val digit = uiState.otpDigits.getOrElse(i) { "" }
                                     OutlinedTextField(
                                         value = digit,
@@ -598,30 +598,30 @@ fun AuthScreen(
                                                     if (uiState.otpDigits.all { it.isNotBlank() }) {
                                                         viewModel.verifyOtp(onSuccess = onAuthSuccess)
                                                     }
-                                                } else if (i < 5) {
+                                                } else if (i < 3) {
                                                     focusRequesters[i + 1].requestFocus()
                                                 } else {
-                                                    // 6th digit entered -> auto-verify
+                                                    // 4th digit entered -> auto-verify
                                                     viewModel.verifyOtp(onSuccess = onAuthSuccess)
                                                 }
                                             }
                                         },
                                         singleLine = true,
-                                        textStyle = MaterialTheme.typography.titleLarge.copy(
+                                        textStyle = MaterialTheme.typography.headlineSmall.copy(
                                             textAlign = TextAlign.Center,
                                             fontWeight = FontWeight.Bold,
                                             color = ContrilBlue
                                         ),
                                         keyboardOptions = KeyboardOptions(
                                             keyboardType = KeyboardType.Number,
-                                            imeAction = if (i == 5) ImeAction.Done else ImeAction.Next
+                                            imeAction = if (i == 3) ImeAction.Done else ImeAction.Next
                                         ),
                                         keyboardActions = KeyboardActions(
                                             onDone = { viewModel.verifyOtp(onSuccess = onAuthSuccess) }
                                         ),
                                         modifier = Modifier
                                             .weight(1f)
-                                            .height(58.dp)
+                                            .height(64.dp)
                                             .focusRequester(focusRequesters[i])
                                             .onKeyEvent { event ->
                                                 if (event.key == Key.Backspace && digit.isEmpty() && i > 0) {
@@ -629,7 +629,7 @@ fun AuthScreen(
                                                     true
                                                 } else false
                                             },
-                                        shape = RoundedCornerShape(12.dp)
+                                        shape = RoundedCornerShape(14.dp)
                                     )
                                 }
                             }
@@ -672,7 +672,7 @@ fun AuthScreen(
                             // Verify Email Button
                             Button(
                                 onClick = { viewModel.verifyOtp(onSuccess = onAuthSuccess) },
-                                enabled = !uiState.isLoading && uiState.otpDigits.all { it.isNotBlank() },
+                                enabled = !uiState.isLoading && uiState.otpDigits.size == 4 && uiState.otpDigits.all { it.isNotBlank() },
                                 shape = RoundedCornerShape(14.dp),
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = ContrilBlue,
