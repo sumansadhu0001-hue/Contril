@@ -10,12 +10,18 @@ import com.contril.app.data.repository.PreferenceRepository
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
+sealed class BriefingContentState {
+    object Disconnected : BriefingContentState()
+    object Loading : BriefingContentState()
+    data class Error(val message: String) : BriefingContentState()
+    object SuccessEmpty : BriefingContentState()
+    data class SuccessWithData(val meetings: List<MeetingItem>) : BriefingContentState()
+}
+
 data class BriefingUiState(
     val isCalendarConnected: Boolean = false,
-    val meetings: List<MeetingItem> = emptyList(),
-    val isBriefingAudioPlaying: Boolean = false,
-    val isLoading: Boolean = false,
-    val errorMessage: String? = null
+    val contentState: BriefingContentState = BriefingContentState.Disconnected,
+    val isBriefingAudioPlaying: Boolean = false
 )
 
 class BriefingViewModel(
@@ -31,12 +37,15 @@ class BriefingViewModel(
         viewModelScope.launch {
             prefRepository.connectedServices.collect { services ->
                 val isConnected = services.containsKey("calendar") || services.containsKey("google_workspace")
-                _uiState.update { it.copy(isCalendarConnected = isConnected) }
+                _uiState.update {
+                    it.copy(
+                        isCalendarConnected = isConnected,
+                        contentState = if (isConnected) BriefingContentState.Loading else BriefingContentState.Disconnected
+                    )
+                }
 
                 if (isConnected) {
                     loadLiveCalendar()
-                } else {
-                    _uiState.update { it.copy(meetings = emptyList()) }
                 }
             }
         }
@@ -45,22 +54,23 @@ class BriefingViewModel(
     fun loadLiveCalendar() {
         val token = prefRepository.userSessionToken.value ?: return
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+            _uiState.update { it.copy(contentState = BriefingContentState.Loading) }
             when (val result = backendClient.fetchCalendarEvents(token)) {
                 is ApiResult.Success -> {
                     _uiState.update {
                         it.copy(
-                            isLoading = false,
-                            meetings = result.data,
-                            errorMessage = null
+                            contentState = if (result.data.isEmpty()) {
+                                BriefingContentState.SuccessEmpty
+                            } else {
+                                BriefingContentState.SuccessWithData(result.data)
+                            }
                         )
                     }
                 }
                 is ApiResult.Error -> {
                     _uiState.update {
                         it.copy(
-                            isLoading = false,
-                            errorMessage = result.message
+                            contentState = BriefingContentState.Error(result.message)
                         )
                     }
                 }

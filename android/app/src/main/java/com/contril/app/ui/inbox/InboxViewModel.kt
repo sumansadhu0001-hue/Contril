@@ -17,19 +17,25 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.UUID
 
+sealed class InboxContentState {
+    object Disconnected : InboxContentState()
+    object Loading : InboxContentState()
+    data class Error(val message: String) : InboxContentState()
+    object SuccessEmpty : InboxContentState()
+    data class SuccessWithData(val emails: List<EmailSummary>) : InboxContentState()
+}
+
 data class InboxUiState(
     val isGmailConnected: Boolean = false,
     val connectedEmail: String? = null,
-    val emails: List<EmailSummary> = emptyList(),
+    val contentState: InboxContentState = InboxContentState.Disconnected,
     val isRefreshing: Boolean = false,
-    val isLoading: Boolean = false,
     val isComposing: Boolean = false,
     val composeTo: String = "",
     val composeSubject: String = "",
     val composeBody: String = "",
     val activePendingAction: PendingAction? = null,
     val statusMessage: String? = null,
-    val errorMessage: String? = null,
     val threadSummaryModal: String? = null
 )
 
@@ -52,14 +58,13 @@ class InboxViewModel(
                 _uiState.update {
                     it.copy(
                         isGmailConnected = isConnected,
-                        connectedEmail = if (isConnected) activeEmail else null
+                        connectedEmail = if (isConnected) activeEmail else null,
+                        contentState = if (isConnected) InboxContentState.Loading else InboxContentState.Disconnected
                     )
                 }
 
                 if (isConnected) {
                     loadLiveInbox()
-                } else {
-                    _uiState.update { it.copy(emails = emptyList()) }
                 }
             }
         }
@@ -68,22 +73,23 @@ class InboxViewModel(
     fun loadLiveInbox() {
         val token = prefRepository.userSessionToken.value ?: return
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+            _uiState.update { it.copy(contentState = InboxContentState.Loading) }
             when (val result = backendClient.fetchGmailInbox(token)) {
                 is ApiResult.Success -> {
                     _uiState.update {
                         it.copy(
-                            isLoading = false,
-                            emails = result.data,
-                            errorMessage = null
+                            contentState = if (result.data.isEmpty()) {
+                                InboxContentState.SuccessEmpty
+                            } else {
+                                InboxContentState.SuccessWithData(result.data)
+                            }
                         )
                     }
                 }
                 is ApiResult.Error -> {
                     _uiState.update {
                         it.copy(
-                            isLoading = false,
-                            errorMessage = result.message
+                            contentState = InboxContentState.Error(result.message)
                         )
                     }
                 }
@@ -98,14 +104,17 @@ class InboxViewModel(
             return
         }
         viewModelScope.launch {
-            _uiState.update { it.copy(isRefreshing = true, errorMessage = null) }
+            _uiState.update { it.copy(isRefreshing = true) }
             when (val result = backendClient.fetchGmailInbox(token)) {
                 is ApiResult.Success -> {
                     _uiState.update {
                         it.copy(
                             isRefreshing = false,
-                            emails = result.data,
-                            errorMessage = null,
+                            contentState = if (result.data.isEmpty()) {
+                                InboxContentState.SuccessEmpty
+                            } else {
+                                InboxContentState.SuccessWithData(result.data)
+                            },
                             statusMessage = "✓ Inbox synced with Gmail."
                         )
                     }
@@ -114,7 +123,7 @@ class InboxViewModel(
                     _uiState.update {
                         it.copy(
                             isRefreshing = false,
-                            errorMessage = result.message
+                            contentState = InboxContentState.Error(result.message)
                         )
                     }
                 }
@@ -138,54 +147,24 @@ class InboxViewModel(
         _uiState.update {
             it.copy(
                 isComposing = isComposing,
-                composeTo = if (!isComposing) "" else it.composeTo,
-                composeSubject = if (!isComposing) "" else it.composeSubject,
-                composeBody = if (!isComposing) "" else it.composeBody,
-                statusMessage = null
+                composeTo = if (isComposing) it.composeTo else "",
+                composeSubject = if (isComposing) it.composeSubject else "",
+                composeBody = if (isComposing) it.composeBody else ""
             )
         }
     }
 
-    fun prepareAiDraftReply(email: EmailSummary) {
-        viewModelScope.launch {
-            val draft = "Hi ${email.sender.substringBefore(" ")},\n\nThank you for reaching out regarding \"${email.subject}\". I have reviewed the details and will follow up shortly.\n\nBest regards,\nExecutive Team"
-            _uiState.update {
-                it.copy(
-                    isComposing = true,
-                    composeTo = email.sender,
-                    composeSubject = "Re: ${email.subject}",
-                    composeBody = draft,
-                    statusMessage = "AI draft prepared."
-                )
-            }
-        }
-    }
+    fun submitComposeForApproval() {
+        val to = _uiState.value.composeTo.trim()
+        val subject = _uiState.value.composeSubject.trim()
+        val body = _uiState.value.composeBody.trim()
 
-    fun summarizeThread(email: EmailSummary) {
-        viewModelScope.launch {
-            _uiState.update { it.copy(statusMessage = "Analyzing thread with Gemini AI...") }
-            val summary = GeminiClient.summarizeEmailThread(email.sender, email.subject, email.summarySnippet)
-            _uiState.update {
-                it.copy(
-                    threadSummaryModal = summary,
-                    statusMessage = null
-                )
-            }
-        }
-    }
+        if (to.isBlank() || subject.isBlank()) return
 
-    fun dismissSummaryModal() {
-        _uiState.update { it.copy(threadSummaryModal = null) }
-    }
-
-    fun submitDraftForApproval() {
-        val state = _uiState.value
-        if (state.composeTo.isBlank() || state.composeSubject.isBlank()) return
-
-        val pendingAction = PendingAction(
+        val action = PendingAction(
             id = "act_mail_${UUID.randomUUID().toString().take(6)}",
-            title = "Send Email to ${state.composeTo}",
-            description = "Subject: \"${state.composeSubject}\"\nBody: \"${state.composeBody.take(70)}...\"",
+            title = "Approve Sending Email: $subject",
+            description = "To: $to\n\n$body",
             targetService = "Gmail",
             consequenceLevel = "high",
             status = ActionStatus.PENDING_APPROVAL
@@ -193,31 +172,50 @@ class InboxViewModel(
 
         _uiState.update {
             it.copy(
-                activePendingAction = pendingAction,
+                activePendingAction = action,
                 isComposing = false
             )
         }
     }
 
     fun approveAction() {
-        _uiState.update {
-            it.copy(
-                activePendingAction = null,
-                statusMessage = "✓ Email sent successfully via Gmail."
-            )
+        val action = _uiState.value.activePendingAction ?: return
+        viewModelScope.launch {
+            repository.approveAction(action.id)
+            _uiState.update {
+                it.copy(
+                    activePendingAction = null,
+                    statusMessage = "✓ Email dispatched successfully via Gmail."
+                )
+            }
         }
     }
 
     fun dismissAction() {
-        _uiState.update {
-            it.copy(
-                activePendingAction = null,
-                statusMessage = "Email draft discarded."
-            )
+        val action = _uiState.value.activePendingAction ?: return
+        viewModelScope.launch {
+            repository.rejectAction(action.id)
+            _uiState.update { it.copy(activePendingAction = null) }
         }
     }
 
+    fun summarizeThread(email: EmailSummary) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(threadSummaryModal = "Generating executive briefing for \"${email.subject}\"...") }
+            val summary = GeminiClient.summarizeEmailThread(
+                sender = email.sender,
+                subject = email.subject,
+                snippet = email.summarySnippet
+            )
+            _uiState.update { it.copy(threadSummaryModal = summary) }
+        }
+    }
+
+    fun dismissThreadSummary() {
+        _uiState.update { it.copy(threadSummaryModal = null) }
+    }
+
     fun dismissStatus() {
-        _uiState.update { it.copy(statusMessage = null, errorMessage = null) }
+        _uiState.update { it.copy(statusMessage = null) }
     }
 }

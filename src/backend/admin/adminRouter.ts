@@ -363,4 +363,118 @@ router.post('/subscriptions/override-limits', async (req: Request, res: Response
   }
 });
 
+// 25. Subscription Manual Approval Endpoints (One-Click Verification Flow)
+router.get('/subscriptions/pending', async (req: Request, res: Response) => {
+  try {
+    const { data: requests, error } = await supabaseAdmin
+      .from('subscription_requests')
+      .select('*')
+      .eq('status', 'PENDING_APPROVAL')
+      .order('requested_at', { ascending: false });
+
+    if (error) {
+      // Fallback query against profiles
+      const { data: profileReqs } = await supabaseAdmin
+        .from('profiles')
+        .select('id, email, name, subscription_status, updated_at')
+        .eq('subscription_status', 'PENDING_APPROVAL');
+      return res.json({ success: true, pendingRequests: profileReqs || [] });
+    }
+
+    return res.json({ success: true, pendingRequests: requests || [] });
+  } catch (e: any) {
+    return res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+router.post('/subscriptions/approve', async (req: Request, res: Response) => {
+  try {
+    const { userId, email, requestId } = req.body;
+    if (!userId && !email && !requestId) {
+      return res.status(400).json({ success: false, error: 'userId, email, or requestId required' });
+    }
+
+    // 1. Update subscription_requests table if requestId or userId is provided
+    if (requestId) {
+      await supabaseAdmin
+        .from('subscription_requests')
+        .update({ status: 'APPROVED', approved_at: new Date().toISOString() })
+        .eq('id', requestId);
+    } else if (userId) {
+      await supabaseAdmin
+        .from('subscription_requests')
+        .update({ status: 'APPROVED', approved_at: new Date().toISOString() })
+        .eq('user_id', userId);
+    }
+
+    // 2. Activate Pro status in profiles table
+    let profileUpdateQuery = supabaseAdmin
+      .from('profiles')
+      .update({
+        is_paid: true,
+        plan: 'Pro',
+        subscription_status: 'ACTIVE_PRO',
+        updated_at: new Date().toISOString()
+      });
+
+    if (userId) {
+      profileUpdateQuery = profileUpdateQuery.eq('id', userId);
+    } else if (email) {
+      profileUpdateQuery = profileUpdateQuery.eq('email', email);
+    }
+
+    const { error: profileError } = await profileUpdateQuery;
+    if (profileError) throw profileError;
+
+    SecurityMiddleware.logSecurityEvent('SUBSCRIPTION_APPROVED', (req as any).user?.id || 'admin', {
+      targetUser: userId || email,
+      action: 'APPROVE_PRO_UPGRADE'
+    });
+
+    return res.json({
+      success: true,
+      message: `Pro subscription successfully approved and activated for ${userId || email}.`
+    });
+  } catch (e: any) {
+    return res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+router.post('/subscriptions/reject', async (req: Request, res: Response) => {
+  try {
+    const { userId, email, requestId, reason } = req.body;
+    if (!userId && !email && !requestId) {
+      return res.status(400).json({ success: false, error: 'userId, email, or requestId required' });
+    }
+
+    if (requestId) {
+      await supabaseAdmin
+        .from('subscription_requests')
+        .update({ status: 'REJECTED', rejection_reason: reason || 'Payment not verified' })
+        .eq('id', requestId);
+    }
+
+    let profileUpdateQuery = supabaseAdmin
+      .from('profiles')
+      .update({
+        is_paid: false,
+        subscription_status: 'REJECTED',
+        updated_at: new Date().toISOString()
+      });
+
+    if (userId) {
+      profileUpdateQuery = profileUpdateQuery.eq('id', userId);
+    } else if (email) {
+      profileUpdateQuery = profileUpdateQuery.eq('email', email);
+    }
+
+    await profileUpdateQuery;
+
+    return res.json({ success: true, message: `Subscription request rejected for ${userId || email}.` });
+  } catch (e: any) {
+    return res.status(500).json({ success: false, error: e.message });
+  }
+});
+
 export default router;
+

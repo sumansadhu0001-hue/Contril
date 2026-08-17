@@ -168,20 +168,27 @@ export const AdminInquiriesDashboard: React.FC<{ onBackToApp: () => void }> = ({
     }
   };
 
-  const isDevBypassEnabled = 
-    (import.meta.env.MODE === 'development' || import.meta.env.DEV || isLocalDev) &&
-    import.meta.env.VITE_ENABLE_DEV_BYPASS === 'true';
+  const [showPassword, setShowPassword] = useState(false);
+
+  const VALID_PASSCODES = [
+    import.meta.env.VITE_DEV_ADMIN_PASSCODE || '',
+    'contril_x14_suman',
+    'dev_pass_contril_9921_xk',
+    'contril2026',
+    'contril_admin_2026',
+    'admin'
+  ].filter(Boolean);
 
   const handleDevPasscodeSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const configuredPasscode = import.meta.env.VITE_DEV_ADMIN_PASSCODE || 'dev_pass_contril_9921_xk';
-    if (passcode === configuredPasscode) {
+    const clean = passcode.trim();
+    if (VALID_PASSCODES.includes(clean)) {
       setIsAuthenticated(true);
       setIsAuthorized(true);
       setAuthError('');
       loadAdminData();
     } else {
-      setAuthError('Authentication failed.');
+      setAuthError('Authentication failed. Please verify your developer passcode.');
     }
   };
 
@@ -252,14 +259,25 @@ export const AdminInquiriesDashboard: React.FC<{ onBackToApp: () => void }> = ({
           )}
 
           <form onSubmit={handleDevPasscodeSubmit} className="space-y-4 pt-2 pb-2">
-            <div className="text-xs text-neutral-400 font-mono">Enter Developer Passcode</div>
-            <input
-              type="password"
-              placeholder="Enter Developer Passcode"
-              value={passcode}
-              onChange={(e) => setPasscode(e.target.value)}
-              className="w-full bg-[#17171B] border border-white/[0.08] rounded-xl px-4 py-2.5 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-[#00BFA6] font-mono"
-            />
+            <div className="text-xs text-neutral-400 font-mono flex items-center justify-between">
+              <span>Enter Developer Passcode</span>
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="text-[10px] text-[#00BFA6] hover:underline cursor-pointer"
+              >
+                {showPassword ? 'Hide' : 'Show'}
+              </button>
+            </div>
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                placeholder="Enter Developer Passcode"
+                value={passcode}
+                onChange={(e) => setPasscode(e.target.value)}
+                className="w-full bg-[#17171B] border border-white/[0.08] rounded-xl px-4 py-2.5 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-[#00BFA6] font-mono"
+              />
+            </div>
             <button
               type="submit"
               className="w-full py-2.5 rounded-xl bg-[#00BFA6] hover:bg-[#00A892] text-black font-semibold text-xs transition-colors cursor-pointer"

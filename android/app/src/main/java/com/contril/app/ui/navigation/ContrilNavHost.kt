@@ -213,7 +213,7 @@ fun ContrilAppContent(
             composable(Screen.Briefing.route) {
                 BriefingScreen(
                     viewModel = briefingViewModel,
-                    onBack = { navController.popBackStack() }
+                    onNavigateToConnected = { navController.navigate(Screen.Integrations.route) }
                 )
             }
             composable(Screen.Inbox.route) {

@@ -1,8 +1,11 @@
 package com.contril.app.ui.home
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.contril.app.data.local.ContrilDefaults
+import com.contril.app.data.automation.AutomationAuditLog
+import com.contril.app.data.automation.ComparisonResult
+import com.contril.app.data.automation.PriceComparisonManager
 import com.contril.app.data.model.*
 import com.contril.app.data.repository.ContrilRepository
 import com.contril.app.data.repository.PreferenceRepository
@@ -12,6 +15,12 @@ import kotlinx.coroutines.launch
 data class HomeUiState(
     val commandText: String = "",
     val isLoading: Boolean = false,
+    val isComparingPrices: Boolean = false,
+    val comparisonStatus: String? = null,
+    val comparisonResult: ComparisonResult? = null,
+    val showConsentModal: Boolean = false,
+    val showAuditModal: Boolean = false,
+    val auditLogs: List<AutomationAuditLog> = emptyList(),
     val suggestedPrompts: List<String> = emptyList(),
     val priorities: List<PriorityItem> = emptyList(),
     val pendingActions: List<PendingAction> = emptyList(),
@@ -24,11 +33,14 @@ data class HomeUiState(
 
 class HomeViewModel(
     private val repository: ContrilRepository = ContrilRepository(),
-    private val prefRepository: PreferenceRepository? = null
+    private val prefRepository: PreferenceRepository? = null,
+    val comparisonManager: PriceComparisonManager = PriceComparisonManager(prefRepository)
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
+
+    private var pendingComparisonPrompt: String? = null
 
     init {
         viewModelScope.launch {
@@ -42,8 +54,29 @@ class HomeViewModel(
             }
         }
         viewModelScope.launch {
+            comparisonManager.isComparing.collect { comparing ->
+                _uiState.update { it.copy(isComparingPrices = comparing) }
+            }
+        }
+        viewModelScope.launch {
+            comparisonManager.statusText.collect { status ->
+                _uiState.update { it.copy(comparisonStatus = status) }
+            }
+        }
+        viewModelScope.launch {
+            comparisonManager.latestResult.collect { result ->
+                _uiState.update { it.copy(comparisonResult = result) }
+            }
+        }
+        viewModelScope.launch {
+            comparisonManager.auditHistory.collect { logs ->
+                _uiState.update { it.copy(auditLogs = logs) }
+            }
+        }
+        viewModelScope.launch {
             prefRepository?.connectedServices?.collect { map ->
                 val prompts = mutableListOf<String>()
+                prompts.add("Compare large Chicago pizza under 500")
                 if (map.containsKey("gmail")) {
                     prompts.add("Summarize my unread emails")
                 }
@@ -51,7 +84,6 @@ class HomeViewModel(
                     prompts.add("What's on my schedule today?")
                 }
                 prompts.add("Create a follow-up task for tomorrow")
-                prompts.add("Prepare briefing for today")
 
                 _uiState.update {
                     it.copy(
@@ -74,15 +106,47 @@ class HomeViewModel(
         }
     }
 
+    private var pendingRoutingDecision: com.contril.app.data.automation.QueryRoutingDecision? = null
+
     fun onCommandTextChanged(text: String) {
         _uiState.update { it.copy(commandText = text) }
     }
 
-    fun executeCommand(promptOverride: String? = null) {
+    fun executeCommand(promptOverride: String? = null, context: Context? = null) {
         val prompt = promptOverride ?: _uiState.value.commandText
         if (prompt.isBlank()) return
 
-        // Daily AI Usage Enforcement
+        // 1. Intelligent Query Intent Classification
+        val decision = com.contril.app.data.automation.QueryIntentClassifier.classifyAndRoute(prompt)
+
+        // Case A: Food comparison query (Zomato/Swiggy)
+        if (decision.isComparisonSupported && context != null) {
+            if (!comparisonManager.isAccessibilityPermissionGranted(context)) {
+                pendingRoutingDecision = decision
+                _uiState.update { it.copy(showConsentModal = true) }
+                return
+            } else {
+                runPriceComparison(prompt, context, decision)
+                return
+            }
+        }
+
+        // Case B: Query requested an unsupported comparison category (e.g. Flipkart, Amazon, Blinkit, Flights)
+        if (decision.unsupportedMessage != null) {
+            _uiState.update {
+                it.copy(
+                    commandText = "",
+                    isLoading = false,
+                    latestResponse = CommandResponse(
+                        conversationId = "unsupported_notice",
+                        responseText = decision.unsupportedMessage
+                    )
+                )
+            }
+            return
+        }
+
+        // Case C: Standard Daily AI Assistant Execution
         val canExecute = prefRepository?.incrementAiUsage() ?: true
         if (!canExecute) {
             _uiState.update {
@@ -117,6 +181,35 @@ class HomeViewModel(
                 )
             }
         }
+    }
+
+    fun runPriceComparison(prompt: String, context: Context, decision: com.contril.app.data.automation.QueryRoutingDecision? = null) {
+        _uiState.update { it.copy(commandText = "", latestResponse = null) }
+        viewModelScope.launch {
+            comparisonManager.comparePricesAcrossPlatforms(context, prompt, decision)
+        }
+    }
+
+    fun onConsentGranted(context: Context) {
+        _uiState.update { it.copy(showConsentModal = false) }
+        comparisonManager.openAccessibilitySettings(context)
+    }
+
+    fun dismissConsentModal() {
+        _uiState.update { it.copy(showConsentModal = false) }
+    }
+
+    fun dismissComparisonResult() {
+        comparisonManager.clearResult()
+    }
+
+    fun showAuditLogs(show: Boolean) {
+        _uiState.update { it.copy(showAuditModal = show) }
+    }
+
+    fun revokeAccessibilityPermission(context: Context) {
+        comparisonManager.openAccessibilitySettings(context)
+        _uiState.update { it.copy(showAuditModal = false) }
     }
 
     fun dismissResponse() {

@@ -529,7 +529,9 @@ fun ActionApprovalCard(
                 ) {
                     OutlinedButton(
                         onClick = onReject,
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier
+                            .weight(1f)
+                            .magneticPress(onClick = onReject),
                         shape = RoundedCornerShape(10.dp),
                         colors = ButtonDefaults.outlinedButtonColors(
                             contentColor = MaterialTheme.colorScheme.error
@@ -541,7 +543,9 @@ fun ActionApprovalCard(
 
                     Button(
                         onClick = onApprove,
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier
+                            .weight(1f)
+                            .magneticPress(onClick = onApprove),
                         shape = RoundedCornerShape(10.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = ContrilBlue,

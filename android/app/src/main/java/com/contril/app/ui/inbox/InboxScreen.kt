@@ -25,7 +25,8 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.contril.app.theme.*
 import com.contril.app.ui.components.ActionApprovalCard
-import com.contril.app.ui.components.AtmosphericCard
+import com.contril.app.ui.components.magneticPress
+import com.contril.app.ui.components.staggeredEntrance
 
 @Composable
 fun InboxScreen(
@@ -66,7 +67,7 @@ fun InboxScreen(
                 )
                 Text(
                     text = if (uiState.isGmailConnected) {
-                        "Connected to ${uiState.connectedEmail}. Contril analyzes priority messages and drafts replies."
+                        "Connected to ${uiState.connectedEmail ?: "Google Workspace"}. Contril analyzes priority messages and drafts replies."
                     } else {
                         "Link your Google Workspace or Gmail to review priority emails and draft smart replies."
                     },
@@ -76,7 +77,7 @@ fun InboxScreen(
             }
         }
 
-        // 2. Status / Feedback Banner
+        // 2. Status / Action Feedback Banner (if any)
         if (uiState.statusMessage != null) {
             item {
                 Surface(
@@ -117,108 +118,190 @@ fun InboxScreen(
             }
         }
 
-        // 4. Main Content Area
-        if (!uiState.isGmailConnected) {
-            // Unconnected State -> Truthful Empty State with Connect Action
-            item {
-                Surface(
-                    shape = RoundedCornerShape(16.dp),
-                    color = MaterialTheme.colorScheme.surface,
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .padding(28.dp)
-                            .fillMaxWidth(),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+        // 4. Mutually Exclusive Main Content Area (Exact 1 of 5 states)
+        when (val state = uiState.contentState) {
+            is InboxContentState.Disconnected -> {
+                item {
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = MaterialTheme.colorScheme.surface,
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Box(
+                        Column(
                             modifier = Modifier
-                                .size(48.dp)
-                                .clip(CircleShape)
-                                .background(ContrilBlue.copy(alpha = 0.08f)),
-                            contentAlignment = Alignment.Center
+                                .padding(28.dp)
+                                .fillMaxWidth(),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            Icon(
-                                imageVector = Icons.Outlined.Mail,
-                                contentDescription = null,
-                                tint = ContrilBlue,
-                                modifier = Modifier.size(24.dp)
+                            Box(
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .clip(CircleShape)
+                                    .background(ContrilBlue.copy(alpha = 0.08f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Mail,
+                                    contentDescription = null,
+                                    tint = ContrilBlue,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+
+                            Text(
+                                text = "Connect Gmail to view your inbox",
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.onSurface,
+                                textAlign = TextAlign.Center
                             )
-                        }
 
-                        Text(
-                            text = "Connect Gmail to view your inbox",
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.onSurface,
-                            textAlign = TextAlign.Center
-                        )
+                            Text(
+                                text = "Grant read and draft permissions via Google OAuth to allow Contril to summarize priority threads.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center,
+                                lineHeight = 18.sp
+                            )
 
-                        Text(
-                            text = "Grant read and draft permissions via Google OAuth to allow Contril to summarize priority threads.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = TextAlign.Center,
-                            lineHeight = 18.sp
-                        )
+                            Spacer(modifier = Modifier.height(4.dp))
 
-                        Spacer(modifier = Modifier.height(4.dp))
-
-                        Button(
-                            onClick = onNavigateToConnected,
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = ContrilBlue),
-                            contentPadding = PaddingValues(horizontal = 24.dp, vertical = 10.dp)
-                        ) {
-                            Icon(Icons.Filled.Link, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Connect Gmail", fontWeight = FontWeight.SemiBold)
+                            Button(
+                                onClick = onNavigateToConnected,
+                                modifier = Modifier.magneticPress(),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = ContrilBlue),
+                                contentPadding = PaddingValues(horizontal = 24.dp, vertical = 10.dp)
+                            ) {
+                                Icon(Icons.Filled.Link, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Connect Gmail", fontWeight = FontWeight.SemiBold)
+                            }
                         }
                     }
                 }
             }
-        } else {
-            // Connected State
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+
+            is InboxContentState.Loading -> {
+                item {
                     Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = StatusActive.copy(alpha = 0.1f)
+                        shape = RoundedCornerShape(16.dp),
+                        color = MaterialTheme.colorScheme.surface,
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            modifier = Modifier
+                                .padding(24.dp)
+                                .fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(14.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(StatusActive))
-                            Text(
-                                text = "Synced: ${uiState.connectedEmail}",
-                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
-                                color = StatusActive
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(22.dp),
+                                strokeWidth = 2.5.dp,
+                                color = ContrilBlue
                             )
+                            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                Text(
+                                    text = "Synchronizing with Gmail...",
+                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "Retrieving unread priority threads via backend Edge Function",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
-                    }
-
-                    Button(
-                        onClick = { viewModel.setComposing(true) },
-                        shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = ContrilBlue),
-                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
-                    ) {
-                        Icon(Icons.Filled.Edit, contentDescription = null, modifier = Modifier.size(14.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("Compose", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold))
                     }
                 }
             }
 
-            if (uiState.emails.isEmpty()) {
+            is InboxContentState.Error -> {
+                item {
+                    Surface(
+                        shape = RoundedCornerShape(14.dp),
+                        color = StatusWarning.copy(alpha = 0.12f),
+                        border = BorderStroke(1.dp, StatusWarning.copy(alpha = 0.35f)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Filled.Warning, contentDescription = null, tint = StatusWarning, modifier = Modifier.size(20.dp))
+                                Text(
+                                    text = "Gmail Connection Notice",
+                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                    color = StatusWarning
+                                )
+                            }
+                            Text(
+                                text = state.message,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                lineHeight = 18.sp
+                            )
+                            Button(
+                                onClick = onNavigateToConnected,
+                                modifier = Modifier.magneticPress(),
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = ContrilBlue),
+                                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
+                            ) {
+                                Text("Reconnect Gmail", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = Color.White)
+                            }
+                        }
+                    }
+                }
+            }
+
+            is InboxContentState.SuccessEmpty -> {
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = StatusActive.copy(alpha = 0.1f)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(StatusActive))
+                                Text(
+                                    text = "Synced: ${uiState.connectedEmail ?: "Active"}",
+                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
+                                    color = StatusActive
+                                )
+                            }
+                        }
+
+                        Button(
+                            onClick = { viewModel.setComposing(true) },
+                            modifier = Modifier.magneticPress(),
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = ContrilBlue),
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
+                        ) {
+                            Icon(Icons.Filled.Edit, contentDescription = null, modifier = Modifier.size(14.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Compose", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold))
+                        }
+                    }
+                }
+
                 item {
                     Surface(
                         shape = RoundedCornerShape(16.dp),
@@ -252,8 +335,48 @@ fun InboxScreen(
                         }
                     }
                 }
-            } else {
-                items(uiState.emails) { email ->
+            }
+
+            is InboxContentState.SuccessWithData -> {
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = StatusActive.copy(alpha = 0.1f)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(StatusActive))
+                                Text(
+                                    text = "Synced: ${uiState.connectedEmail ?: "Active"}",
+                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
+                                    color = StatusActive
+                                )
+                            }
+                        }
+
+                        Button(
+                            onClick = { viewModel.setComposing(true) },
+                            modifier = Modifier.magneticPress(),
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = ContrilBlue),
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
+                        ) {
+                            Icon(Icons.Filled.Edit, contentDescription = null, modifier = Modifier.size(14.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Compose", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold))
+                        }
+                    }
+                }
+
+                items(state.emails) { email ->
                     Surface(
                         shape = RoundedCornerShape(14.dp),
                         color = MaterialTheme.colorScheme.surface,
@@ -280,54 +403,54 @@ fun InboxScreen(
                                         color = StatusWarning.copy(alpha = 0.15f)
                                     ) {
                                         Text(
-                                            text = "URGENT",
+                                            text = "PRIORITY",
                                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                                             color = StatusWarning,
-                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp)
                                         )
                                     }
                                 }
                             }
+
                             Text(
                                 text = email.subject,
                                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
                                 color = MaterialTheme.colorScheme.onSurface
                             )
+
                             Text(
                                 text = email.summarySnippet,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                lineHeight = 18.sp
+                                maxLines = 3
                             )
 
-                            Spacer(modifier = Modifier.height(2.dp))
-
-                            // AI Action Buttons
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                OutlinedButton(
-                                    onClick = { viewModel.summarizeThread(email) },
-                                    shape = RoundedCornerShape(8.dp),
-                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                                    modifier = Modifier.height(34.dp)
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = ContrilBlue.copy(alpha = 0.08f)
                                 ) {
-                                    Icon(Icons.Outlined.AutoAwesome, contentDescription = null, tint = ContrilBlue, modifier = Modifier.size(14.dp))
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text("AI Summary", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold), color = ContrilBlue)
+                                    Text(
+                                        text = if (email.hasDraftReady) "Draft Ready" else "Synced",
+                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
+                                        color = ContrilBlue,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
                                 }
 
-                                Button(
-                                    onClick = { viewModel.prepareAiDraftReply(email) },
+                                OutlinedButton(
+                                    onClick = { viewModel.summarizeThread(email) },
+                                    modifier = Modifier.magneticPress(),
                                     shape = RoundedCornerShape(8.dp),
-                                    colors = ButtonDefaults.buttonColors(containerColor = ContrilBlue.copy(alpha = 0.12f), contentColor = ContrilBlue),
-                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                                    modifier = Modifier.height(34.dp)
+                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
                                 ) {
-                                    Icon(Icons.Filled.Reply, contentDescription = null, modifier = Modifier.size(14.dp))
+                                    Icon(Icons.Filled.AutoAwesome, contentDescription = null, tint = ContrilBlue, modifier = Modifier.size(12.dp))
                                     Spacer(modifier = Modifier.width(4.dp))
-                                    Text("AI Draft Reply", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold))
+                                    Text("Analyze", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold))
                                 }
                             }
                         }
@@ -369,7 +492,7 @@ fun InboxScreen(
                         value = uiState.composeSubject,
                         onValueChange = { viewModel.onComposeSubjectChange(it) },
                         label = { Text("Subject") },
-                        placeholder = { Text("Project deliverables update") },
+                        placeholder = { Text("Subject") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -396,13 +519,13 @@ fun InboxScreen(
                         }
 
                         Button(
-                            onClick = { viewModel.submitDraftForApproval() },
+                            onClick = { viewModel.submitComposeForApproval() },
                             enabled = uiState.composeTo.isNotBlank() && uiState.composeSubject.isNotBlank(),
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier.weight(1f).magneticPress(),
                             shape = RoundedCornerShape(10.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = ContrilBlue)
                         ) {
-                            Text("Submit for Approval")
+                            Text("Submit")
                         }
                     }
                 }
@@ -412,7 +535,7 @@ fun InboxScreen(
 
     // Thread Summary Dialog
     if (uiState.threadSummaryModal != null) {
-        Dialog(onDismissRequest = { viewModel.dismissSummaryModal() }) {
+        Dialog(onDismissRequest = { viewModel.dismissThreadSummary() }) {
             Surface(
                 shape = RoundedCornerShape(20.dp),
                 color = MaterialTheme.colorScheme.surface,
@@ -443,10 +566,10 @@ fun InboxScreen(
                     )
 
                     Button(
-                        onClick = { viewModel.dismissSummaryModal() },
+                        onClick = { viewModel.dismissThreadSummary() },
+                        modifier = Modifier.fillMaxWidth().height(46.dp).magneticPress(),
                         shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = ContrilBlue),
-                        modifier = Modifier.fillMaxWidth().height(46.dp)
+                        colors = ButtonDefaults.buttonColors(containerColor = ContrilBlue)
                     ) {
                         Text("Close Summary", fontWeight = FontWeight.SemiBold)
                     }

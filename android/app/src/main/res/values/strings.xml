@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">Contril</string>
+    <string name="accessibility_service_description">Contril Price Comparison Assistant reads on-screen food &amp; product listings in Zomato and Swiggy with explicit user consent to compare prices.</string>
 </resources>

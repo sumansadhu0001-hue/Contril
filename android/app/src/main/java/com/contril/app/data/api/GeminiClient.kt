@@ -20,13 +20,13 @@ import java.util.concurrent.TimeUnit
 object GeminiClient {
 
     private const val GEMINI_API_KEY = "AIzaSyDC72lXEVy-YnooYhSOiADOLiDFXkll6tg"
-    private const val GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
+    private const val GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent"
 
     private val httpClient: OkHttpClient by lazy {
         OkHttpClient.Builder()
-            .connectTimeout(20, TimeUnit.SECONDS)
-            .readTimeout(30, TimeUnit.SECONDS)
-            .writeTimeout(20, TimeUnit.SECONDS)
+            .connectTimeout(25, TimeUnit.SECONDS)
+            .readTimeout(35, TimeUnit.SECONDS)
+            .writeTimeout(25, TimeUnit.SECONDS)
             .build()
     }
 
@@ -34,22 +34,23 @@ object GeminiClient {
 
     suspend fun generateAiResponse(
         prompt: String,
-        autonomyMode: AutonomyMode,
+        autonomyMode: AutonomyMode = AutonomyMode.SENSITIVE_ONLY,
         connectedServices: Map<String, String> = emptyMap(),
         userContext: String = ""
     ): CommandResponse = withContext(Dispatchers.IO) {
         val cleanPrompt = prompt.trim()
-        val connectedNames = connectedServices.keys.joinToString(", ").ifBlank { "Live Web Intelligence" }
+        val connectedNames = connectedServices.keys.joinToString(", ").ifBlank { "None connected" }
 
         val systemPrompt = """
-            You are CONTRIL, an enterprise-grade AI Chief of Staff.
-            You operate with precision, executive authority, and clarity.
-            Current Connected Services: [$connectedNames]
-            Autonomy Mode: ${autonomyMode.name}
-            User Context: $userContext
+            You are CONTRIL — an elite, highly capable AI Chief of Staff and universal conversational reasoning assistant.
+            You have complete, general-purpose intelligence identical to state-of-the-art AI systems (like ChatGPT, Claude, and Gemini).
             
-            Respond directly to the user's command. Format your response cleanly and professionally.
-            Provide actionable executive guidance, clear bullet points, or prepared drafts where requested.
+            CORE DIRECTIVES:
+            1. UNIVERSAL CONVERSATIONAL ABILITY: Answer ANY user inquiry with thoroughness, precision, intellectual depth, or creative flair. Whether the user asks a quick factual question, asks to solve a complex math/logic problem, requests creative writing, asks for an explanation of advanced scientific concepts, or simply engages in casual discussion, provide an authentic, high-quality, comprehensive response.
+            2. WORKSPACE INTELLIGENCE: When workspace integrations (${connectedNames}) are available and relevant to the user's prompt, proactively leverage that context to draft communications, synthesize agendas, or recommend actions.
+            3. ACTION SAFETY & AUTONOMY: Autonomy Mode is [${autonomyMode.name}]. If the user asks to send an email, schedule a meeting, or perform an external action, draft the complete payload and present it cleanly for review.
+            4. ZERO UNNECESSARY GATING: Never claim you cannot answer general knowledge, analytical, or conversational questions simply because an external integration (like Gmail or Calendar) is not connected.
+            5. EXECUTIVE FORMATTING: Use clean, polished GitHub-flavored Markdown (bolding, clear bullet points, concise sections) to deliver maximum clarity.
         """.trimIndent()
 
         val requestBodyJson = JSONObject().apply {
@@ -64,11 +65,12 @@ object GeminiClient {
             ))
             put("generationConfig", JSONObject().apply {
                 put("temperature", 0.7)
-                put("maxOutputTokens", 1024)
+                put("maxOutputTokens", 2048)
             })
         }
 
         try {
+            val startTime = System.currentTimeMillis()
             val url = "$GEMINI_ENDPOINT?key=$GEMINI_API_KEY"
             val request = Request.Builder()
                 .url(url)
@@ -77,11 +79,20 @@ object GeminiClient {
                 .build()
 
             val response = httpClient.newCall(request).execute()
+            val latencyMs = System.currentTimeMillis() - startTime
             val resBody = response.body?.string() ?: ""
 
             if (!response.isSuccessful) {
-                Log.e("GeminiClient", "Gemini API failed: ${response.code} - $resBody")
-                return@withContext fallbackResponse(cleanPrompt, autonomyMode, connectedServices)
+                Log.e("GeminiClient", "Gemini API HTTP Error (${response.code}): $resBody")
+                return@withContext CommandResponse(
+                    conversationId = "err_${UUID.randomUUID().toString().take(8)}",
+                    responseText = "Unable to connect to Gemini AI services (HTTP ${response.code}). Please verify your network connection and retry.",
+                    steps = listOf(
+                        ExecutionStep("s1", "Contacted Gemini 1.5 Flash API", "error"),
+                        ExecutionStep("s2", "HTTP ${response.code} Gateway Response", "error")
+                    ),
+                    pendingAction = null
+                )
             }
 
             val json = JSONObject(resBody)
@@ -92,24 +103,24 @@ object GeminiClient {
             val text = parts?.optJSONObject(0)?.optString("text", "") ?: ""
 
             if (text.isNotBlank()) {
-                val steps = listOf(
-                    ExecutionStep("s1", "Analyzed intent via Gemini 1.5 Flash", "complete"),
-                    ExecutionStep("s2", "Synthesized workspace context ($connectedNames)", "complete"),
-                    ExecutionStep("s3", "Executed executive response generation", "complete")
-                )
-
-                var pendingAction: PendingAction? = null
                 val lower = cleanPrompt.lowercase()
-                if (lower.contains("send") || lower.contains("draft") || lower.contains("email") || lower.contains("schedule")) {
+                var pendingAction: PendingAction? = null
+
+                if (lower.startsWith("send ") || lower.contains("send email") || lower.contains("draft email") || lower.contains("schedule a meeting")) {
                     pendingAction = PendingAction(
                         id = "act_${UUID.randomUUID().toString().take(6)}",
-                        title = if (lower.contains("schedule")) "Confirm Calendar Schedule" else "Approve Email Communication",
-                        description = "Prepared by Gemini Chief of Staff based on your prompt.",
-                        targetService = if (lower.contains("schedule")) "Google Calendar" else "Gmail",
+                        title = if (lower.contains("schedule") || lower.contains("meeting")) "Confirm Calendar Schedule" else "Approve Email Dispatch",
+                        description = "Prepared by Gemini Chief of Staff based on your instruction:\n\n${text.take(240)}...",
+                        targetService = if (lower.contains("schedule") || lower.contains("meeting")) "Google Calendar" else "Gmail",
                         consequenceLevel = "medium",
                         status = ActionStatus.PENDING_APPROVAL
                     )
                 }
+
+                val steps = listOf(
+                    ExecutionStep("s1", "Processed prompt via Gemini 1.5 Flash (${latencyMs}ms)", "complete"),
+                    ExecutionStep("s2", "Generated contextual intelligence", "complete")
+                )
 
                 return@withContext CommandResponse(
                     conversationId = "conv_${UUID.randomUUID().toString().take(8)}",
@@ -118,11 +129,24 @@ object GeminiClient {
                     pendingAction = pendingAction
                 )
             } else {
-                return@withContext fallbackResponse(cleanPrompt, autonomyMode, connectedServices)
+                return@withContext CommandResponse(
+                    conversationId = "empty_${UUID.randomUUID().toString().take(8)}",
+                    responseText = "Gemini returned an empty response candidate. Please rephrase or submit your prompt again.",
+                    steps = listOf(ExecutionStep("s1", "Processed prompt via Gemini 1.5 Flash", "error")),
+                    pendingAction = null
+                )
             }
         } catch (e: Exception) {
-            Log.e("GeminiClient", "Exception during Gemini execution", e)
-            return@withContext fallbackResponse(cleanPrompt, autonomyMode, connectedServices)
+            Log.e("GeminiClient", "Network exception reaching Gemini", e)
+            return@withContext CommandResponse(
+                conversationId = "net_err_${UUID.randomUUID().toString().take(8)}",
+                responseText = "Network connection failure: Unable to reach Gemini AI services (${e.localizedMessage ?: "Unknown Error"}). Please check your device internet connection and retry.",
+                steps = listOf(
+                    ExecutionStep("s1", "Attempting connection to Gemini endpoint", "error"),
+                    ExecutionStep("s2", "Network error encountered", "error")
+                ),
+                pendingAction = null
+            )
         }
     }
 
@@ -141,7 +165,7 @@ object GeminiClient {
             ))
             put("generationConfig", JSONObject().apply {
                 put("temperature", 0.4)
-                put("maxOutputTokens", 256)
+                put("maxOutputTokens", 512)
             })
         }
 
@@ -165,33 +189,6 @@ object GeminiClient {
         } catch (e: Exception) {
             Log.e("GeminiClient", "Email summary error", e)
         }
-        return@withContext "Thread summary from $sender: \"$snippet\""
-    }
-
-    private fun fallbackResponse(
-        prompt: String,
-        autonomyMode: AutonomyMode,
-        connectedServices: Map<String, String>
-    ): CommandResponse {
-        val lower = prompt.lowercase()
-        val isFoodOrder = lower.contains("pizza") || lower.contains("food") || lower.contains("burger") || lower.contains("order")
-        val isRide = lower.contains("uber") || lower.contains("cab") || lower.contains("ride") || lower.contains("ola")
-
-        val responseText = when {
-            isFoodOrder -> "I can't place that order yet. No supported food delivery service (e.g. Swiggy/Zomato) is connected. You can manage connected services in your Profile Hub."
-            isRide -> "I can't book a ride yet. No ride provider (e.g. Uber/Ola) is currently connected. You can manage integrations in your Profile Hub."
-            connectedServices.isEmpty() -> "I'm currently unable to access your workspace because no services are connected. Connect Gmail or Google Calendar in your Profile Hub to enable email and schedule actions."
-            else -> "I encountered a connection error while reaching the AI assistant. Please check your network connection and retry."
-        }
-
-        return CommandResponse(
-            conversationId = "conv_${UUID.randomUUID().toString().take(8)}",
-            responseText = responseText,
-            steps = listOf(
-                ExecutionStep("s1", "Analyzed command: \"$prompt\"", "complete"),
-                ExecutionStep("s2", "Checked connected service capabilities", "complete")
-            ),
-            pendingAction = null
-        )
+        return@withContext "Summary for \"$subject\" from $sender:\n• $snippet"
     }
 }

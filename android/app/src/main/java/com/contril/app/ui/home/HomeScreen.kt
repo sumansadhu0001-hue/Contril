@@ -260,9 +260,9 @@ fun HomeScreen(
                 onValueChange = { viewModel.onCommandTextChanged(it) },
                 onExecute = {
                     voiceManager.stopListening()
-                    viewModel.executeCommand()
+                    viewModel.executeCommand(context = context)
                 },
-                isLoading = uiState.isLoading,
+                isLoading = uiState.isLoading || uiState.isComparingPrices,
                 isListening = voiceState == VoiceState.LISTENING,
                 onVoiceClick = {
                     if (voiceState == VoiceState.LISTENING) {
@@ -286,7 +286,47 @@ fun HomeScreen(
             )
         }
 
-        // 3. Elegant Quick Action Pills
+        // 3b. On-Device Price Comparison Active Scanning Banner
+        if (uiState.isComparingPrices) {
+            item {
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = ContrilBlue.copy(alpha = 0.10f),
+                    border = BorderStroke(1.dp, ContrilBlue.copy(alpha = 0.35f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp,
+                            color = ContrilBlue
+                        )
+                        Text(
+                            text = uiState.comparisonStatus ?: "Scanning food platforms on your device...",
+                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
+            }
+        }
+
+        // 3c. On-Device Price Comparison Results Card
+        if (uiState.comparisonResult != null) {
+            item {
+                ComparisonResultsView(
+                    result = uiState.comparisonResult!!,
+                    onDismiss = { viewModel.dismissComparisonResult() },
+                    onViewAuditLogs = { viewModel.showAuditLogs(true) }
+                )
+            }
+        }
+
+        // 3d. Elegant Quick Action Pills
         item {
             LazyRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -297,7 +337,7 @@ fun HomeScreen(
                         shape = RoundedCornerShape(20.dp),
                         color = MaterialTheme.colorScheme.surface,
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
-                        modifier = Modifier.clickable { viewModel.executeCommand(prompt) }
+                        modifier = Modifier.clickable { viewModel.executeCommand(prompt, context) }
                     ) {
                         Row(
                             modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp),
@@ -443,6 +483,21 @@ fun HomeScreen(
                 PriorityRowItem(item = item)
             }
         }
+    }
+
+    if (uiState.showConsentModal) {
+        ComparisonConsentModal(
+            onDismiss = { viewModel.dismissConsentModal() },
+            onGrantPermission = { viewModel.onConsentGranted(context) }
+        )
+    }
+
+    if (uiState.showAuditModal) {
+        AuditHistorySheet(
+            logs = uiState.auditLogs,
+            onDismiss = { viewModel.showAuditLogs(false) },
+            onRevokePermission = { viewModel.revokeAccessibilityPermission(context) }
+        )
     }
 }
 
