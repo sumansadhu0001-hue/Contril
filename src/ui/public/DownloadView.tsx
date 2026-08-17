@@ -29,55 +29,65 @@ export const DownloadView: React.FC<DownloadViewProps> = ({
   };
 
   return (
-    <div className="relative w-full min-h-screen text-left font-sans bg-[#DDECFB] text-[#091024] overflow-x-hidden selection:bg-blue-500 selection:text-white">
+    <div className="relative w-full min-h-screen text-left font-sans text-[#07152F] overflow-x-hidden selection:bg-blue-500 selection:text-white">
       
       {/* =========================================================================
-          SIGNATURE ATMOSPHERIC BLUE LIGHTING CANVAS (Matches Screenshot Exactly)
+          DEDICATED MULTI-LAYER ATMOSPHERIC BACKGROUND (Matches Reference Screenshot)
           ========================================================================= */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden -z-10">
-        
-        {/* Base smooth vertical gradient */}
+      <div 
+        className="fixed inset-0 pointer-events-none overflow-hidden select-none -z-10"
+        style={{
+          background: 'linear-gradient(180deg, #D4E5FA 0%, #DCEBFA 30%, #E7F1FD 60%, #F4F8FE 100%)'
+        }}
+      >
+        {/* Layer 1: Top-Left Large Soft Lavender/Periwinkle Bloom */}
         <div 
-          className="absolute inset-0 w-full h-full"
+          className="absolute -top-[120px] -left-[100px] w-[950px] sm:w-[1200px] h-[900px] sm:h-[1100px] rounded-full blur-[100px] sm:blur-[140px] opacity-90"
           style={{
-            background: 'linear-gradient(180deg, #D5E7FA 0%, #DFEEFD 35%, #EAF3FD 65%, #F4F8FD 100%)'
+            background: 'radial-gradient(circle at 35% 35%, #BACFF6 0%, #CCDDFC 35%, rgba(215, 230, 255, 0.4) 60%, transparent 80%)'
           }}
         />
 
-        {/* Left atmospheric periwinkle-blue ambient glow */}
+        {/* Layer 2: Top-Right Large Soft Sky-Cyan Bloom */}
         <div 
-          className="absolute top-0 -left-[100px] w-[750px] h-[750px] opacity-90"
+          className="absolute -top-[100px] -right-[100px] w-[950px] sm:w-[1200px] h-[900px] sm:h-[1100px] rounded-full blur-[100px] sm:blur-[140px] opacity-90"
           style={{
-            background: 'radial-gradient(circle 750px at 20% 30%, #C3DAFA 0%, rgba(195, 218, 250, 0.6) 45%, transparent 75%)'
+            background: 'radial-gradient(circle at 65% 35%, #9FD3FA 0%, #C4E4FD 35%, rgba(210, 235, 255, 0.4) 60%, transparent 80%)'
           }}
         />
 
-        {/* Right atmospheric sky-cyan ambient glow */}
+        {/* Layer 3: Upper-Center Atmospheric Halo (Positioned above & around the hero) */}
         <div 
-          className="absolute top-0 -right-[100px] w-[750px] h-[750px] opacity-90"
+          className="absolute top-[-80px] left-1/2 -translate-x-1/2 w-[1100px] sm:w-[1400px] h-[650px] rounded-full blur-[80px] sm:blur-[110px] opacity-80"
           style={{
-            background: 'radial-gradient(circle 750px at 80% 30%, #BFE2FD 0%, rgba(191, 226, 253, 0.6) 45%, transparent 75%)'
+            background: 'radial-gradient(ellipse at 50% 30%, #CEE1FA 0%, #DFECFD 40%, rgba(230, 242, 255, 0.3) 65%, transparent 80%)'
           }}
         />
 
-        {/* Center luminous illumination behind the composition */}
+        {/* Layer 4: Center Luminous Soft Light Field (Behind typography for crisp contrast) */}
         <div 
-          className="absolute top-[30px] left-1/2 -translate-x-1/2 w-[1100px] h-[600px] opacity-95"
+          className="absolute top-[80px] sm:top-[120px] left-1/2 -translate-x-1/2 w-[850px] sm:w-[1100px] h-[480px] rounded-full blur-[50px] sm:blur-[70px] opacity-90"
           style={{
-            background: 'radial-gradient(ellipse 80% 60% at 50% 35%, #EDF5FE 0%, rgba(237, 245, 254, 0.7) 45%, transparent 80%)'
+            background: 'radial-gradient(ellipse at 50% 45%, #F4F8FE 0%, rgba(240, 247, 254, 0.75) 45%, transparent 75%)'
           }}
         />
 
-        {/* Lower atmospheric field for the platform section */}
+        {/* Layer 5: Platform Section Atmospheric Bridge */}
         <div 
-          className="absolute top-[650px] left-1/2 -translate-x-1/2 w-[1200px] h-[700px] opacity-70"
+          className="absolute top-[680px] sm:top-[720px] left-1/2 -translate-x-1/2 w-[1200px] sm:w-[1500px] h-[750px] rounded-full blur-[100px] sm:blur-[140px] opacity-75"
           style={{
-            background: 'radial-gradient(ellipse 90% 60% at 50% 40%, #E2EFFD 0%, rgba(240, 247, 254, 0.5) 50%, transparent 80%)'
+            background: 'radial-gradient(ellipse at 50% 50%, #C9DFF9 0%, #E0EEFE 40%, rgba(235, 245, 255, 0.3) 65%, transparent 80%)'
           }}
         />
+
+        {/* Layer 6: Lower Gentle White Canvas Fade */}
+        <div className="absolute inset-x-0 bottom-0 h-[380px] bg-gradient-to-b from-transparent via-[#F4F8FE]/60 to-[#F6FAFE]" />
       </div>
 
-      <div className="w-full">
+      {/* =========================================================================
+          DOWNLOAD PAGE CONTENT
+          ========================================================================= */}
+      <div className="relative w-full z-10">
         
         {/* =========================================================================
             1. HERO SECTION
@@ -87,7 +97,7 @@ export const DownloadView: React.FC<DownloadViewProps> = ({
           <div className="space-y-5 sm:space-y-6">
             
             {/* Eyebrow badge */}
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#D7E7FA]/80 border border-[#BFDBFE] text-[11px] sm:text-xs font-semibold text-[#2563EB] tracking-wider uppercase select-none shadow-2xs backdrop-blur-xs">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#D7E7FA]/90 border border-[#BFDBFE] text-[11px] sm:text-xs font-semibold text-[#2563EB] tracking-wider uppercase select-none shadow-2xs backdrop-blur-xs">
               <ContrilLogo size="xs" strokeColor="#2563EB" />
               <span>GET CONTRIL</span>
             </div>
@@ -95,7 +105,7 @@ export const DownloadView: React.FC<DownloadViewProps> = ({
             {/* Main Headline */}
             <div className="max-w-[390px] sm:max-w-3xl mx-auto">
               <h1 className="text-[40px] sm:text-6xl md:text-7xl font-bold tracking-tight leading-[1.04] sm:leading-[1.08]">
-                <span className="text-[#091024]">
+                <span className="text-[#07152F]">
                   Your AI chief of staff,
                 </span>
                 <br className="hidden sm:inline" />
@@ -123,7 +133,7 @@ export const DownloadView: React.FC<DownloadViewProps> = ({
               <a
                 href={CONTRIL_APK_CONFIG.downloadUrl}
                 download="contril-android.apk"
-                className="w-full sm:w-auto px-8 h-[52px] sm:h-13 rounded-xl bg-white/85 hover:bg-white text-[#091024] border border-white/90 text-sm font-semibold transition-all hover:-translate-y-0.5 cursor-pointer flex items-center justify-center gap-2 shadow-xs shrink-0 backdrop-blur-xs"
+                className="w-full sm:w-auto px-8 h-[52px] sm:h-13 rounded-xl bg-white/90 hover:bg-white text-[#07152F] border border-white text-sm font-semibold transition-all hover:-translate-y-0.5 cursor-pointer flex items-center justify-center gap-2 shadow-xs shrink-0 backdrop-blur-xs"
               >
                 <Download className="w-4 h-4 text-[#2563EB]" />
                 <span>DOWNLOAD ANDROID APP ↓</span>
@@ -145,7 +155,7 @@ export const DownloadView: React.FC<DownloadViewProps> = ({
           
           {/* Section Heading */}
           <div className="text-center space-y-2.5 mb-10 sm:mb-12">
-            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-[#091024]">
+            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-[#07152F]">
               One workspace. <br className="hidden sm:inline" />
               Two ways to use Contril.
             </h2>
@@ -157,14 +167,14 @@ export const DownloadView: React.FC<DownloadViewProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8">
             
             {/* PANEL 1: Contril for Web */}
-            <div className="rounded-3xl p-7 sm:p-9 bg-white/90 backdrop-blur-xl border border-white/80 shadow-[0_20px_50px_rgba(37,99,235,0.07)] flex flex-col justify-between space-y-8 transition-all hover:border-[#2563EB]/40">
+            <div className="rounded-3xl p-7 sm:p-9 bg-white/92 backdrop-blur-xl border border-white/80 shadow-[0_20px_50px_rgba(37,99,235,0.07)] flex flex-col justify-between space-y-8 transition-all hover:border-[#2563EB]/40">
               <div className="space-y-5">
-                <div className="w-12 h-12 rounded-xl bg-blue-50/80 border border-blue-100 flex items-center justify-center text-[#2563EB]">
+                <div className="w-12 h-12 rounded-xl bg-blue-50/90 border border-blue-100 flex items-center justify-center text-[#2563EB]">
                   <Globe className="w-6 h-6" />
                 </div>
 
                 <div className="space-y-2 text-left">
-                  <h3 className="text-2xl font-bold text-[#091024]">
+                  <h3 className="text-2xl font-bold text-[#07152F]">
                     Contril for Web
                   </h3>
                   <p className="text-sm text-[#475569] leading-relaxed">
@@ -199,10 +209,10 @@ export const DownloadView: React.FC<DownloadViewProps> = ({
             </div>
 
             {/* PANEL 2: Contril for Android */}
-            <div className="rounded-3xl p-7 sm:p-9 bg-white/90 backdrop-blur-xl border border-white/80 shadow-[0_20px_50px_rgba(37,99,235,0.07)] flex flex-col justify-between space-y-8 transition-all hover:border-[#2563EB]/40">
+            <div className="rounded-3xl p-7 sm:p-9 bg-white/92 backdrop-blur-xl border border-white/80 shadow-[0_20px_50px_rgba(37,99,235,0.07)] flex flex-col justify-between space-y-8 transition-all hover:border-[#2563EB]/40">
               <div className="space-y-5">
                 <div className="flex items-center justify-between">
-                  <div className="w-12 h-12 rounded-xl bg-blue-50/80 border border-blue-100 flex items-center justify-center text-[#2563EB]">
+                  <div className="w-12 h-12 rounded-xl bg-blue-50/90 border border-blue-100 flex items-center justify-center text-[#2563EB]">
                     <Smartphone className="w-6 h-6" />
                   </div>
                   <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-blue-50 border border-blue-200 text-[10px] font-mono font-bold text-[#2563EB] uppercase tracking-wider">
@@ -211,7 +221,7 @@ export const DownloadView: React.FC<DownloadViewProps> = ({
                 </div>
 
                 <div className="space-y-2 text-left">
-                  <h3 className="text-2xl font-bold text-[#091024]">
+                  <h3 className="text-2xl font-bold text-[#07152F]">
                     Contril for Android
                   </h3>
                   <p className="text-sm text-[#475569] leading-relaxed">
@@ -258,7 +268,7 @@ export const DownloadView: React.FC<DownloadViewProps> = ({
             <div className="inline-flex items-center gap-2 text-xs font-mono font-semibold text-[#2563EB] uppercase tracking-wider">
               <span>NATIVE ANDROID EXPERIENCE</span>
             </div>
-            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-[#091024]">
+            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-[#07152F]">
               Built for speed and clarity.
             </h2>
             <p className="text-sm sm:text-base text-[#475569] max-w-xl mx-auto">
@@ -285,7 +295,7 @@ export const DownloadView: React.FC<DownloadViewProps> = ({
                 <div className="flex items-center gap-2">
                   <ContrilLogo size="xs" strokeColor="#2563EB" />
                   <div>
-                    <div className="text-xs font-bold font-mono tracking-wide text-[#091024]">
+                    <div className="text-xs font-bold font-mono tracking-wide text-[#07152F]">
                       CONTRIL
                     </div>
                     <div className="text-[10px] text-[#64748B]">
@@ -300,7 +310,7 @@ export const DownloadView: React.FC<DownloadViewProps> = ({
 
               {/* Greeting */}
               <div className="space-y-0.5 pt-1">
-                <div className="text-lg font-bold text-[#091024]">
+                <div className="text-lg font-bold text-[#07152F]">
                   Good morning.
                 </div>
                 <div className="text-xs text-[#52627A]">
@@ -311,7 +321,7 @@ export const DownloadView: React.FC<DownloadViewProps> = ({
               {/* Section 1: Email */}
               <div className="p-3 rounded-xl bg-white border border-black/5 space-y-1 shadow-2xs">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5 text-xs font-medium text-[#091024]">
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-[#07152F]">
                     <Mail className="w-3.5 h-3.5 text-[#2563EB]" />
                     <span>Email</span>
                   </div>
@@ -327,7 +337,7 @@ export const DownloadView: React.FC<DownloadViewProps> = ({
               {/* Section 2: Calendar */}
               <div className="p-3 rounded-xl bg-white border border-black/5 space-y-1 shadow-2xs">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5 text-xs font-medium text-[#091024]">
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-[#07152F]">
                     <Calendar className="w-3.5 h-3.5 text-[#2563EB]" />
                     <span>Calendar</span>
                   </div>
@@ -343,7 +353,7 @@ export const DownloadView: React.FC<DownloadViewProps> = ({
               {/* Section 3: Tasks */}
               <div className="p-3 rounded-xl bg-white border border-black/5 space-y-1 shadow-2xs">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5 text-xs font-medium text-[#091024]">
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-[#07152F]">
                     <CheckSquare className="w-3.5 h-3.5 text-[#2563EB]" />
                     <span>Tasks</span>
                   </div>
@@ -359,7 +369,7 @@ export const DownloadView: React.FC<DownloadViewProps> = ({
               {/* Section 4: Documents */}
               <div className="p-3 rounded-xl bg-white border border-black/5 space-y-1 shadow-2xs">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5 text-xs font-medium text-[#091024]">
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-[#07152F]">
                     <FileText className="w-3.5 h-3.5 text-[#2563EB]" />
                     <span>Documents</span>
                   </div>
@@ -382,7 +392,7 @@ export const DownloadView: React.FC<DownloadViewProps> = ({
             ========================================================================= */}
         <section className="px-5 sm:px-8 max-w-4xl mx-auto pb-16 sm:pb-24 text-center space-y-7">
           <div className="space-y-2.5">
-            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-[#091024]">
+            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-[#07152F]">
               Everything connected.
             </h2>
             <p className="text-sm sm:text-base text-[#475569] max-w-xl mx-auto leading-relaxed">
@@ -407,7 +417,7 @@ export const DownloadView: React.FC<DownloadViewProps> = ({
                   <tool.icon className="w-4 h-4" />
                 </div>
                 <div>
-                  <div className="text-xs font-bold text-[#091024]">{tool.name}</div>
+                  <div className="text-xs font-bold text-[#07152F]">{tool.name}</div>
                   <div className="text-[10px] text-[#64748B]">{tool.tag}</div>
                 </div>
               </div>
@@ -419,9 +429,9 @@ export const DownloadView: React.FC<DownloadViewProps> = ({
             5. FINAL CTA
             ========================================================================= */}
         <section className="px-5 sm:px-8 max-w-4xl mx-auto pb-20 sm:pb-28 text-center">
-          <div className="rounded-3xl p-8 sm:p-12 bg-white/90 border border-white/80 shadow-[0_20px_60px_rgba(37,99,235,0.08)] space-y-6">
+          <div className="rounded-3xl p-8 sm:p-12 bg-white/92 border border-white/80 shadow-[0_20px_60px_rgba(37,99,235,0.08)] space-y-6">
             
-            <h2 className="text-3xl sm:text-5xl font-bold tracking-tight text-[#091024]">
+            <h2 className="text-3xl sm:text-5xl font-bold tracking-tight text-[#07152F]">
               Your work, <br className="hidden sm:inline" />
               under control.
             </h2>
@@ -441,7 +451,7 @@ export const DownloadView: React.FC<DownloadViewProps> = ({
               <a
                 href={CONTRIL_APK_CONFIG.downloadUrl}
                 download="contril-android.apk"
-                className="w-full sm:w-auto px-8 h-[52px] sm:h-13 rounded-xl bg-white/80 hover:bg-white border border-white/80 text-[#091024] text-sm font-semibold transition-all cursor-pointer flex items-center justify-center gap-2 shadow-xs"
+                className="w-full sm:w-auto px-8 h-[52px] sm:h-13 rounded-xl bg-white/85 hover:bg-white border border-white/80 text-[#07152F] text-sm font-semibold transition-all cursor-pointer flex items-center justify-center gap-2 shadow-xs"
               >
                 <Download className="w-4 h-4 text-[#2563EB]" />
                 <span>Download Android App ↓</span>
