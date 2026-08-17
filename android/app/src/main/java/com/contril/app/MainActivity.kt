@@ -21,10 +21,21 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        
+        try {
+            enableEdgeToEdge()
+        } catch (e: Exception) {
+            // Edge-to-edge fallback for custom ROMs
+        }
 
-        repository = ContrilRepository()
-        prefRepository = PreferenceRepository(applicationContext)
+        try {
+            repository = ContrilRepository()
+            prefRepository = PreferenceRepository(applicationContext)
+        } catch (e: Exception) {
+            // Failsafe initialization
+            repository = ContrilRepository()
+            prefRepository = PreferenceRepository(this)
+        }
 
         setContent {
             val isDarkTheme by prefRepository.isDarkTheme.collectAsState()

@@ -1,20 +1,55 @@
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Contril Outer Geometric Circle from favicon.svg -->
+    
+    <!-- Contril Outer Geometric Ring (Exact Favicon Geometry, Scaled for 66dp Safe Zone) -->
     <path
-        android:strokeColor="#38BDF8"
-        android:strokeWidth="3.5"
+        android:strokeWidth="3.2"
         android:fillColor="#00000000"
-        android:pathData="M 54, 27 A 27,27 0 1,0 54,81 A 27,27 0 1,0 54,27" />
+        android:pathData="M 54,32 A 22,22 0 1,0 54,76 A 22,22 0 1,0 54,32">
+        <aapt:attr name="android:strokeColor">
+            <gradient
+                android:type="linear"
+                android:startX="32"
+                android:startY="32"
+                android:endX="76"
+                android:endY="76">
+                <item android:offset="0.0" android:color="#60A5FA" />
+                <item android:offset="0.5" android:color="#38BDF8" />
+                <item android:offset="1.0" android:color="#2563EB" />
+            </gradient>
+        </aapt:attr>
+    </path>
 
-    <!-- Contril Core Diamond from favicon.svg -->
+    <!-- Contril Core Precision Diamond -->
     <path
-        android:strokeColor="#2563EB"
-        android:strokeWidth="3.5"
+        android:strokeWidth="3.0"
         android:strokeLineJoin="miter"
-        android:fillColor="#1D4ED8"
-        android:pathData="M 54, 38.25 L 69.75, 54 L 54, 69.75 L 38.25, 54 Z" />
+        android:pathData="M 54, 40.5 L 67.5, 54 L 54, 67.5 L 40.5, 54 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="40.5"
+                android:startY="40.5"
+                android:endX="67.5"
+                android:endY="67.5">
+                <item android:offset="0.0" android:color="#2563EB" />
+                <item android:offset="1.0" android:color="#1D4ED8" />
+            </gradient>
+        </aapt:attr>
+        <aapt:attr name="android:strokeColor">
+            <gradient
+                android:type="linear"
+                android:startX="40.5"
+                android:startY="40.5"
+                android:endX="67.5"
+                android:endY="67.5">
+                <item android:offset="0.0" android:color="#93C5FD" />
+                <item android:offset="1.0" android:color="#38BDF8" />
+            </gradient>
+        </aapt:attr>
+    </path>
 </vector>
