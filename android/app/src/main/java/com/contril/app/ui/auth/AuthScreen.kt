@@ -43,6 +43,7 @@ import androidx.compose.ui.window.DialogProperties
 import com.contril.app.data.api.SupabaseAuthClient
 import com.contril.app.theme.*
 import com.contril.app.ui.components.ContrilLogoMark
+import com.contril.app.ui.components.GoogleLogo
 
 @Composable
 fun AuthScreen(
@@ -326,13 +327,8 @@ fun AuthScreen(
                                     .fillMaxWidth()
                                     .height(48.dp)
                             ) {
-                                Icon(
-                                    imageVector = Icons.Filled.AccountCircle,
-                                    contentDescription = "Google",
-                                    tint = ContrilBlue,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
+                                GoogleLogo(modifier = Modifier.size(20.dp))
+                                Spacer(modifier = Modifier.width(10.dp))
                                 Text("Continue with Google", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium))
                             }
 
@@ -754,7 +750,7 @@ fun OAuthWebViewDialog(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        ContrilLogoMark(modifier = Modifier.size(24.dp))
+                        GoogleLogo(modifier = Modifier.size(22.dp))
                         Text(
                             text = "Sign in with Google",
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),

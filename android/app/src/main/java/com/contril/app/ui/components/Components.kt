@@ -71,6 +71,17 @@ fun ContrilLogoMark(
 }
 
 @Composable
+fun GoogleLogo(
+    modifier: Modifier = Modifier.size(20.dp)
+) {
+    androidx.compose.foundation.Image(
+        painter = androidx.compose.ui.res.painterResource(id = com.contril.app.R.drawable.ic_google_logo),
+        contentDescription = "Google Logo",
+        modifier = modifier
+    )
+}
+
+@Composable
 fun ContrilTopBar(
     title: String = "CONTRIL",
     subtitle: String = "AI Chief of Staff",
