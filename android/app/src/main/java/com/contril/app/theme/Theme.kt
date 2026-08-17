@@ -12,7 +12,6 @@ import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
@@ -48,12 +47,16 @@ private val LightColorScheme = lightColorScheme(
     outline = BorderSubtleLight
 )
 
-// Safe activity finder that unwraps ContextWrappers
-fun Context.findActivity(): Activity? {
-    var context = this
-    while (context is ContextWrapper) {
-        if (context is Activity) return context
-        context = context.baseContext
+/**
+ * Safely unwrap ContextWrappers to find the host Activity.
+ * In Jetpack Compose, view.context is often a ContextThemeWrapper,
+ * not directly castable to Activity.
+ */
+private fun Context.findActivity(): Activity? {
+    var ctx: Context? = this
+    while (ctx != null) {
+        if (ctx is Activity) return ctx
+        ctx = if (ctx is ContextWrapper) ctx.baseContext else null
     }
     return null
 }
@@ -61,31 +64,32 @@ fun Context.findActivity(): Activity? {
 @Composable
 fun ContrilTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = false, // Preserve Contril atmospheric blue identity by default
+    dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val colorScheme = when {
         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
+            val context = androidx.compose.ui.platform.LocalContext.current
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         }
         darkTheme -> DarkColorScheme
         else -> LightColorScheme
     }
 
+    // Set status bar appearance safely
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
-            val activity = view.context.findActivity()
-            activity?.window?.let { window ->
-                try {
-                    WindowCompat.getInsetsController(window, view).apply {
+            try {
+                val activity = view.context.findActivity()
+                if (activity != null) {
+                    WindowCompat.getInsetsController(activity.window, view).apply {
                         isAppearanceLightStatusBars = !darkTheme
                         isAppearanceLightNavigationBars = !darkTheme
                     }
-                } catch (e: Exception) {
-                    // Safe fallback across various Android versions
                 }
+            } catch (_: Exception) {
+                // Safe fallback: some OEM ROMs may not support this
             }
         }
     }

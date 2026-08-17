@@ -1,12 +1,11 @@
 package com.contril.app.ui.navigation
 
-import androidx.compose.animation.*
+import android.util.Log
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -35,11 +34,48 @@ fun ContrilAppContent(
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route ?: Screen.Home.route
 
-    val homeViewModel = androidx.compose.runtime.remember { HomeViewModel(repository, prefRepository) }
-    val tasksViewModel = androidx.compose.runtime.remember { TasksViewModel(repository) }
-    val briefingViewModel = androidx.compose.runtime.remember { BriefingViewModel(repository) }
-    val integrationsViewModel = androidx.compose.runtime.remember { IntegrationsViewModel(repository) }
-    val settingsViewModel = androidx.compose.runtime.remember { SettingsViewModel(prefRepository) }
+    // Create ViewModels safely — wrap each in try-catch so a single ViewModel
+    // failure does not crash the entire Compose tree
+    val homeViewModel = androidx.compose.runtime.remember {
+        try {
+            HomeViewModel(repository, prefRepository)
+        } catch (e: Exception) {
+            Log.e("ContrilNav", "HomeViewModel creation failed", e)
+            HomeViewModel()
+        }
+    }
+    val tasksViewModel = androidx.compose.runtime.remember {
+        try {
+            TasksViewModel(repository)
+        } catch (e: Exception) {
+            Log.e("ContrilNav", "TasksViewModel creation failed", e)
+            TasksViewModel()
+        }
+    }
+    val briefingViewModel = androidx.compose.runtime.remember {
+        try {
+            BriefingViewModel(repository)
+        } catch (e: Exception) {
+            Log.e("ContrilNav", "BriefingViewModel creation failed", e)
+            BriefingViewModel()
+        }
+    }
+    val integrationsViewModel = androidx.compose.runtime.remember {
+        try {
+            IntegrationsViewModel(repository)
+        } catch (e: Exception) {
+            Log.e("ContrilNav", "IntegrationsViewModel creation failed", e)
+            IntegrationsViewModel()
+        }
+    }
+    val settingsViewModel = androidx.compose.runtime.remember {
+        try {
+            SettingsViewModel(prefRepository)
+        } catch (e: Exception) {
+            Log.e("ContrilNav", "SettingsViewModel creation failed", e)
+            SettingsViewModel(prefRepository)
+        }
+    }
 
     Scaffold(
         topBar = { ContrilTopBar() },

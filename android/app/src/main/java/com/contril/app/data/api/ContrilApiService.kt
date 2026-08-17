@@ -28,11 +28,13 @@ interface ContrilApiService {
 
     @POST("api/actions/{actionId}/approve")
     suspend fun approveAction(
-        @Path("actionId") actionId: String
+        @Path("actionId") actionId: String,
+        @Body body: Map<String, String> = emptyMap()
     ): Response<Map<String, Any>>
 
     @POST("api/actions/{actionId}/reject")
     suspend fun rejectAction(
-        @Path("actionId") actionId: String
+        @Path("actionId") actionId: String,
+        @Body body: Map<String, String> = emptyMap()
     ): Response<Map<String, Any>>
 }

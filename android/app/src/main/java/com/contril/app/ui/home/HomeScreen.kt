@@ -105,7 +105,7 @@ fun HomeScreen(
                         color = ContrilBlue
                     )
                     Spacer(modifier = Modifier.height(8.dp))
-                    uiState.latestResponse!!.steps.forEach { step ->
+                    uiState.latestResponse?.steps?.forEach { step ->
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()

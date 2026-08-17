@@ -5,6 +5,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
 import android.os.Build
+import android.util.Log
 
 class ContrilApplication : Application() {
 
@@ -15,12 +16,17 @@ class ContrilApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        createNotificationChannels()
+        try {
+            createNotificationChannels()
+        } catch (e: Exception) {
+            Log.e("ContrilApp", "Failed to create notification channels: ${e.message}", e)
+        }
     }
 
     private fun createNotificationChannels() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+                ?: return
 
             val actionChannel = NotificationChannel(
                 CHANNEL_ID_ALERTS,

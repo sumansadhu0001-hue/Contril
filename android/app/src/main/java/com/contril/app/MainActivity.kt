@@ -1,6 +1,7 @@
 package com.contril.app
 
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -16,35 +17,59 @@ import com.contril.app.ui.navigation.ContrilAppContent
 
 class MainActivity : ComponentActivity() {
 
-    private lateinit var repository: ContrilRepository
-    private lateinit var prefRepository: PreferenceRepository
+    private var repository: ContrilRepository? = null
+    private var prefRepository: PreferenceRepository? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
+
+        // Edge-to-edge: wrap safely — some OEM ROMs or older SDKs can throw
         try {
             enableEdgeToEdge()
         } catch (e: Exception) {
-            // Edge-to-edge fallback for custom ROMs
+            Log.w("ContrilMain", "enableEdgeToEdge failed, skipping: ${e.message}")
+        }
+
+        // Repository initialization must never crash the activity
+        try {
+            repository = ContrilRepository()
+        } catch (e: Exception) {
+            Log.e("ContrilMain", "ContrilRepository init failed: ${e.message}", e)
+            repository = null
         }
 
         try {
-            repository = ContrilRepository()
             prefRepository = PreferenceRepository(applicationContext)
         } catch (e: Exception) {
-            // Failsafe initialization
-            repository = ContrilRepository()
-            prefRepository = PreferenceRepository(this)
+            Log.e("ContrilMain", "PreferenceRepository init failed: ${e.message}", e)
+            prefRepository = null
+        }
+
+        val safeRepository = repository ?: try {
+            ContrilRepository()
+        } catch (e: Exception) {
+            Log.e("ContrilMain", "ContrilRepository fallback init also failed", e)
+            ContrilRepository()
+        }
+
+        val safePrefRepository = prefRepository ?: try {
+            PreferenceRepository(this)
+        } catch (e: Exception) {
+            Log.e("ContrilMain", "PreferenceRepository fallback init also failed", e)
+            PreferenceRepository(this)
         }
 
         setContent {
-            val isDarkTheme by prefRepository.isDarkTheme.collectAsState()
+            val isDarkTheme by safePrefRepository.isDarkTheme.collectAsState()
 
             ContrilTheme(darkTheme = isDarkTheme) {
-                Surface(modifier = Modifier.fillMaxSize()) {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = androidx.compose.material3.MaterialTheme.colorScheme.background
+                ) {
                     ContrilAppContent(
-                        repository = repository,
-                        prefRepository = prefRepository
+                        repository = safeRepository,
+                        prefRepository = safePrefRepository
                     )
                 }
             }

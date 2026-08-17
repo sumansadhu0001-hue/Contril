@@ -37,7 +37,7 @@ function createChunk(type, data) {
   return buf;
 }
 
-function renderContrilIcon(size, isRound = false) {
+function renderContrilLightIcon(size) {
   const width = size;
   const height = size;
   const rowLength = 1 + width * 4;
@@ -45,11 +45,15 @@ function renderContrilIcon(size, isRound = false) {
 
   const cx = width / 2;
   const cy = height / 2;
-  const outerRadius = size * 0.46; // Outer icon corner or circle
-  const ringRadius = size * 0.28;
-  const ringThickness = Math.max(1.5, size * 0.04);
-  const diamondHalf = size * 0.17;
-  const diamondThickness = Math.max(1.5, size * 0.04);
+  
+  // Safe zone proportions for adaptive icon  
+  const circleRadius = size * 0.30;       // Outer ring radius
+  const ringThickness = Math.max(1.2, size * 0.032);
+  const diamondHalf = size * 0.185;        // Diamond half-diagonal
+  const diamondStrokeThickness = Math.max(1.0, size * 0.028);
+
+  // Contril Blue: #2563EB = rgb(37, 99, 235)
+  const blueR = 37, blueG = 99, blueB = 235;
 
   for (let y = 0; y < height; y++) {
     const rowOffset = y * rowLength;
@@ -57,84 +61,46 @@ function renderContrilIcon(size, isRound = false) {
 
     for (let x = 0; x < width; x++) {
       const pxOffset = rowOffset + 1 + x * 4;
-
       const dx = x - cx;
       const dy = y - cy;
       const distFromCenter = Math.sqrt(dx * dx + dy * dy);
 
-      // Squircle or Circle mask for background
-      let isInsideBg = false;
-      if (isRound) {
-        isInsideBg = distFromCenter <= outerRadius;
-      } else {
-        // Rounded squircle: distance formula with p=3.5 for luxury squircle
-        const normX = Math.abs(dx) / (outerRadius * 0.96);
-        const normY = Math.abs(dy) / (outerRadius * 0.96);
-        const squircleDist = Math.pow(Math.pow(normX, 3.2) + Math.pow(normY, 3.2), 1 / 3.2);
-        isInsideBg = squircleDist <= 1.0;
-      }
-
-      if (!isInsideBg) {
-        // Transparent
-        rawData[pxOffset] = 0;
-        rawData[pxOffset + 1] = 0;
-        rawData[pxOffset + 2] = 0;
-        rawData[pxOffset + 3] = 0;
-        continue;
-      }
-
-      // 1. Background color: Luxury deep obsidian navy (#070E1E -> #0B1A3A)
-      const gradFactor = (x + y) / (width + height);
-      let r = Math.round(7 + gradFactor * 6);
-      let g = Math.round(14 + gradFactor * 10);
-      let b = Math.round(30 + gradFactor * 24);
+      // 1. Light background: #F7FAFF with subtle radial gradient to #FFFFFF center
+      const bgFactor = Math.min(1, distFromCenter / (size * 0.5));
+      let r = Math.round(255 - bgFactor * 8);   // 255 -> 247
+      let g = Math.round(255 - bgFactor * 5);   // 255 -> 250  
+      let b = 255;
       let a = 255;
 
-      // 2. Subtle radial glow behind diamond
-      if (distFromCenter < ringRadius * 1.2) {
-        const glowFactor = (1 - distFromCenter / (ringRadius * 1.2)) * 0.25;
-        r = Math.min(255, Math.round(r + 37 * glowFactor));
-        g = Math.min(255, Math.round(g + 99 * glowFactor));
-        b = Math.min(255, Math.round(b + 235 * glowFactor));
-      }
-
-      // 3. Contril Ring: Circle with radius ringRadius and stroke ringThickness
-      const ringDist = Math.abs(distFromCenter - ringRadius);
+      // 2. Outer ring: circle stroke at circleRadius
+      const ringDist = Math.abs(distFromCenter - circleRadius);
       if (ringDist <= ringThickness) {
-        const ringAlpha = 1 - (ringDist / ringThickness);
-        // Electric sky-cyan to Contril blue
-        const ringR = Math.round(56 + gradFactor * 40);
-        const ringG = Math.round(189 - gradFactor * 60);
-        const ringB = Math.round(248);
-        r = Math.round(r * (1 - ringAlpha) + ringR * ringAlpha);
-        g = Math.round(g * (1 - ringAlpha) + ringG * ringAlpha);
-        b = Math.round(b * (1 - ringAlpha) + ringB * ringAlpha);
+        const alpha = Math.max(0, 1 - (ringDist / ringThickness));
+        // Anti-alias: blend blue onto background
+        r = Math.round(r * (1 - alpha) + blueR * alpha);
+        g = Math.round(g * (1 - alpha) + blueG * alpha);
+        b = Math.round(b * (1 - alpha) + blueB * alpha);
       }
 
-      // 4. Contril Diamond: |dx| + |dy| <= diamondHalf
+      // 3. Diamond: |dx| + |dy| <= diamondHalf
       const manhattanDist = Math.abs(dx) + Math.abs(dy);
-      const diamondEdgeDist = Math.abs(manhattanDist - diamondHalf);
-
-      if (manhattanDist < diamondHalf) {
-        // Diamond fill: Deep Contril blue (#1D4ED8 to #2563EB)
-        const fillAlpha = 0.95;
-        const fillR = Math.round(29 + gradFactor * 8);
-        const fillG = Math.round(78 + gradFactor * 21);
-        const fillB = Math.round(216 + gradFactor * 19);
-        r = Math.round(r * (1 - fillAlpha) + fillR * fillAlpha);
-        g = Math.round(g * (1 - fillAlpha) + fillG * fillAlpha);
-        b = Math.round(b * (1 - fillAlpha) + fillB * fillAlpha);
+      
+      // Diamond fill
+      if (manhattanDist < diamondHalf - diamondStrokeThickness * 0.5) {
+        r = blueR;
+        g = blueG;
+        b = blueB;
       }
-
-      if (diamondEdgeDist <= diamondThickness) {
-        // Diamond stroke: Vivid cyan & bright blue (#38BDF8 / #60A5FA)
-        const strokeAlpha = 1 - (diamondEdgeDist / diamondThickness);
-        const strokeR = Math.round(96 + (1 - gradFactor) * 50);
-        const strokeG = Math.round(165 + (1 - gradFactor) * 40);
-        const strokeB = 250;
-        r = Math.round(r * (1 - strokeAlpha) + strokeR * strokeAlpha);
-        g = Math.round(g * (1 - strokeAlpha) + strokeG * strokeAlpha);
-        b = Math.round(b * (1 - strokeAlpha) + strokeB * strokeAlpha);
+      
+      // Diamond edge anti-aliasing
+      const diamondEdgeDist = Math.abs(manhattanDist - diamondHalf);
+      if (diamondEdgeDist <= diamondStrokeThickness) {
+        const edgeAlpha = Math.max(0, 1 - (diamondEdgeDist / diamondStrokeThickness));
+        if (manhattanDist >= diamondHalf - diamondStrokeThickness * 0.5) {
+          r = Math.round(r * (1 - edgeAlpha) + blueR * edgeAlpha);
+          g = Math.round(g * (1 - edgeAlpha) + blueG * edgeAlpha);
+          b = Math.round(b * (1 - edgeAlpha) + blueB * edgeAlpha);
+        }
       }
 
       rawData[pxOffset] = r;
@@ -144,24 +110,16 @@ function renderContrilIcon(size, isRound = false) {
     }
   }
 
-  // PNG Header
+  // Build PNG
   const pngHeader = Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
-
-  // IHDR
   const ihdr = Buffer.alloc(13);
   ihdr.writeUInt32BE(width, 0);
   ihdr.writeUInt32BE(height, 4);
-  ihdr[8] = 8; // Bit depth: 8
-  ihdr[9] = 6; // Color type: RGBA (6)
-  ihdr[10] = 0; // Compression
-  ihdr[11] = 0; // Filter
-  ihdr[12] = 0; // Interlace
-
+  ihdr[8] = 8; ihdr[9] = 6; ihdr[10] = 0; ihdr[11] = 0; ihdr[12] = 0;
   const ihdrChunk = createChunk('IHDR', ihdr);
   const compressed = zlib.deflateSync(rawData);
   const idatChunk = createChunk('IDAT', compressed);
   const iendChunk = createChunk('IEND', Buffer.alloc(0));
-
   return Buffer.concat([pngHeader, ihdrChunk, idatChunk, iendChunk]);
 }
 
@@ -181,13 +139,11 @@ for (const d of densities) {
     fs.mkdirSync(targetDir, { recursive: true });
   }
 
-  const iconPng = renderContrilIcon(d.size, false);
+  const iconPng = renderContrilLightIcon(d.size);
   fs.writeFileSync(path.join(targetDir, 'ic_launcher.png'), iconPng);
+  fs.writeFileSync(path.join(targetDir, 'ic_launcher_round.png'), iconPng);
 
-  const roundIconPng = renderContrilIcon(d.size, true);
-  fs.writeFileSync(path.join(targetDir, 'ic_launcher_round.png'), roundIconPng);
-
-  console.log(`Generated ${d.folder} (${d.size}x${d.size}) standard & round launcher icons`);
+  console.log(`Generated LIGHT ${d.folder} (${d.size}x${d.size}) launcher icons`);
 }
 
-console.log('All legacy & modern launcher mipmaps generated successfully!');
+console.log('All LIGHT launcher mipmaps generated.');
