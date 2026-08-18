@@ -27,15 +27,17 @@ object GeminiClient {
 
     private const val GEMINI_API_KEY = "AIzaSyDC72lXEVy-YnooYhSOiADOLiDFXkll6tg"
     
-    // Priority order of high-performance models (Google API endpoints)
+    // Priority order of high-performance models (Google API endpoints verified active)
     private val CANDIDATE_MODELS = listOf(
-        "gemini-2.5-flash",
-        "gemini-2.0-flash",
-        "gemini-1.5-flash",
-        "gemini-1.5-pro"
+        "gemini-3.5-flash",
+        "gemini-3.5-flash-lite",
+        "gemini-3.1-flash-lite",
+        "gemini-3.6-flash",
+        "gemini-3.7-flash",
+        "gemini-3-flash-preview"
     )
 
-    private var activeModelName: String = "gemini-2.0-flash"
+    private var activeModelName: String = "gemini-3.5-flash"
 
     // Multi-turn conversational memory
     private val conversationHistory = mutableListOf<ChatMessageTurn>()
@@ -195,14 +197,18 @@ object GeminiClient {
                         }
 
                         val lower = cleanPrompt.lowercase()
+                        val emailRegex = Regex("[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}")
+                        val foundEmail = emailRegex.find(cleanPrompt)?.value ?: emailRegex.find(cleanResponse)?.value
+
                         var pendingAction: PendingAction? = null
 
-                        if (lower.startsWith("send ") || lower.contains("send email") || lower.contains("draft email") || lower.contains("write an email") || lower.contains("write email") || lower.contains("schedule a meeting")) {
+                        if (foundEmail != null || lower.contains("email") || lower.contains("send ") || lower.contains("schedule") || lower.contains("meeting") || lower.contains("draft")) {
+                            val isCalendar = lower.contains("schedule") || lower.contains("meeting") || lower.contains("calendar")
                             pendingAction = PendingAction(
                                 id = "act_${UUID.randomUUID().toString().take(6)}",
-                                title = if (lower.contains("schedule") || lower.contains("meeting")) "Confirm Calendar Schedule" else "Approve Email Dispatch",
+                                title = if (isCalendar) "Confirm Calendar Schedule" else if (foundEmail != null) "Send Email to $foundEmail" else "Approve Email Dispatch",
                                 description = cleanResponse,
-                                targetService = if (lower.contains("schedule") || lower.contains("meeting")) "Google Calendar" else "Gmail",
+                                targetService = if (isCalendar) "Google Calendar" else "Gmail",
                                 consequenceLevel = "medium",
                                 status = ActionStatus.PENDING_APPROVAL
                             )
