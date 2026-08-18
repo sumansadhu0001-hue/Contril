@@ -7,7 +7,12 @@ export interface PageSeoConfig {
   ogType?: string;
 }
 
-const DEFAULT_BASE_URL = 'https://contril.app';
+export const getBaseUrl = (): string => {
+  if (typeof window !== 'undefined' && window.location && window.location.origin) {
+    return window.location.origin;
+  }
+  return 'https://contril.netlify.app';
+};
 
 export const PAGE_SEO_METADATA: Record<string, PageSeoConfig> = {
   home: {
@@ -57,7 +62,7 @@ export const PAGE_SEO_METADATA: Record<string, PageSeoConfig> = {
 export function usePageSeo(route: string) {
   useEffect(() => {
     const config = PAGE_SEO_METADATA[route] || PAGE_SEO_METADATA.home;
-    const fullCanonicalUrl = `${DEFAULT_BASE_URL}${config.canonicalPath || '/'}`;
+    const fullCanonicalUrl = `${getBaseUrl()}${config.canonicalPath || '/'}`;
 
     // 1. Update Title
     document.title = config.title;
