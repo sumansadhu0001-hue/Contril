@@ -45,6 +45,8 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
     val activityLogs by viewModel.activityLogs.collectAsState()
     val user by viewModel.currentUser.collectAsState()
     val connectedMap by viewModel.connectedServices.collectAsState()
+    val currentPlan by viewModel.currentPlan.collectAsState()
+    val isEliteUser = currentPlan.equals("Elite", ignoreCase = true) || currentPlan.equals("Autonomous Pro", ignoreCase = true) || currentPlan.equals("Elite Plan", ignoreCase = true)
 
     var showSignOutDialog by remember { mutableStateOf(false) }
     var showOvernightExplanationDialog by remember { mutableStateOf(false) }
@@ -523,11 +525,13 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
                 color = MaterialTheme.colorScheme.surface,
                 border = BorderStroke(
                     1.dp,
-                    if (isOvernightAutonomyEnabled) Color(0xFF6366F1).copy(alpha = 0.6f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
+                    if (isOvernightAutonomyEnabled && isEliteUser) Color(0xFF6366F1).copy(alpha = 0.6f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
                 ),
                 modifier = Modifier.fillMaxWidth(),
                 onClick = {
-                    if (!isOvernightAutonomyEnabled) {
+                    if (!isEliteUser) {
+                        showUpgradeToEliteDialog = true
+                    } else if (!isOvernightAutonomyEnabled) {
                         showOvernightExplanationDialog = true
                     }
                 }
@@ -548,13 +552,16 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
                             Box(
                                 modifier = Modifier
                                     .size(32.dp)
-                                    .background(Color(0xFF6366F1).copy(alpha = 0.12f), RoundedCornerShape(8.dp)),
+                                    .background(
+                                        if (isEliteUser) Color(0xFF6366F1).copy(alpha = 0.12f) else MaterialTheme.colorScheme.surfaceVariant,
+                                        RoundedCornerShape(8.dp)
+                                    ),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
-                                    imageVector = Icons.Filled.NightlightRound,
+                                    imageVector = if (isEliteUser) Icons.Filled.NightlightRound else Icons.Filled.Lock,
                                     contentDescription = null,
-                                    tint = Color(0xFF6366F1),
+                                    tint = if (isEliteUser) Color(0xFF6366F1) else MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.size(18.dp)
                                 )
                             }
@@ -571,28 +578,30 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
                                 ) {
                                     Surface(
                                         shape = RoundedCornerShape(4.dp),
-                                        color = Color(0xFF6366F1).copy(alpha = 0.15f)
+                                        color = if (isEliteUser) Color(0xFF6366F1).copy(alpha = 0.15f) else StatusWarning.copy(alpha = 0.15f)
                                     ) {
                                         Text(
-                                            text = "ELITE PLAN (₹3,999)",
+                                            text = if (isEliteUser) "ELITE ACTIVE" else "RESERVED FOR ELITE (₹3,999)",
                                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 9.sp),
-                                            color = Color(0xFF6366F1),
+                                            color = if (isEliteUser) Color(0xFF6366F1) else StatusWarning,
                                             modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
                                         )
                                     }
                                     Text(
-                                        text = if (isOvernightAutonomyEnabled) "Active" else "Disabled",
+                                        text = if (!isEliteUser) "Locked" else if (isOvernightAutonomyEnabled) "Active" else "Disabled",
                                         style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
-                                        color = if (isOvernightAutonomyEnabled) Color(0xFF10B981) else MaterialTheme.colorScheme.onSurfaceVariant
+                                        color = if (!isEliteUser) MaterialTheme.colorScheme.onSurfaceVariant else if (isOvernightAutonomyEnabled) Color(0xFF10B981) else MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
                             }
                         }
 
                         Switch(
-                            checked = isOvernightAutonomyEnabled,
+                            checked = isOvernightAutonomyEnabled && isEliteUser,
                             onCheckedChange = { targetState ->
-                                if (targetState) {
+                                if (!isEliteUser) {
+                                    showUpgradeToEliteDialog = true
+                                } else if (targetState) {
                                     showOvernightExplanationDialog = true
                                 } else {
                                     viewModel.setOvernightAutonomyEnabled(context, false)
@@ -612,7 +621,38 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
                         lineHeight = 18.sp
                     )
 
-                    if (!isOvernightAutonomyEnabled) {
+                    if (!isEliteUser) {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = StatusWarning.copy(alpha = 0.08f),
+                            border = BorderStroke(1.dp, StatusWarning.copy(alpha = 0.25f)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(Icons.Filled.Lock, contentDescription = null, tint = StatusWarning, modifier = Modifier.size(16.dp))
+                                Text(
+                                    text = "Overnight background execution is reserved exclusively for the Elite Plan (₹3,999/mo). Free and ₹899 Pro plans do not include overnight autonomy.",
+                                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                        }
+
+                        Button(
+                            onClick = { showUpgradeToEliteDialog = true },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6366F1))
+                        ) {
+                            Icon(Icons.Filled.Lock, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Upgrade to Elite (₹3,999) to Unlock", fontWeight = FontWeight.Bold)
+                        }
+                    } else if (!isOvernightAutonomyEnabled) {
                         Button(
                             onClick = { showOvernightExplanationDialog = true },
                             modifier = Modifier.fillMaxWidth(),

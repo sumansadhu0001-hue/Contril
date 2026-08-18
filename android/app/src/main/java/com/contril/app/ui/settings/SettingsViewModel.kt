@@ -22,6 +22,9 @@ class SettingsViewModel(
     val activityLogs: StateFlow<List<OvernightActivityLog>> = prefRepository.activityLogs
     val currentUser: StateFlow<UserProfile?> = prefRepository.currentUser
     val connectedServices: StateFlow<Map<String, String>> = prefRepository.connectedServices
+    val currentPlan: StateFlow<String> = prefRepository.currentPlan
+
+    fun isElitePlan(): Boolean = prefRepository.isElitePlan()
 
     fun setAutonomyMode(mode: AutonomyMode) {
         prefRepository.setAutonomyMode(mode)
@@ -31,13 +34,19 @@ class SettingsViewModel(
         prefRepository.setAutoSendEnabled(enabled)
     }
 
-    fun setOvernightAutonomyEnabled(context: Context, enabled: Boolean) {
+    fun setOvernightAutonomyEnabled(context: Context, enabled: Boolean): Boolean {
+        if (enabled && !prefRepository.isElitePlan()) {
+            prefRepository.setOvernightAutonomyEnabled(false)
+            OvernightAutonomyService.stopService(context)
+            return false
+        }
         prefRepository.setOvernightAutonomyEnabled(enabled)
         if (enabled) {
             OvernightAutonomyService.startService(context)
         } else {
             OvernightAutonomyService.stopService(context)
         }
+        return true
     }
 
     fun purgeOldLogs() {

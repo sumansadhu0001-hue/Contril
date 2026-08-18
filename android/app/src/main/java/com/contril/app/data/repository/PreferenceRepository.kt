@@ -337,6 +337,8 @@ class PreferenceRepository(context: Context? = null) {
     val currentPlan: StateFlow<String> = _currentPlan.asStateFlow()
 
     private fun getSavedPlan(): String {
+        val saved = prefs?.getString("user_plan", null)
+        if (!saved.isNullOrBlank()) return saved
         val status = getSavedSubscriptionStatus()
         return if (status == com.contril.app.data.model.SubscriptionStatus.ACTIVE_PRO) "Pro" else "Free"
     }
@@ -350,7 +352,17 @@ class PreferenceRepository(context: Context? = null) {
         _currentPlan.value = plan
     }
 
+    fun isElitePlan(): Boolean {
+        val plan = _currentPlan.value
+        return plan.equals("Elite", ignoreCase = true) || 
+               plan.equals("Autonomous Pro", ignoreCase = true) ||
+               plan.equals("Elite Plan", ignoreCase = true)
+    }
+
     fun isProOrExecutive(): Boolean {
+        val plan = _currentPlan.value
+        if (isElitePlan()) return true
+        if (plan.equals("Pro", ignoreCase = true) || plan.equals("Starter Executive", ignoreCase = true)) return true
         val status = getSavedSubscriptionStatus()
         return status == com.contril.app.data.model.SubscriptionStatus.ACTIVE_PRO
     }

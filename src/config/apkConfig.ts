@@ -37,7 +37,7 @@ export const CONTRIL_APK_CONFIG: AndroidReleaseInfo = {
   playStoreUrl: CONTRIL_PLAY_STORE_URL,
   // Set to 'PLAY_STORE' once approved on Google Play Console for a 1-line switchover
   distributionMode: 'DIRECT_APK',
-  sha256Checksum: '64b335c10f13e0369dd1effbbb20fc0774f027261efb62521e1f2e4e3c739a5d',
+  sha256Checksum: 'bed2b4ca8edec6d57c8af49f239fab6b506dd8d4bb0006c611acc92fc5dbc09b',
   channel: 'stable',
   installNotice: 'Currently available as a direct download while we complete Play Store review — you may see a standard Android security prompt during install; this is expected and safe.',
   changelog: [

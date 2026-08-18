@@ -55,6 +55,7 @@ import { SpotlightModal } from './components/SpotlightModal';
 import { DailyVoiceBriefingModal } from './components/DailyVoiceBriefingModal';
 import { AdminInquiriesDashboard } from './components/AdminInquiriesDashboard';
 import { AdminErrorBoundary } from './components/AdminErrorBoundary';
+import { AdminAuthGate } from './components/AdminAuthGate';
 import { CrashReportingService } from './backend/telemetry/CrashReportingService';
 import { ThemePreference, getStoredThemePreference, saveThemePreference, applyTheme, subscribeToSystemThemeChanges } from './lib/theme';
 import { usePageSeo } from './hooks/usePageSeo';
@@ -303,11 +304,13 @@ export default function App() {
   // RENDER ROUTING
   // ---------------------------------------------------------------------------
 
-  // 1. Admin Portal
+  // 1. Admin Portal (Protected with Administrator Master Key Gate)
   if (isAdminView) {
     return (
       <AdminErrorBoundary onBackToApp={() => { setIsAdminView(false); navigateTo('/'); }}>
-        <AdminInquiriesDashboard onBackToApp={() => { setIsAdminView(false); navigateTo('/'); }} />
+        <AdminAuthGate onBackToApp={() => { setIsAdminView(false); navigateTo('/'); }}>
+          <AdminInquiriesDashboard onBackToApp={() => { setIsAdminView(false); navigateTo('/'); }} />
+        </AdminAuthGate>
       </AdminErrorBoundary>
     );
   }

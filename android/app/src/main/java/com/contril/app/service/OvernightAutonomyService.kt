@@ -74,6 +74,13 @@ class OvernightAutonomyService : Service() {
             return START_NOT_STICKY
         }
 
+        if (!prefRepository.isElitePlan()) {
+            Log.w("OvernightService", "Overnight Autonomy is restricted to Elite plan. Terminating service.")
+            prefRepository.setOvernightAutonomyEnabled(false)
+            stopMonitoringService()
+            return START_NOT_STICKY
+        }
+
         val notification = buildForegroundNotification("Active • Monitoring inbox, meetings & deadlines")
         
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -100,7 +107,7 @@ class OvernightAutonomyService : Service() {
             // Auto-purge logs older than 30 days on loop start
             prefRepository.purgeOldActivityLogs(days = 30)
 
-            while (isActive && prefRepository.isOvernightAutonomyEnabled.value) {
+            while (isActive && prefRepository.isOvernightAutonomyEnabled.value && prefRepository.isElitePlan()) {
                 try {
                     performAutonomousCycle()
                 } catch (e: Throwable) {
