@@ -57,6 +57,7 @@ import { AdminInquiriesDashboard } from './components/AdminInquiriesDashboard';
 import { AdminErrorBoundary } from './components/AdminErrorBoundary';
 import { CrashReportingService } from './backend/telemetry/CrashReportingService';
 import { ThemePreference, getStoredThemePreference, saveThemePreference, applyTheme, subscribeToSystemThemeChanges } from './lib/theme';
+import { usePageSeo } from './hooks/usePageSeo';
 import { Loader2 } from 'lucide-react';
 
 let globalAuthLifecycleStarted = false;
@@ -77,6 +78,9 @@ export default function App() {
   };
 
   const [currentRoute, setCurrentRoute] = useState<string>(parseCurrentRoute);
+
+  // Dynamic SEO Metadata (Per-Page Title, Meta Description, Canonical URL, OpenGraph)
+  usePageSeo(currentRoute);
 
   // Authenticated internal operating mode
   const [appMode, setAppMode] = useState<OperatingMode>('focus');

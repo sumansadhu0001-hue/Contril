@@ -67,6 +67,20 @@ sealed class Screen(
         unselectedIcon = Icons.Outlined.CreditCard
     )
 
+    data object Chat : Screen(
+        route = "chat",
+        title = "Chat",
+        selectedIcon = Icons.Filled.AutoAwesome,
+        unselectedIcon = Icons.Outlined.AutoAwesome
+    )
+
+    data object Permissions : Screen(
+        route = "permissions",
+        title = "Permissions",
+        selectedIcon = Icons.Filled.Security,
+        unselectedIcon = Icons.Outlined.Security
+    )
+
     companion object {
         val bottomNavItems: List<Screen>
             get() = listOf(Home, Inbox, Tasks, Profile)

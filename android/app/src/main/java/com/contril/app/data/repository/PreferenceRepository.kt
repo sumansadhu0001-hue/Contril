@@ -3,10 +3,18 @@ package com.contril.app.data.repository
 import android.content.Context
 import android.content.SharedPreferences
 import android.util.Log
+import com.contril.app.data.model.ActivityEventType
 import com.contril.app.data.model.AutonomyMode
+import com.contril.app.data.model.EmailSummary
+import com.contril.app.data.model.ExtractedEvent
+import com.contril.app.data.model.OvernightActivityLog
+import com.contril.app.data.model.OvernightServiceState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import org.json.JSONArray
+import org.json.JSONObject
+import java.util.concurrent.TimeUnit
 
 class PreferenceRepository(context: Context? = null) {
 
@@ -22,6 +30,21 @@ class PreferenceRepository(context: Context? = null) {
 
     private val _isDarkTheme = MutableStateFlow(getSavedDarkTheme())
     val isDarkTheme: StateFlow<Boolean> = _isDarkTheme.asStateFlow()
+
+    private val _isAutoSendEnabled = MutableStateFlow(getSavedAutoSendMode())
+    val isAutoSendEnabled: StateFlow<Boolean> = _isAutoSendEnabled.asStateFlow()
+
+    private val _isOvernightAutonomyEnabled = MutableStateFlow(getSavedOvernightAutonomyMode())
+    val isOvernightAutonomyEnabled: StateFlow<Boolean> = _isOvernightAutonomyEnabled.asStateFlow()
+
+    private val _overnightServiceState = MutableStateFlow(OvernightServiceState())
+    val overnightServiceState: StateFlow<OvernightServiceState> = _overnightServiceState.asStateFlow()
+
+    private val _activityLogs = MutableStateFlow(getSavedActivityLogs())
+    val activityLogs: StateFlow<List<OvernightActivityLog>> = _activityLogs.asStateFlow()
+
+    private val _extractedEvents = MutableStateFlow(getSavedExtractedEvents())
+    val extractedEvents: StateFlow<List<ExtractedEvent>> = _extractedEvents.asStateFlow()
 
     private val _userSessionToken = MutableStateFlow(getSavedAuthToken())
     val userSessionToken: StateFlow<String?> = _userSessionToken.asStateFlow()
@@ -41,6 +64,23 @@ class PreferenceRepository(context: Context? = null) {
         } catch (_: Throwable) {
             false
         }
+    }
+
+    fun getSavedAutoSendMode(): Boolean {
+        return try {
+            prefs?.getBoolean("contril_auto_send_mode_enabled", false) ?: false
+        } catch (_: Throwable) {
+            false
+        }
+    }
+
+    fun setAutoSendEnabled(enabled: Boolean) {
+        try {
+            prefs?.edit()?.putBoolean("contril_auto_send_mode_enabled", enabled)?.apply()
+        } catch (e: Throwable) {
+            Log.e("ContrilPref", "Failed to write autoSendMode: ${e.message}")
+        }
+        _isAutoSendEnabled.value = enabled
     }
 
     private fun getSavedAuthToken(): String? {
@@ -323,7 +363,7 @@ class PreferenceRepository(context: Context? = null) {
         } else {
             0
         }
-        val maxLimit = if (isProOrExecutive()) 100 else 5
+        val maxLimit = if (isProOrExecutive()) 1000 else 50
         return Pair(count, maxLimit)
     }
 
@@ -332,7 +372,7 @@ class PreferenceRepository(context: Context? = null) {
         val today = java.time.LocalDate.now().toString()
         val savedDate = prefs?.getString("ai_usage_date", "") ?: ""
         var count = if (savedDate == today) prefs?.getInt("ai_usage_count", 0) ?: 0 else 0
-        if (count >= 5) {
+        if (count >= 50) {
             return false // Free limit reached
         }
         count += 1
@@ -347,17 +387,327 @@ class PreferenceRepository(context: Context? = null) {
         return true
     }
 
+    // --- Google OAuth Provider Token Management ---
+    fun saveGoogleProviderTokens(providerToken: String?, refreshToken: String?, expiresInSeconds: Long = 3600) {
+        val expiryTimestamp = System.currentTimeMillis() + (expiresInSeconds * 1000)
+        try {
+            val editor = prefs?.edit()
+            if (providerToken != null) {
+                editor?.putString("google_provider_token", providerToken)
+                editor?.putLong("google_token_expiry", expiryTimestamp)
+            } else {
+                editor?.remove("google_provider_token")
+                editor?.remove("google_token_expiry")
+            }
+            if (refreshToken != null) {
+                editor?.putString("google_refresh_token", refreshToken)
+            }
+            editor?.apply()
+        } catch (e: Throwable) {
+            Log.e("ContrilPref", "Failed to save Google provider tokens: ${e.message}")
+        }
+    }
+
+    fun getGoogleProviderToken(): String? = prefs?.getString("google_provider_token", null)
+    fun getGoogleRefreshToken(): String? = prefs?.getString("google_refresh_token", null)
+
+    fun isGoogleTokenExpired(): Boolean {
+        val expiry = prefs?.getLong("google_token_expiry", 0L) ?: 0L
+        // Return true if expired or expiring in under 2 minutes
+        return System.currentTimeMillis() > (expiry - 120_000)
+    }
+
+    // --- Granular Permissions State ---
+    private val _isAccessibilityGranted = MutableStateFlow(prefs?.getBoolean("perm_accessibility", false) ?: false)
+    val isAccessibilityGranted: StateFlow<Boolean> = _isAccessibilityGranted.asStateFlow()
+
+    private val _isGmailReadGranted = MutableStateFlow(prefs?.getBoolean("perm_gmail_read", true) ?: true)
+    val isGmailReadGranted: StateFlow<Boolean> = _isGmailReadGranted.asStateFlow()
+
+    private val _isGmailSendGranted = MutableStateFlow(prefs?.getBoolean("perm_gmail_send", false) ?: false)
+    val isGmailSendGranted: StateFlow<Boolean> = _isGmailSendGranted.asStateFlow()
+
+    private val _isCalendarReadGranted = MutableStateFlow(prefs?.getBoolean("perm_calendar_read", true) ?: true)
+    val isCalendarReadGranted: StateFlow<Boolean> = _isCalendarReadGranted.asStateFlow()
+
+    private val _isBackgroundServiceGranted = MutableStateFlow(prefs?.getBoolean("perm_background_service", false) ?: false)
+    val isBackgroundServiceGranted: StateFlow<Boolean> = _isBackgroundServiceGranted.asStateFlow()
+
+    private val _isNotificationsGranted = MutableStateFlow(prefs?.getBoolean("perm_notifications", true) ?: true)
+    val isNotificationsGranted: StateFlow<Boolean> = _isNotificationsGranted.asStateFlow()
+
+    fun setPermission(permissionKey: String, granted: Boolean) {
+        try {
+            prefs?.edit()?.putBoolean("perm_$permissionKey", granted)?.apply()
+        } catch (_: Throwable) {}
+
+        when (permissionKey) {
+            "accessibility" -> _isAccessibilityGranted.value = granted
+            "gmail_read" -> _isGmailReadGranted.value = granted
+            "gmail_send" -> _isGmailSendGranted.value = granted
+            "calendar_read" -> _isCalendarReadGranted.value = granted
+            "background_service" -> _isBackgroundServiceGranted.value = granted
+            "notifications" -> _isNotificationsGranted.value = granted
+        }
+    }
+
+    fun isPermissionGranted(permissionKey: String): Boolean {
+        return prefs?.getBoolean("perm_$permissionKey", false) ?: false
+    }
+
+    // --- OVERNIGHT AUTONOMY PERSISTENCE & LOGGING (30-DAY PURGE) ---
+    private fun getSavedOvernightAutonomyMode(): Boolean {
+        return prefs?.getBoolean("overnight_autonomy_enabled", false) ?: false
+    }
+
+    fun setOvernightAutonomyEnabled(enabled: Boolean) {
+        try {
+            prefs?.edit()?.putBoolean("overnight_autonomy_enabled", enabled)?.apply()
+        } catch (_: Throwable) {}
+        _isOvernightAutonomyEnabled.value = enabled
+        if (enabled) {
+            addActivityLog(
+                OvernightActivityLog(
+                    eventType = ActivityEventType.SERVICE_STARTED,
+                    title = "Overnight Autonomy Mode Activated",
+                    description = "Monitoring initiated for unread messages, priority meetings, and AI draft actions."
+                )
+            )
+        } else {
+            addActivityLog(
+                OvernightActivityLog(
+                    eventType = ActivityEventType.SERVICE_STOPPED,
+                    title = "Overnight Autonomy Mode Deactivated",
+                    description = "Monitoring manually stopped by user."
+                )
+            )
+        }
+    }
+
+    fun updateOvernightServiceState(transform: (OvernightServiceState) -> OvernightServiceState) {
+        _overnightServiceState.value = transform(_overnightServiceState.value)
+    }
+
+    fun addActivityLog(log: OvernightActivityLog) {
+        val current = _activityLogs.value.toMutableList()
+        current.add(0, log) // prepend newest
+        
+        // 30-Day Auto-Purge policy
+        val cutoff = System.currentTimeMillis() - TimeUnit.DAYS.toMillis(30)
+        val purged = current.filter { it.timestamp >= cutoff }
+        
+        _activityLogs.value = purged
+        saveActivityLogs(purged)
+    }
+
+    fun purgeOldActivityLogs(days: Int = 30) {
+        val cutoff = System.currentTimeMillis() - TimeUnit.DAYS.toMillis(days.toLong())
+        val purged = _activityLogs.value.filter { it.timestamp >= cutoff }
+        _activityLogs.value = purged
+        saveActivityLogs(purged)
+    }
+
+    private fun getSavedActivityLogs(): List<OvernightActivityLog> {
+        val jsonStr = prefs?.getString("overnight_activity_logs_json", null) ?: return emptyList()
+        return try {
+            val arr = JSONArray(jsonStr)
+            val list = mutableListOf<OvernightActivityLog>()
+            val cutoff = System.currentTimeMillis() - TimeUnit.DAYS.toMillis(30)
+            for (i in 0 until arr.length()) {
+                val obj = arr.getJSONObject(i)
+                val ts = obj.optLong("timestamp", System.currentTimeMillis())
+                if (ts >= cutoff) {
+                    list.add(
+                        OvernightActivityLog(
+                            id = obj.optString("id", ""),
+                            timestamp = ts,
+                            eventType = try { ActivityEventType.valueOf(obj.optString("eventType", "SCAN_STARTED")) } catch (_: Throwable) { ActivityEventType.SCAN_STARTED },
+                            title = obj.optString("title", ""),
+                            description = obj.optString("description", ""),
+                            emailSender = obj.optString("emailSender", null),
+                            emailSubject = obj.optString("emailSubject", null),
+                            payloadSnippet = obj.optString("payloadSnippet", null),
+                            tokensConsumed = obj.optInt("tokensConsumed", 0)
+                        )
+                    )
+                }
+            }
+            list
+        } catch (_: Throwable) {
+            emptyList()
+        }
+    }
+
+    private fun saveActivityLogs(logs: List<OvernightActivityLog>) {
+        try {
+            val arr = JSONArray()
+            logs.take(200).forEach { log ->
+                val obj = JSONObject()
+                obj.put("id", log.id)
+                obj.put("timestamp", log.timestamp)
+                obj.put("eventType", log.eventType.name)
+                obj.put("title", log.title)
+                obj.put("description", log.description)
+                obj.put("emailSender", log.emailSender)
+                obj.put("emailSubject", log.emailSubject)
+                obj.put("payloadSnippet", log.payloadSnippet)
+                obj.put("tokensConsumed", log.tokensConsumed)
+                arr.put(obj)
+            }
+            prefs?.edit()?.putString("overnight_activity_logs_json", arr.toString())?.apply()
+        } catch (_: Throwable) {}
+    }
+
+    fun addExtractedEvent(event: ExtractedEvent) {
+        val current = _extractedEvents.value.toMutableList()
+        if (current.none { it.sourceEmailId == event.sourceEmailId }) {
+            current.add(0, event)
+            _extractedEvents.value = current
+            saveExtractedEvents(current)
+        }
+    }
+
+    fun hasExtractedForEmail(emailId: String): Boolean {
+        return _extractedEvents.value.any { it.sourceEmailId == emailId }
+    }
+
+    private fun getSavedExtractedEvents(): List<ExtractedEvent> {
+        val jsonStr = prefs?.getString("extracted_events_json", null) ?: return emptyList()
+        return try {
+            val arr = JSONArray(jsonStr)
+            val list = mutableListOf<ExtractedEvent>()
+            for (i in 0 until arr.length()) {
+                val obj = arr.getJSONObject(i)
+                list.add(
+                    ExtractedEvent(
+                        id = obj.optString("id", ""),
+                        title = obj.optString("title", ""),
+                        dateOrDeadline = obj.optString("dateOrDeadline", ""),
+                        sender = obj.optString("sender", ""),
+                        sourceEmailId = obj.optString("sourceEmailId", ""),
+                        confidence = obj.optString("confidence", "HIGH"),
+                        timestamp = obj.optLong("timestamp", System.currentTimeMillis())
+                    )
+                )
+            }
+            list
+        } catch (_: Throwable) {
+            emptyList()
+        }
+    }
+
+    private fun saveExtractedEvents(events: List<ExtractedEvent>) {
+        try {
+            val arr = JSONArray()
+            events.take(50).forEach { event ->
+                val obj = JSONObject()
+                obj.put("id", event.id)
+                obj.put("title", event.title)
+                obj.put("dateOrDeadline", event.dateOrDeadline)
+                obj.put("sender", event.sender)
+                obj.put("sourceEmailId", event.sourceEmailId)
+                obj.put("confidence", event.confidence)
+                obj.put("timestamp", event.timestamp)
+                arr.put(obj)
+            }
+            prefs?.edit()?.putString("extracted_events_json", arr.toString())?.apply()
+        } catch (_: Throwable) {}
+    }
+
+    // --- Persistent Local Inbox Cache & Sync Timestamps ---
+    private val _lastInboxSyncTime = MutableStateFlow(prefs?.getLong("last_inbox_sync_timestamp", 0L) ?: 0L)
+    val lastInboxSyncTime: StateFlow<Long> = _lastInboxSyncTime.asStateFlow()
+
+    fun getLastInboxSyncTime(): Long = _lastInboxSyncTime.value
+
+    fun saveCachedInboxEmails(emails: List<EmailSummary>) {
+        try {
+            val arr = JSONArray()
+            emails.forEach { email ->
+                val obj = JSONObject()
+                obj.put("id", email.id)
+                obj.put("threadId", email.threadId)
+                obj.put("sender", email.sender)
+                obj.put("subject", email.subject)
+                obj.put("summarySnippet", email.summarySnippet)
+                obj.put("isUrgent", email.isUrgent)
+                obj.put("hasDraftReady", email.hasDraftReady)
+                obj.put("category", email.category)
+                obj.put("dateFormatted", email.dateFormatted)
+                obj.put("unread", email.unread)
+                arr.put(obj)
+            }
+            val now = System.currentTimeMillis()
+            prefs?.edit()
+                ?.putString("cached_inbox_emails_json", arr.toString())
+                ?.putLong("last_inbox_sync_timestamp", now)
+                ?.apply()
+            _lastInboxSyncTime.value = now
+        } catch (_: Throwable) {}
+    }
+
+    fun getCachedInboxEmails(): List<EmailSummary> {
+        val jsonStr = prefs?.getString("cached_inbox_emails_json", null) ?: return emptyList()
+        return try {
+            val arr = JSONArray(jsonStr)
+            val list = mutableListOf<EmailSummary>()
+            for (i in 0 until arr.length()) {
+                val obj = arr.getJSONObject(i)
+                list.add(
+                    EmailSummary(
+                        id = obj.optString("id", ""),
+                        threadId = obj.optString("threadId", obj.optString("id", "")),
+                        sender = obj.optString("sender", "Unknown"),
+                        subject = obj.optString("subject", "(No Subject)"),
+                        summarySnippet = obj.optString("summarySnippet", ""),
+                        isUrgent = obj.optBoolean("isUrgent", false),
+                        hasDraftReady = obj.optBoolean("hasDraftReady", false),
+                        category = obj.optString("category", "PRIMARY"),
+                        dateFormatted = obj.optString("dateFormatted", "Cached"),
+                        unread = obj.optBoolean("unread", false)
+                    )
+                )
+            }
+            list
+        } catch (_: Throwable) {
+            emptyList()
+        }
+    }
+
     fun clearSession() {
         saveUserSession(null, null)
+        saveGoogleProviderTokens(null, null, 0)
         try {
             prefs?.edit()
                 ?.remove("has_completed_onboarding")
                 ?.remove("user_role")
                 ?.remove("user_goals")
+                ?.remove("connected_services_map")
+                ?.remove("overnight_autonomy_enabled")
+                ?.remove("overnight_activity_logs_json")
+                ?.remove("extracted_events_json")
+                ?.remove("cached_inbox_emails_json")
+                ?.remove("last_inbox_sync_timestamp")
                 ?.apply()
         } catch (_: Throwable) {}
         _hasCompletedOnboarding.value = false
         _userRole.value = "Executive"
+        _connectedServices.value = emptyMap()
+        _isOvernightAutonomyEnabled.value = false
+        _lastInboxSyncTime.value = 0L
+    }
+
+    fun isEmailNotified(emailId: String): Boolean {
+        val notifiedSet = prefs?.getStringSet("notified_email_ids", emptySet()) ?: emptySet()
+        return notifiedSet.contains(emailId)
+    }
+
+    fun markEmailNotified(emailId: String) {
+        try {
+            val notifiedSet = (prefs?.getStringSet("notified_email_ids", emptySet()) ?: emptySet()).toMutableSet()
+            notifiedSet.add(emailId)
+            prefs?.edit()?.putStringSet("notified_email_ids", notifiedSet)?.apply()
+        } catch (_: Throwable) {}
     }
 }
 

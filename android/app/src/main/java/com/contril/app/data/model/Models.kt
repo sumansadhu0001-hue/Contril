@@ -90,8 +90,43 @@ data class EmailSummary(
     val sender: String,
     val subject: String,
     val summarySnippet: String,
-    val isUrgent: Boolean,
-    val hasDraftReady: Boolean
+    val isUrgent: Boolean = false,
+    val hasDraftReady: Boolean = false,
+    val category: String = "PRIMARY", // "PRIMARY", "PROMOTIONS", "UPDATES"
+    val labels: List<String> = emptyList(),
+    val threadId: String = id,
+    val dateFormatted: String = "Today",
+    val unread: Boolean = true
+)
+
+data class FullEmailDetail(
+    val id: String,
+    val threadId: String,
+    val sender: String,
+    val subject: String,
+    val date: String,
+    val bodyPlain: String,
+    val bodyHtml: String? = null,
+    val labels: List<String> = emptyList(),
+    val category: String = "PRIMARY",
+    val attachments: List<String> = emptyList()
+)
+
+data class EmailDeletionPlan(
+    val naturalQuery: String,
+    val resolvedGmailFilter: String,
+    val dateRangeExplanation: String,
+    val affectedCount: Int,
+    val isCappedByFreeTier: Boolean = false,
+    val remainingDailyAllowance: Int = 70
+)
+
+data class EmailDeletionLog(
+    val id: String = java.util.UUID.randomUUID().toString(),
+    val timestamp: String,
+    val filterQuery: String,
+    val countDeleted: Int,
+    val targetFolder: String = "Trash (30-day recovery)"
 )
 
 enum class IntegrationCategory {

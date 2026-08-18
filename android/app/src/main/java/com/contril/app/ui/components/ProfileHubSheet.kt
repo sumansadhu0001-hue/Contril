@@ -44,6 +44,7 @@ fun ProfileHubSheet(
     onNavigateToConnected: () -> Unit,
     onNavigateToPlans: () -> Unit,
     onNavigateToBriefing: () -> Unit,
+    onNavigateToPermissions: (() -> Unit)? = null,
     onSignOut: () -> Unit
 ) {
     val user by prefRepository.currentUser.collectAsState()
@@ -223,6 +224,18 @@ fun ProfileHubSheet(
                         onNavigateToConnected()
                     }
                 )
+
+                if (onNavigateToPermissions != null) {
+                    ProfileNavRow(
+                        icon = Icons.Outlined.Shield,
+                        title = "Privacy & Permissions",
+                        subtitle = "Granular capability controls and rationales",
+                        onClick = {
+                            onDismiss()
+                            onNavigateToPermissions()
+                        }
+                    )
+                }
             }
 
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))

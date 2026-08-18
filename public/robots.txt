@@ -1,0 +1,11 @@
+# Robots.txt for Contril AI Chief of Staff (https://contril.app)
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /admin.html
+Disallow: /app/
+Disallow: /auth/
+
+# Host & Sitemap
+Host: https://contril.app
+Sitemap: https://contril.app/sitemap.xml

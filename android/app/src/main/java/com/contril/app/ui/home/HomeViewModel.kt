@@ -28,21 +28,30 @@ data class HomeUiState(
     val currentUser: UserProfile? = null,
     val userRole: String = "Executive",
     val connectedServicesCount: Int = 0,
-    val aiUsage: Pair<Int, Int> = Pair(0, 5)
+    val aiUsage: Pair<Int, Int> = Pair(0, 5),
+    val isOnline: Boolean = true
 )
 
 class HomeViewModel(
     private val repository: ContrilRepository = ContrilRepository(),
     private val prefRepository: PreferenceRepository? = null,
-    val comparisonManager: PriceComparisonManager = PriceComparisonManager(prefRepository)
+    val comparisonManager: PriceComparisonManager = PriceComparisonManager(prefRepository),
+    val networkMonitor: com.contril.app.data.network.NetworkMonitor? = null
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(HomeUiState())
+    private val _uiState = MutableStateFlow(
+        HomeUiState(isOnline = networkMonitor?.isOnline?.value ?: true)
+    )
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
     private var pendingComparisonPrompt: String? = null
 
     init {
+        viewModelScope.launch {
+            networkMonitor?.isOnline?.collect { online ->
+                _uiState.update { it.copy(isOnline = online) }
+            }
+        }
         viewModelScope.launch {
             prefRepository?.currentUser?.collect { user ->
                 _uiState.update { it.copy(currentUser = user) }
@@ -76,14 +85,14 @@ class HomeViewModel(
         viewModelScope.launch {
             prefRepository?.connectedServices?.collect { map ->
                 val prompts = mutableListOf<String>()
-                prompts.add("Compare large Chicago pizza under 500")
-                if (map.containsKey("gmail")) {
+                if (map.containsKey("gmail") || map.containsKey("google_workspace") || map.containsKey("google")) {
                     prompts.add("Summarize my unread emails")
                 }
-                if (map.containsKey("calendar")) {
+                if (map.containsKey("calendar") || map.containsKey("google_workspace") || map.containsKey("google")) {
                     prompts.add("What's on my schedule today?")
                 }
-                prompts.add("Create a follow-up task for tomorrow")
+                prompts.add("Review today's priorities")
+                prompts.add("Draft an executive follow-up")
 
                 _uiState.update {
                     it.copy(
@@ -95,8 +104,23 @@ class HomeViewModel(
             }
         }
         viewModelScope.launch {
-            repository.priorities.collect { items ->
-                _uiState.update { it.copy(priorities = items) }
+            combine(
+                repository.priorities,
+                prefRepository?.extractedEvents ?: flowOf(emptyList())
+            ) { basePriorities, extracted ->
+                val dynamicExtracted = extracted.map { event ->
+                    PriorityItem(
+                        id = event.id,
+                        title = event.title,
+                        description = "Scheduled: ${event.dateOrDeadline} • From ${event.sender}",
+                        serviceTag = "Gmail",
+                        timeLabel = event.dateOrDeadline,
+                        isUrgent = event.confidence == "HIGH"
+                    )
+                }
+                dynamicExtracted + basePriorities
+            }.collect { merged ->
+                _uiState.update { it.copy(priorities = merged) }
             }
         }
         viewModelScope.launch {

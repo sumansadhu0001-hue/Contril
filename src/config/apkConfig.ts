@@ -1,16 +1,22 @@
 /**
- * Centralized Android APK Distribution Configuration
- * Update these values when releasing new APK test builds.
+ * Centralized Android Distribution & Play Store Configuration
+ * Single source of truth for app version, checksum, and distribution mode.
  */
 
-export interface AndroidApkReleaseInfo {
+export type DistributionMode = 'DIRECT_APK' | 'PLAY_STORE';
+
+export interface AndroidReleaseInfo {
   version: string;
   releaseDate: string;
   fileSize: string;
   minAndroidSdk: string;
   minAndroidVersion: string;
   downloadUrl: string;
+  playStoreUrl: string;
+  distributionMode: DistributionMode;
+  sha256Checksum: string;
   channel: 'preview' | 'beta' | 'stable';
+  installNotice: string;
   changelog: string[];
 }
 
@@ -18,19 +24,29 @@ export const CONTRIL_ANDROID_APK_URL =
   (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_CONTRIL_APK_URL) ||
   '/downloads/contril-android.apk';
 
-export const CONTRIL_APK_CONFIG: AndroidApkReleaseInfo = {
-  version: '0.1.0-preview',
-  releaseDate: 'August 2026',
-  fileSize: '11.3 MB',
+export const CONTRIL_PLAY_STORE_URL = 
+  'https://play.google.com/store/apps/details?id=com.contril.app';
+
+export const CONTRIL_APK_CONFIG: AndroidReleaseInfo = {
+  version: '0.2.0-native',
+  releaseDate: 'August 18, 2026',
+  fileSize: '13.0 MB',
   minAndroidSdk: 'API 26',
   minAndroidVersion: 'Android 8.0 (Oreo) or higher',
   downloadUrl: CONTRIL_ANDROID_APK_URL,
-  channel: 'preview',
+  playStoreUrl: CONTRIL_PLAY_STORE_URL,
+  // Set to 'PLAY_STORE' once approved on Google Play Console for a 1-line switchover
+  distributionMode: 'DIRECT_APK',
+  sha256Checksum: '64b335c10f13e0369dd1effbbb20fc0774f027261efb62521e1f2e4e3c739a5d',
+  channel: 'stable',
+  installNotice: 'Currently available as a direct download while we complete Play Store review — you may see a standard Android security prompt during install; this is expected and safe.',
   changelog: [
-    'Experimental test build for early testers',
-    'Voice & text command center integration',
-    'Google Workspace (Gmail & Calendar) live sync',
-    'Action approval permission model',
-    'Unified account authentication with Web'
+    'Signed with fresh production release keystore',
+    'Native Jetpack Compose mobile Chief of Staff UI',
+    'Gmail send, triage & safe trash cleaning (OAuth 2.0)',
+    'Real-time offline caching and last-synced indicators',
+    'Overnight autonomy service with 30-day auto-purge',
+    'Cultural & festive calendar executive briefings',
+    'Full Razorpay executive tier upgrades'
   ]
 };

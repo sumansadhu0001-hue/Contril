@@ -18,8 +18,32 @@ class ContrilApplication : Application() {
         super.onCreate()
         try {
             createNotificationChannels()
+            schedulePeriodicEmailSync()
         } catch (e: Exception) {
-            Log.e("ContrilApp", "Failed to create notification channels: ${e.message}", e)
+            Log.e("ContrilApp", "Failed to initialize app components: ${e.message}", e)
+        }
+    }
+
+    private fun schedulePeriodicEmailSync() {
+        try {
+            val constraints = androidx.work.Constraints.Builder()
+                .setRequiredNetworkType(androidx.work.NetworkType.CONNECTED)
+                .build()
+
+            val workRequest = androidx.work.PeriodicWorkRequestBuilder<com.contril.app.data.worker.EmailSyncWorker>(
+                15, java.util.concurrent.TimeUnit.MINUTES
+            )
+                .setConstraints(constraints)
+                .build()
+
+            androidx.work.WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+                com.contril.app.data.worker.EmailSyncWorker.WORK_NAME,
+                androidx.work.ExistingPeriodicWorkPolicy.KEEP,
+                workRequest
+            )
+            Log.i("ContrilApp", "Periodic EmailSyncWorker enqueued successfully.")
+        } catch (e: Exception) {
+            Log.w("ContrilApp", "Failed to schedule EmailSyncWorker: ${e.message}")
         }
     }
 

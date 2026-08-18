@@ -23,7 +23,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -33,6 +35,7 @@ import androidx.compose.ui.window.Dialog
 import com.contril.app.data.model.ActionStatus
 import com.contril.app.data.model.PendingAction
 import com.contril.app.data.model.UserProfile
+import com.contril.app.data.repository.PreferenceRepository
 import com.contril.app.theme.*
 import com.contril.app.ui.navigation.Screen
 
@@ -93,7 +96,7 @@ fun ContrilTopBar(
     var showProfileSheet by remember { mutableStateOf(false) }
 
     Surface(
-        color = MaterialTheme.colorScheme.background,
+        color = Color.Transparent,
         modifier = Modifier.fillMaxWidth()
     ) {
         Row(
@@ -121,7 +124,7 @@ fun ContrilTopBar(
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 2.sp
                         ),
-                        color = MaterialTheme.colorScheme.onBackground
+                        color = TextPrimaryLight
                     )
                     Text(
                         text = subtitle,
@@ -129,7 +132,7 @@ fun ContrilTopBar(
                             fontWeight = FontWeight.Normal,
                             letterSpacing = 0.2.sp
                         ),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = TextSecondaryLight
                     )
                 }
             }
@@ -139,14 +142,14 @@ fun ContrilTopBar(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                // Live Status Pill
+                // Live Status Pill (Soft shadow on light background)
                 Surface(
                     shape = RoundedCornerShape(16.dp),
-                    color = MaterialTheme.colorScheme.surface,
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
+                    color = ContrilLightSurface,
+                    shadowElevation = 4.dp
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
@@ -158,22 +161,19 @@ fun ContrilTopBar(
                         )
                         Text(
                             text = if (isOnline) "Active" else "Offline",
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontWeight = FontWeight.SemiBold,
-                                letterSpacing = 0.2.sp
-                            ),
-                            color = if (isOnline) StatusActive else StatusWarning
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                            color = TextPrimaryLight
                         )
                     }
                 }
 
-                // Dynamic Profile Avatar (Initials from real authenticated name/email)
+                // Dynamic Profile Avatar with Two-tone Gradient
                 if (userProfile != null) {
                     Box(
                         modifier = Modifier
                             .size(36.dp)
                             .clip(CircleShape)
-                            .background(ContrilBlue)
+                            .background(ContrilAccentGradient)
                             .clickable {
                                 if (onAvatarClick != null) onAvatarClick() else showProfileSheet = true
                             },
@@ -203,90 +203,70 @@ fun ProfileModalDialog(
     userProfile: UserProfile,
     onDismiss: () -> Unit
 ) {
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            shape = RoundedCornerShape(20.dp),
-            color = MaterialTheme.colorScheme.surface,
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-        ) {
-            Column(
-                modifier = Modifier
-                    .padding(24.dp)
-                    .fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close", color = ContrilBlue, fontWeight = FontWeight.SemiBold)
+            }
+        },
+        title = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Box(
                     modifier = Modifier
-                        .size(56.dp)
+                        .size(38.dp)
                         .clip(CircleShape)
-                        .background(ContrilBlue),
+                        .background(ContrilAccentGradient),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = userProfile.initials,
                         color = Color.White,
-                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                     )
                 }
-
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(2.dp)
-                ) {
+                Column {
                     Text(
-                        text = userProfile.name.ifBlank { "Authenticated User" },
+                        text = userProfile.name.ifBlank { "Contril User" },
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = TextPrimaryLight
                     )
                     Text(
                         text = userProfile.email,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = TextSecondaryLight
                     )
                 }
-
+            }
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Surface(
                     shape = RoundedCornerShape(8.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    color = ContrilLightBgBottom,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Row(
-                        modifier = Modifier.padding(12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+                    Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(
-                            text = "Authentication Provider",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            text = "ACCOUNT ID",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                            color = TextSecondaryLight
                         )
                         Text(
-                            text = "Google OAuth",
-                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
-                            color = ContrilBlue
+                            text = userProfile.id,
+                            style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                            color = TextPrimaryLight
                         )
                     }
                 }
-
-                Button(
-                    onClick = onDismiss,
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                        contentColor = MaterialTheme.colorScheme.onSurface
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Close", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium))
-                }
             }
         }
-    }
+    )
 }
+
 
 @Composable
 fun ContrilBottomNav(
@@ -296,8 +276,9 @@ fun ContrilBottomNav(
     val navItems = Screen.bottomNavItems
 
     Surface(
-        color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+        color = ContrilLightSurface,
+        shadowElevation = 10.dp,
+        shape = RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
         NavigationBar(
@@ -321,15 +302,15 @@ fun ContrilBottomNav(
                         Text(
                             text = screen.title,
                             style = MaterialTheme.typography.labelSmall.copy(
-                                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                             )
                         )
                     },
                     colors = NavigationBarItemDefaults.colors(
                         selectedIconColor = ContrilBlue,
                         selectedTextColor = ContrilBlue,
-                        unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                        unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        unselectedIconColor = TextSecondaryLight,
+                        unselectedTextColor = TextSecondaryLight,
                         indicatorColor = ContrilBlue.copy(alpha = 0.12f)
                     )
                 )
@@ -346,8 +327,8 @@ fun AtmosphericCard(
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+        color = ContrilLightSurface,
+        shadowElevation = 6.dp
     ) {
         Column(
             modifier = Modifier.padding(18.dp),
@@ -368,16 +349,9 @@ fun CommandInputField(
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
-        color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(
-            1.dp,
-            when {
-                isListening -> ContrilBlue
-                value.isNotBlank() -> ContrilBlue.copy(alpha = 0.5f)
-                else -> MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
-            }
-        )
+        shape = RoundedCornerShape(16.dp),
+        color = ContrilLightSurface,
+        shadowElevation = 6.dp
     ) {
         Row(
             modifier = Modifier
@@ -389,7 +363,7 @@ fun CommandInputField(
             Icon(
                 imageVector = Icons.Outlined.AutoAwesome,
                 contentDescription = "AI Prompt",
-                tint = if (isListening) ContrilBlue else ContrilBlue.copy(alpha = 0.85f),
+                tint = if (isListening) ContrilBlue else ContrilBlue.copy(alpha = 0.9f),
                 modifier = Modifier.size(20.dp)
             )
 
@@ -400,7 +374,7 @@ fun CommandInputField(
                     Text(
                         text = if (isListening) "Listening... speak now" else placeholder,
                         style = MaterialTheme.typography.bodyMedium,
-                        color = if (isListening) ContrilBlue else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                        color = if (isListening) ContrilBlue else TextSecondaryLight
                     )
                 },
                 colors = TextFieldDefaults.colors(
@@ -408,13 +382,26 @@ fun CommandInputField(
                     unfocusedContainerColor = Color.Transparent,
                     disabledContainerColor = Color.Transparent,
                     focusedIndicatorColor = Color.Transparent,
-                    unfocusedIndicatorColor = Color.Transparent
+                    unfocusedIndicatorColor = Color.Transparent,
+                    focusedTextColor = TextPrimaryLight,
+                    unfocusedTextColor = TextPrimaryLight
                 ),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                 keyboardActions = KeyboardActions(onSend = { onExecute() }),
                 modifier = Modifier.weight(1f),
                 enabled = !isLoading,
                 maxLines = 3
+            )
+
+            val infiniteTransition = rememberInfiniteTransition(label = "voice_pulse")
+            val micScale by infiniteTransition.animateFloat(
+                initialValue = 1.0f,
+                targetValue = if (isListening) 1.22f else 1.0f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(500, easing = FastOutSlowInEasing),
+                    repeatMode = RepeatMode.Reverse
+                ),
+                label = "micScale"
             )
 
             // Voice Assistant Button
@@ -431,8 +418,10 @@ fun CommandInputField(
                 Icon(
                     imageVector = if (isListening) Icons.Filled.Mic else Icons.Outlined.Mic,
                     contentDescription = "Voice Assistant",
-                    tint = if (isListening) ContrilBlue else MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(19.dp)
+                    tint = if (isListening) ContrilBlue else TextSecondaryLight,
+                    modifier = Modifier
+                        .size(19.dp)
+                        .graphicsLayer(scaleX = micScale, scaleY = micScale)
                 )
             }
 
@@ -449,12 +438,14 @@ fun CommandInputField(
                     modifier = Modifier
                         .size(34.dp)
                         .clip(CircleShape)
-                        .background(if (value.isNotBlank()) ContrilBlue else MaterialTheme.colorScheme.surfaceVariant)
+                        .background(
+                            if (value.isNotBlank()) ContrilAccentGradient else Brush.linearGradient(listOf(Color(0xFFE5E7EB), Color(0xFFE5E7EB)))
+                        )
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                         contentDescription = "Send",
-                        tint = if (value.isNotBlank()) Color.White else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                        tint = if (value.isNotBlank()) Color.White else TextSecondaryLight,
                         modifier = Modifier.size(16.dp)
                     )
                 }
@@ -581,6 +572,11 @@ fun ShimmerBox(
             .clip(shape)
             .background(MaterialTheme.colorScheme.onSurface.copy(alpha = alpha * 0.18f))
     )
+}
+
+@Composable
+fun EmailCardSkeleton() {
+    EmailRowSkeleton()
 }
 
 @Composable

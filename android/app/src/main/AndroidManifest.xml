@@ -9,6 +9,30 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
+    <!-- Foreground Service & Battery Exemption for Overnight Autonomy -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+
+    <!-- Package Visibility Queries for On-Device Price Comparison & Automation -->
+    <queries>
+        <!-- Food Delivery -->
+        <package android:name="com.application.zomato" />
+        <package android:name="in.swiggy.android" />
+        <!-- E-Commerce & Fashion -->
+        <package android:name="com.flipkart.android" />
+        <package android:name="com.flipkart.shopsy" />
+        <package android:name="in.amazon.mShop.android.shopping" />
+        <package android:name="com.amazon.mShop.android.shopping" />
+        <package android:name="com.myntra.android" />
+        <package android:name="com.meesho.supply" />
+        <package android:name="com.ril.ajio" />
+        <package android:name="com.purplle.purplle" />
+        <!-- Quick Commerce -->
+        <package android:name="com.grofers.customerapp" />
+        <package android:name="com.zeptonow.android" />
+    </queries>
+
     <application
         android:name=".ContrilApplication"
         android:allowBackup="true"
@@ -41,6 +65,16 @@
                 <data android:scheme="https" />
                 <data android:host="contril.app" />
                 <data android:pathPrefix="/command" />
+            </intent-filter>
+
+            <!-- Native AppAuth RFC 7636 PKCE Redirect: com.contril.app.debug:/oauth2redirect -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="com.contril.app.debug"
+                    android:path="/oauth2redirect" />
             </intent-filter>
 
             <!-- Official Contril OAuth Android Deep Link: contril://auth/callback -->
@@ -87,6 +121,12 @@
                 android:name="android.accessibilityservice"
                 android:resource="@xml/contril_accessibility_service_config" />
         </service>
+
+        <!-- Overnight Autonomy Monitoring Foreground Service -->
+        <service
+            android:name=".service.OvernightAutonomyService"
+            android:foregroundServiceType="dataSync"
+            android:exported="false" />
 
     </application>
 

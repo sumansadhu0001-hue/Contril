@@ -12,9 +12,16 @@ import java.time.format.DateTimeFormatter
 
 class PriceComparisonManager(
     private val prefRepository: PreferenceRepository? = null,
+    private val networkMonitor: com.contril.app.data.network.NetworkMonitor? = null,
     private val scrapers: List<PlatformScraper> = listOf(
         ZomatoAccessibilityScraper(),
-        SwiggyAccessibilityScraper()
+        SwiggyAccessibilityScraper(),
+        FlipkartAccessibilityScraper(),
+        AmazonAccessibilityScraper(),
+        MyntraAccessibilityScraper(),
+        MeeshoAccessibilityScraper(),
+        AjioAccessibilityScraper(),
+        PurplleAccessibilityScraper()
     )
 ) {
 
@@ -46,6 +53,26 @@ class PriceComparisonManager(
         rawPrompt: String,
         routingDecision: QueryRoutingDecision? = null
     ): ComparisonResult {
+        // Pre-check network state
+        if (networkMonitor?.isOnline?.value == false) {
+            _isComparing.value = false
+            _statusText.value = "⚠️ Comparison unavailable — offline"
+            val offlineResult = ComparisonResult(
+                searchQuery = rawPrompt,
+                rankedItems = emptyList(),
+                failures = listOf(
+                    ScrapeFailure(
+                        platformName = "All Platforms",
+                        failureType = ScrapeFailureType.TIMEOUT,
+                        message = "Device is offline. Reconnect to search and compare prices."
+                    )
+                ),
+                timestamp = LocalTime.now().format(DateTimeFormatter.ofPattern("h:mm a"))
+            )
+            _latestResult.value = offlineResult
+            return offlineResult
+        }
+
         _isComparing.value = true
         val decision = routingDecision ?: QueryIntentClassifier.classifyAndRoute(rawPrompt)
 
@@ -61,6 +88,18 @@ class PriceComparisonManager(
         val searchTerm = decision.cleanedSearchTerm.ifBlank { rawPrompt.trim() }
 
         for (scraper in targetScrapers) {
+            // Mid-action network drop check
+            if (networkMonitor?.isOnline?.value == false) {
+                failures.add(
+                    ScrapeFailure(
+                        platformName = scraper.platformName,
+                        failureType = ScrapeFailureType.TIMEOUT,
+                        message = "Network connection lost during comparison"
+                    )
+                )
+                break
+            }
+
             _statusText.value = "Checking ${scraper.platformName}..."
             val scrapeRes = scraper.executeScrape(context, searchTerm, decision.budget)
 
@@ -91,6 +130,18 @@ class PriceComparisonManager(
         val currentAudit = _auditHistory.value.toMutableList()
         currentAudit.add(0, auditLog)
         _auditHistory.value = currentAudit
+
+        // Bring Contril back to foreground to present unified comparison in Contril UI
+        try {
+            val contrilIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)?.apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            }
+            if (contrilIntent != null) {
+                context.startActivity(contrilIntent)
+            }
+        } catch (e: Exception) {
+            android.util.Log.w("PriceComparisonManager", "Could not bring Contril back to foreground: ${e.message}")
+        }
 
         val result = ComparisonResult(
             searchQuery = searchTerm,

@@ -17,3 +17,6 @@ android/captures/
 *.salive
 *.bin
 *.lock
+*.jks
+*.keystore
+*credentials.secure.txt

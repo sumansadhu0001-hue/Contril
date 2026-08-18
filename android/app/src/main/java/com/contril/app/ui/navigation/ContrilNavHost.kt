@@ -1,11 +1,13 @@
 package com.contril.app.ui.navigation
 
 import android.util.Log
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.compose.NavHost
@@ -14,6 +16,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.contril.app.data.repository.ContrilRepository
 import com.contril.app.data.repository.PreferenceRepository
+import com.contril.app.theme.*
 import com.contril.app.ui.auth.AuthScreen
 import com.contril.app.ui.auth.AuthViewModel
 import com.contril.app.ui.briefing.BriefingScreen
@@ -117,13 +120,23 @@ fun ContrilAppContent(
     }
 
     // 2. Authenticated App -> Command Center Workspace
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val networkMonitor = androidx.compose.runtime.remember {
+        com.contril.app.data.network.NetworkMonitor.getInstance(context)
+    }
+
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route ?: Screen.Home.route
 
     val homeViewModel = androidx.compose.runtime.remember {
         try {
-            HomeViewModel(repository, prefRepository)
+            HomeViewModel(
+                repository = repository,
+                prefRepository = prefRepository,
+                comparisonManager = com.contril.app.data.automation.PriceComparisonManager(prefRepository, networkMonitor),
+                networkMonitor = networkMonitor
+            )
         } catch (e: Exception) {
             Log.e("ContrilNav", "HomeViewModel creation failed", e)
             HomeViewModel()
@@ -139,7 +152,11 @@ fun ContrilAppContent(
     }
     val inboxViewModel = androidx.compose.runtime.remember {
         try {
-            InboxViewModel(repository, prefRepository)
+            InboxViewModel(
+                repository = repository,
+                prefRepository = prefRepository,
+                networkMonitor = networkMonitor
+            )
         } catch (e: Exception) {
             Log.e("ContrilNav", "InboxViewModel creation failed", e)
             InboxViewModel(repository, prefRepository)
@@ -170,32 +187,56 @@ fun ContrilAppContent(
         }
     }
 
+    val chatViewModel = androidx.compose.runtime.remember {
+        try {
+            com.contril.app.ui.chat.ChatViewModel(
+                repository = repository,
+                prefRepository = prefRepository,
+                comparisonManager = com.contril.app.data.automation.PriceComparisonManager(prefRepository, networkMonitor),
+                networkMonitor = networkMonitor
+            )
+        } catch (e: Exception) {
+            Log.e("ContrilNav", "ChatViewModel creation failed", e)
+            com.contril.app.ui.chat.ChatViewModel(repository, prefRepository)
+        }
+    }
+
     var showProfileHub by remember { mutableStateOf(false) }
 
-    Scaffold(
-        topBar = {
-            ContrilTopBar(
-                userProfile = currentUser,
-                onAvatarClick = {
-                    showProfileHub = true
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(ContrilLightBackgroundGradient)
+    ) {
+        Scaffold(
+            containerColor = Color.Transparent,
+            topBar = {
+                if (currentRoute != Screen.Chat.route && !currentRoute.startsWith("chat") && currentRoute != Screen.Permissions.route) {
+                    ContrilTopBar(
+                        userProfile = currentUser,
+                        onAvatarClick = {
+                            showProfileHub = true
+                        }
+                    )
                 }
-            )
-        },
+            },
         bottomBar = {
-            ContrilBottomNav(
-                currentRoute = currentRoute,
-                onNavigate = { route ->
-                    if (route != currentRoute) {
-                        navController.navigate(route) {
-                            popUpTo(navController.graph.startDestinationId) {
-                                saveState = true
+            if (currentRoute != Screen.Chat.route && !currentRoute.startsWith("chat") && currentRoute != Screen.Permissions.route) {
+                ContrilBottomNav(
+                    currentRoute = currentRoute,
+                    onNavigate = { route ->
+                        if (route != currentRoute) {
+                            navController.navigate(route) {
+                                popUpTo(navController.graph.startDestinationId) {
+                                    saveState = false
+                                }
+                                launchSingleTop = true
+                                restoreState = false
                             }
-                            launchSingleTop = true
-                            restoreState = true
                         }
                     }
-                }
-            )
+                )
+            }
         }
     ) { innerPadding ->
         NavHost(
@@ -207,7 +248,46 @@ fun ContrilAppContent(
                 HomeScreen(
                     viewModel = homeViewModel,
                     onNavigateToTasks = { navController.navigate(Screen.Tasks.route) },
-                    onNavigateToBriefing = { navController.navigate(Screen.Briefing.route) }
+                    onNavigateToBriefing = { navController.navigate(Screen.Briefing.route) },
+                    onNavigateToChat = { prompt ->
+                        val encoded = try { java.net.URLEncoder.encode(prompt, "UTF-8") } catch (_: Exception) { prompt }
+                        navController.navigate("chat?prompt=$encoded")
+                    },
+                    onNavigateToIntegrations = { navController.navigate(Screen.Integrations.route) },
+                    onNavigateToPermissions = { navController.navigate(Screen.Permissions.route) }
+                )
+            }
+            composable(
+                route = "chat?prompt={prompt}",
+                arguments = listOf(
+                    androidx.navigation.navArgument("prompt") {
+                        type = androidx.navigation.NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    }
+                )
+            ) { backStackEntry ->
+                val promptArg = backStackEntry.arguments?.getString("prompt")
+                val decodedPrompt = promptArg?.let {
+                    try { java.net.URLDecoder.decode(it, "UTF-8") } catch (_: Exception) { it }
+                }
+                com.contril.app.ui.chat.ChatScreen(
+                    viewModel = chatViewModel,
+                    initialPrompt = decodedPrompt,
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+            composable(Screen.Chat.route) {
+                com.contril.app.ui.chat.ChatScreen(
+                    viewModel = chatViewModel,
+                    initialPrompt = null,
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+            composable(Screen.Permissions.route) {
+                com.contril.app.ui.permissions.PermissionsScreen(
+                    prefRepository = prefRepository,
+                    onNavigateBack = { navController.popBackStack() }
                 )
             }
             composable(Screen.Briefing.route) {
@@ -250,7 +330,9 @@ fun ContrilAppContent(
             onNavigateToConnected = { navController.navigate(Screen.Integrations.route) },
             onNavigateToPlans = { navController.navigate(Screen.Plans.route) },
             onNavigateToBriefing = { navController.navigate(Screen.Briefing.route) },
+            onNavigateToPermissions = { navController.navigate(Screen.Permissions.route) },
             onSignOut = { prefRepository.clearSession() }
         )
+    }
     }
 }

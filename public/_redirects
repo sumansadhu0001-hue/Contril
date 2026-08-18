@@ -1,2 +1,11 @@
-/downloads/*   /downloads/:splat   200!
-/*             /index.html         200
+# Direct static file passthrough
+/sitemap.xml                 /sitemap.xml                 200
+/robots.txt                  /robots.txt                  200
+/google8c6a8fe0d7377e83.html /google8c6a8fe0d7377e83.html 200
+/privacy.html                /privacy.html                200
+/terms.html                  /terms.html                  200
+/downloads/*                 /downloads/:splat            200!
+/release/*                   /release/:splat              200!
+
+# SPA Fallback for client-side routing
+/*                           /index.html                  200

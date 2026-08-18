@@ -43,6 +43,22 @@ class IntegrationsViewModel(
                 buildIntegrationsList()
             }
         }
+
+        // Live Token Validity Check on Startup
+        viewModelScope.launch {
+            val token = prefRepository?.getGoogleProviderToken()
+            if (!token.isNullOrBlank() && prefRepository?.connectedServices?.value?.containsKey("gmail") == true) {
+                val valid = com.contril.app.data.api.ContrilBackendClient.verifyGoogleToken(token)
+                if (!valid) {
+                    val refreshed = com.contril.app.data.api.ContrilBackendClient.getFreshGoogleToken(prefRepository)
+                    if (refreshed == null || !com.contril.app.data.api.ContrilBackendClient.verifyGoogleToken(refreshed)) {
+                        prefRepository.disconnectService("gmail")
+                        prefRepository.disconnectService("google_workspace")
+                        prefRepository.disconnectService("calendar")
+                    }
+                }
+            }
+        }
     }
 
     private fun buildIntegrationsList() {

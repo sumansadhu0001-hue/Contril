@@ -62,7 +62,7 @@ private fun Context.findActivity(): Activity? {
 
 @Composable
 fun ContrilTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    darkTheme: Boolean = false,
     dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {

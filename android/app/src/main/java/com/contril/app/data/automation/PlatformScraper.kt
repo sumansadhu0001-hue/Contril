@@ -14,28 +14,40 @@ interface PlatformScraper {
     val platformId: String
     val platformName: String
     val targetPackage: String
+    val targetPackages: List<String>
+        get() = listOf(targetPackage)
 
     fun isAppInstalled(context: Context): Boolean {
-        return try {
-            context.packageManager.getPackageInfo(targetPackage, 0)
-            true
-        } catch (_: PackageManager.NameNotFoundException) {
-            false
+        for (pkg in targetPackages) {
+            try {
+                context.packageManager.getPackageInfo(pkg, 0)
+                return true
+            } catch (_: PackageManager.NameNotFoundException) {
+                if (context.packageManager.getLaunchIntentForPackage(pkg) != null) return true
+            } catch (_: Exception) {}
         }
+        return false
     }
 
     fun getDeepLinkUri(query: String): Uri
 
     fun createLaunchIntent(context: Context, query: String): Intent? {
         val uri = getDeepLinkUri(query)
-        val intent = Intent(Intent.ACTION_VIEW, uri).apply {
-            setPackage(targetPackage)
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        for (pkg in targetPackages) {
+            try {
+                val intent = Intent(Intent.ACTION_VIEW, uri).apply {
+                    setPackage(pkg)
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                }
+                if (intent.resolveActivity(context.packageManager) != null) {
+                    return intent
+                }
+                val launch = context.packageManager.getLaunchIntentForPackage(pkg)
+                if (launch != null) return launch
+            } catch (_: Exception) {}
         }
-        return if (intent.resolveActivity(context.packageManager) != null) {
-            intent
-        } else {
-            context.packageManager.getLaunchIntentForPackage(targetPackage)
+        return Intent(Intent.ACTION_VIEW, uri).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK
         }
     }
 

@@ -1,3 +1,6 @@
+import java.util.Properties
+import java.io.FileInputStream
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -18,16 +21,33 @@ android {
         vectorDrawables {
             useSupportLibrary = true
         }
+        manifestPlaceholders["appAuthRedirectScheme"] = "com.contril.app.debug"
+    }
+
+    val keystorePropsFile = rootProject.file("keystore_credentials.secure.txt")
+    val keystoreProperties = Properties()
+    if (keystorePropsFile.exists()) {
+        keystorePropsFile.inputStream().use { keystoreProperties.load(it) }
+    }
+
+    signingConfigs {
+        create("release") {
+            storeFile = file("keystore/contril_release_prod.jks")
+            storePassword = System.getenv("CONTRIL_RELEASE_STORE_PASSWORD") ?: keystoreProperties.getProperty("STORE_PASSWORD", "")
+            keyAlias = System.getenv("CONTRIL_RELEASE_KEY_ALIAS") ?: keystoreProperties.getProperty("KEY_ALIAS", "contril_release_key")
+            keyPassword = System.getenv("CONTRIL_RELEASE_KEY_PASSWORD") ?: keystoreProperties.getProperty("KEY_PASSWORD", "")
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("release")
         }
         debug {
             applicationIdSuffix = ".debug"
             isDebuggable = true
+            manifestPlaceholders["appAuthRedirectScheme"] = "com.contril.app.debug"
         }
     }
 
@@ -89,8 +109,12 @@ dependencies {
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
     implementation("androidx.datastore:datastore-preferences:1.1.1")
 
-    // Browser Custom Tabs for Supabase OAuth Flow
+    // Browser Custom Tabs & AppAuth for RFC 7636 PKCE OAuth 2.0
     implementation("androidx.browser:browser:1.8.0")
+    implementation("net.openid:appauth:0.11.1")
+
+    // AndroidX WorkManager for background email sync & notifications
+    implementation("androidx.work:work-runtime-ktx:2.9.0")
 
     // Testing
     testImplementation("junit:junit:4.13.2")

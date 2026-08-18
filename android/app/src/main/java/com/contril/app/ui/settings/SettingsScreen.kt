@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
+import android.os.PowerManager
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -32,17 +33,31 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.contril.app.data.model.AutonomyMode
+import com.contril.app.data.model.OvernightActivityLog
 import com.contril.app.theme.*
 
 @Composable
 fun SettingsScreen(viewModel: SettingsViewModel) {
     val currentAutonomy by viewModel.autonomyMode.collectAsState()
+    val isAutoSendEnabled by viewModel.isAutoSendEnabled.collectAsState()
+    val isOvernightAutonomyEnabled by viewModel.isOvernightAutonomyEnabled.collectAsState()
+    val overnightServiceState by viewModel.overnightServiceState.collectAsState()
+    val activityLogs by viewModel.activityLogs.collectAsState()
     val user by viewModel.currentUser.collectAsState()
     val connectedMap by viewModel.connectedServices.collectAsState()
 
     var showSignOutDialog by remember { mutableStateOf(false) }
+    var showOvernightExplanationDialog by remember { mutableStateOf(false) }
+    var showActivityLogDialog by remember { mutableStateOf(false) }
+    var showUpgradeToEliteDialog by remember { mutableStateOf(false) }
 
     val context = LocalContext.current
+    val powerManager = remember { context.getSystemService(Context.POWER_SERVICE) as? PowerManager }
+    val isIgnoringBatteryOptimizations = remember(context) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            powerManager?.isIgnoringBatteryOptimizations(context.packageName) == true
+        } else true
+    }
 
     // Runtime Permission state checkers
     var hasNotificationPermission by remember {
@@ -71,6 +86,9 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
         hasMicrophonePermission = isGranted
     }
 
+    val networkMonitor = remember { com.contril.app.data.network.NetworkMonitor.getInstance(context) }
+    val isOnline by networkMonitor.isOnline.collectAsState()
+
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -78,6 +96,13 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
         verticalArrangement = Arrangement.spacedBy(16.dp),
         contentPadding = PaddingValues(top = 8.dp, bottom = 32.dp)
     ) {
+        item {
+            com.contril.app.ui.components.OfflineBanner(
+                isOnline = isOnline,
+                hasCachedData = true
+            )
+        }
+
         item {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
@@ -405,6 +430,249 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
             )
         }
 
+        // 4b. OPT-IN AUTO-SEND MODE (OFF BY DEFAULT)
+        item {
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.surface,
+                border = BorderStroke(1.dp, if (isAutoSendEnabled) StatusWarning.copy(alpha = 0.5f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(18.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Send,
+                                contentDescription = null,
+                                tint = if (isAutoSendEnabled) StatusWarning else ContrilBlue,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Column {
+                                Text(
+                                    text = "Auto-Send Mode",
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = if (isAutoSendEnabled) "Enabled (Opt-in active)" else "Disabled (Manual approval default)",
+                                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
+                                    color = if (isAutoSendEnabled) StatusWarning else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+
+                        Switch(
+                            checked = isAutoSendEnabled,
+                            onCheckedChange = { viewModel.setAutoSendEnabled(it) },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = Color.White,
+                                checkedTrackColor = StatusWarning
+                            )
+                        )
+                    }
+
+                    Text(
+                        text = "When enabled, Contril may automatically send AI-drafted replies to emails it identifies as needing a response, without asking you first. You can turn this off anytime.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        lineHeight = 18.sp
+                    )
+
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(10.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Shield,
+                                contentDescription = null,
+                                tint = StatusWarning,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Text(
+                                text = "🔒 Scoping & Audit: Every auto-sent reply is permanently recorded in your Activity Log with full text and recipient.",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // 4c. OVERNIGHT AUTONOMY MODE (ELITE PLAN ₹3999 FEATURE - OFF BY DEFAULT)
+        item {
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.surface,
+                border = BorderStroke(
+                    1.dp,
+                    if (isOvernightAutonomyEnabled) Color(0xFF6366F1).copy(alpha = 0.6f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
+                ),
+                modifier = Modifier.fillMaxWidth(),
+                onClick = {
+                    if (!isOvernightAutonomyEnabled) {
+                        showOvernightExplanationDialog = true
+                    }
+                }
+            ) {
+                Column(
+                    modifier = Modifier.padding(18.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .background(Color(0xFF6366F1).copy(alpha = 0.12f), RoundedCornerShape(8.dp)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.NightlightRound,
+                                    contentDescription = null,
+                                    tint = Color(0xFF6366F1),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                            Column {
+                                Text(
+                                    text = "Overnight Autonomy Mode",
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Surface(
+                                        shape = RoundedCornerShape(4.dp),
+                                        color = Color(0xFF6366F1).copy(alpha = 0.15f)
+                                    ) {
+                                        Text(
+                                            text = "ELITE PLAN (₹3,999)",
+                                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 9.sp),
+                                            color = Color(0xFF6366F1),
+                                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                        )
+                                    }
+                                    Text(
+                                        text = if (isOvernightAutonomyEnabled) "Active" else "Disabled",
+                                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
+                                        color = if (isOvernightAutonomyEnabled) Color(0xFF10B981) else MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+
+                        Switch(
+                            checked = isOvernightAutonomyEnabled,
+                            onCheckedChange = { targetState ->
+                                if (targetState) {
+                                    showOvernightExplanationDialog = true
+                                } else {
+                                    viewModel.setOvernightAutonomyEnabled(context, false)
+                                }
+                            },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = Color.White,
+                                checkedTrackColor = Color(0xFF6366F1)
+                            )
+                        )
+                    }
+
+                    Text(
+                        text = "Monitors your Gmail inbox overnight via a foreground service. Extracts upcoming meetings & deadlines into Command Center priorities, and prepares AI draft replies (or auto-sends if Auto-Send Mode is active).",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        lineHeight = 18.sp
+                    )
+
+                    if (!isOvernightAutonomyEnabled) {
+                        Button(
+                            onClick = { showOvernightExplanationDialog = true },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6366F1))
+                        ) {
+                            Icon(Icons.Filled.NightlightRound, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Enable Overnight Autonomy", fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    if (isOvernightAutonomyEnabled) {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = Color(0xFF6366F1).copy(alpha = 0.08f),
+                            border = BorderStroke(1.dp, Color(0xFF6366F1).copy(alpha = 0.2f)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "⚡ Overnight Token Budget",
+                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                        color = Color(0xFF6366F1)
+                                    )
+                                    Text(
+                                        text = "${overnightServiceState.tokensUsedTonight} / ${overnightServiceState.tokenBudgetMax} used",
+                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+                                LinearProgressIndicator(
+                                    progress = { (overnightServiceState.tokensUsedTonight.toFloat() / overnightServiceState.tokenBudgetMax.toFloat()).coerceIn(0f, 1f) },
+                                    modifier = Modifier.fillMaxWidth().height(4.dp),
+                                    color = Color(0xFF6366F1),
+                                    trackColor = Color(0xFF6366F1).copy(alpha = 0.2f)
+                                )
+                            }
+                        }
+                    }
+
+                    OutlinedButton(
+                        onClick = { showActivityLogDialog = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF6366F1))
+                    ) {
+                        Icon(Icons.Filled.HistoryEdu, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("View Activity Log (${activityLogs.size} events)")
+                    }
+                }
+            }
+        }
+
         // 5. SECURITY
         item {
             Text(
@@ -523,6 +791,166 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
             dismissButton = {
                 TextButton(onClick = { showSignOutDialog = false }) {
                     Text("Cancel")
+                }
+            },
+            shape = RoundedCornerShape(18.dp)
+        )
+    }
+
+    // Overnight Autonomy Explanation & Activation Modal
+    if (showOvernightExplanationDialog) {
+        AlertDialog(
+            onDismissRequest = { showOvernightExplanationDialog = false },
+            icon = {
+                Icon(Icons.Filled.NightlightRound, contentDescription = null, tint = Color(0xFF6366F1), modifier = Modifier.size(32.dp))
+            },
+            title = {
+                Text(
+                    text = "Enable Overnight Autonomy",
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = "Contril will monitor your inbox overnight via a sustained Android Foreground Service.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text("🛡️ What happens overnight:", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold))
+                            Text("• Scans unread emails every 20 minutes", style = MaterialTheme.typography.bodySmall)
+                            Text("• Extracts meetings & deadlines to Today's Priorities", style = MaterialTheme.typography.bodySmall)
+                            Text("• Prepares AI drafts (strictly adheres to Auto-Send Mode)", style = MaterialTheme.typography.bodySmall)
+                            Text("• Capped at 150 tokens max per night", style = MaterialTheme.typography.bodySmall)
+                            Text("• Shows persistent notification with 1-tap Stop", style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+
+                    if (!isIgnoringBatteryOptimizations && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = StatusWarning.copy(alpha = 0.12f),
+                            border = BorderStroke(1.dp, StatusWarning.copy(alpha = 0.4f)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Icon(Icons.Filled.BatteryAlert, contentDescription = null, tint = StatusWarning, modifier = Modifier.size(16.dp))
+                                    Text(
+                                        text = "Battery Exemption Recommended",
+                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                        color = StatusWarning
+                                    )
+                                }
+                                Text(
+                                    text = "To prevent Android battery saver from killing the overnight monitor, allow background exemption.",
+                                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                OutlinedButton(
+                                    onClick = {
+                                        try {
+                                            val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                                                data = Uri.parse("package:${context.packageName}")
+                                            }
+                                            context.startActivity(intent)
+                                        } catch (_: Throwable) {
+                                            val intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                                            context.startActivity(intent)
+                                        }
+                                    },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(8.dp),
+                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = StatusWarning)
+                                ) {
+                                    Text("Grant Exemption")
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showOvernightExplanationDialog = false
+                        viewModel.setOvernightAutonomyEnabled(context, true)
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6366F1)),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Text("Confirm & Activate")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showOvernightExplanationDialog = false }) {
+                    Text("Cancel")
+                }
+            },
+            shape = RoundedCornerShape(18.dp)
+        )
+    }
+
+    // Activity Log Modal
+    if (showActivityLogDialog) {
+        ActivityLogDialog(
+            logs = activityLogs,
+            onDismiss = { showActivityLogDialog = false },
+            onPurgeLogs = { viewModel.purgeOldLogs() }
+        )
+    }
+
+    // Elite Plan Upgrade Prompt Modal
+    if (showUpgradeToEliteDialog) {
+        AlertDialog(
+            onDismissRequest = { showUpgradeToEliteDialog = false },
+            icon = {
+                Icon(Icons.Filled.Lock, contentDescription = null, tint = Color(0xFF6366F1), modifier = Modifier.size(32.dp))
+            },
+            title = {
+                Text(
+                    text = "Elite Plan Exclusive",
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "Overnight Autonomy Mode is exclusively available on the Elite Plan (₹3,999/month).",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "Upgrade to unlock 24/7 background AI executive triage, meeting extraction, and automated replies.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { showUpgradeToEliteDialog = false },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6366F1)),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Text("Upgrade to Elite (₹3,999)")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showUpgradeToEliteDialog = false }) {
+                    Text("Maybe Later")
                 }
             },
             shape = RoundedCornerShape(18.dp)

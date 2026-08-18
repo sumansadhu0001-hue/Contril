@@ -13,6 +13,8 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.lifecycleScope
+import com.contril.app.data.api.ContrilBackendClient
+import com.contril.app.data.api.GoogleOAuthManager
 import com.contril.app.data.api.SupabaseAuthClient
 import com.contril.app.data.repository.ContrilRepository
 import com.contril.app.data.repository.PreferenceRepository
@@ -25,6 +27,7 @@ class MainActivity : ComponentActivity() {
 
     private val repository by lazy { ContrilRepository() }
     private val prefRepository by lazy { PreferenceRepository(applicationContext) }
+    private val googleOAuthManager by lazy { GoogleOAuthManager(applicationContext) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -55,15 +58,41 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        setIntent(intent)
         handleAuthDeepLink(intent)
     }
 
     private fun handleAuthDeepLink(intent: Intent?) {
         val uri: Uri = intent?.data ?: return
-        Log.i("ContrilMain", "OAuth deep link received: ${uri.scheme}://${uri.host}${uri.path}")
+        Log.i("ContrilMain", "Handling incoming deep link: $uri")
 
-        if (uri.scheme == "contril" && ((uri.host == "auth" && uri.path == "/callback") || uri.host == "login-callback" || uri.host == "auth")) {
-            lifecycleScope.launch(Dispatchers.IO) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                // 1. Check if this is an AppAuth PKCE redirect (com.contril.app.debug:/oauth2redirect)
+                if (uri.scheme == "com.contril.app.debug" || uri.path?.contains("oauth2redirect") == true) {
+                    val success = googleOAuthManager.handleAuthorizationResponse(intent)
+                    if (success) {
+                        val freshToken = googleOAuthManager.getFreshAccessToken()
+                        if (!freshToken.isNullOrBlank()) {
+                            prefRepository.saveGoogleProviderTokens(providerToken = freshToken, refreshToken = null)
+                            val currentUser = prefRepository.currentUser.value
+                            val email = currentUser?.email ?: "connected"
+                            prefRepository.connectService("google_workspace", email)
+                            prefRepository.connectService("gmail", email)
+                            prefRepository.connectService("calendar", email)
+                            Log.i("ContrilMain", "AppAuth PKCE Google OAuth flow completed successfully and verified.")
+                            return@launch
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("ContrilMain", "Error handling PKCE deep link", e)
+            }
+
+            val isContrilScheme = uri.scheme == "contril" && ((uri.host == "auth" && uri.path == "/callback") || uri.host == "login-callback" || uri.host == "auth")
+            val isHttpsCallback = uri.scheme == "https" && (uri.host == "contril.netlify.app" || uri.host == "contril.app")
+
+            if (isContrilScheme || isHttpsCallback) {
                 var token: String? = null
                 var providerToken: String? = null
                 var providerRefreshToken: String? = null
@@ -100,15 +129,25 @@ class MainActivity : ComponentActivity() {
                         prefRepository.saveUserSession(token, user)
 
                         if (!providerToken.isNullOrBlank()) {
-                            // Securely vault provider credentials to backend
-                            SupabaseAuthClient.vaultGoogleProviderCredentials(
-                                contrilSessionToken = token,
-                                providerToken = providerToken,
-                                providerRefreshToken = providerRefreshToken
-                            )
-                            prefRepository.connectService("google_workspace", user.email)
-                            prefRepository.connectService("gmail", user.email)
-                            prefRepository.connectService("calendar", user.email)
+                            // Verify provider token directly before setting connected state
+                            val isValid = ContrilBackendClient.verifyGoogleToken(providerToken)
+                            if (isValid) {
+                                prefRepository.saveGoogleProviderTokens(
+                                    providerToken = providerToken,
+                                    refreshToken = providerRefreshToken
+                                )
+                                SupabaseAuthClient.vaultGoogleProviderCredentials(
+                                    contrilSessionToken = token,
+                                    providerToken = providerToken,
+                                    providerRefreshToken = providerRefreshToken
+                                )
+                                prefRepository.connectService("google_workspace", user.email)
+                                prefRepository.connectService("gmail", user.email)
+                                prefRepository.connectService("calendar", user.email)
+                                Log.i("ContrilMain", "Google Workspace integration validated and marked CONNECTED.")
+                            } else {
+                                Log.w("ContrilMain", "Google provider token verification failed; not marking connected.")
+                            }
                         }
                     } else {
                         Log.w("ContrilMain", "Failed to retrieve user profile for token")
@@ -117,15 +156,24 @@ class MainActivity : ComponentActivity() {
                     // Authenticated user connected additional provider (e.g. Workspace)
                     val currentUser = prefRepository.currentUser.value
                     val email = currentUser?.email ?: "connected"
-                    SupabaseAuthClient.vaultGoogleProviderCredentials(
-                        contrilSessionToken = activeSessionToken,
-                        providerToken = providerToken,
-                        providerRefreshToken = providerRefreshToken
-                    )
-                    prefRepository.connectService("google_workspace", email)
-                    prefRepository.connectService("gmail", email)
-                    prefRepository.connectService("calendar", email)
-                    Log.i("ContrilMain", "Google Workspace integration credentials vaulted successfully.")
+                    val isValid = ContrilBackendClient.verifyGoogleToken(providerToken)
+                    if (isValid) {
+                        prefRepository.saveGoogleProviderTokens(
+                            providerToken = providerToken,
+                            refreshToken = providerRefreshToken
+                        )
+                        SupabaseAuthClient.vaultGoogleProviderCredentials(
+                            contrilSessionToken = activeSessionToken,
+                            providerToken = providerToken,
+                            providerRefreshToken = providerRefreshToken
+                        )
+                        prefRepository.connectService("google_workspace", email)
+                        prefRepository.connectService("gmail", email)
+                        prefRepository.connectService("calendar", email)
+                        Log.i("ContrilMain", "Google Workspace integration validated and marked CONNECTED.")
+                    } else {
+                        Log.w("ContrilMain", "Google provider token verification failed; not marking connected.")
+                    }
                 }
             }
         }

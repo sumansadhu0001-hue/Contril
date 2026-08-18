@@ -17,10 +17,18 @@ import org.json.JSONObject
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 
+data class ChatMessageTurn(
+    val role: String, // "user" or "model"
+    val text: String
+)
+
 object GeminiClient {
 
     private const val GEMINI_API_KEY = "AIzaSyDC72lXEVy-YnooYhSOiADOLiDFXkll6tg"
     private const val GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent"
+
+    // Multi-turn conversational memory
+    private val conversationHistory = mutableListOf<ChatMessageTurn>()
 
     private val httpClient: OkHttpClient by lazy {
         OkHttpClient.Builder()
@@ -31,6 +39,43 @@ object GeminiClient {
     }
 
     private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
+
+    fun clearConversationMemory() {
+        synchronized(conversationHistory) {
+            conversationHistory.clear()
+        }
+    }
+
+    suspend fun generateContent(prompt: String): Result<String> = withContext(Dispatchers.IO) {
+        try {
+            val payload = JSONObject().apply {
+                put("contents", JSONArray().put(JSONObject().apply {
+                    put("parts", JSONArray().put(JSONObject().put("text", prompt)))
+                }))
+            }
+            val req = Request.Builder()
+                .url("$GEMINI_ENDPOINT?key=$GEMINI_API_KEY")
+                .header("Content-Type", "application/json")
+                .post(payload.toString().toRequestBody(jsonMediaType))
+                .build()
+            val res = httpClient.newCall(req).execute()
+            if (res.isSuccessful) {
+                val body = res.body?.string() ?: ""
+                val json = JSONObject(body)
+                val text = json.optJSONArray("candidates")
+                    ?.optJSONObject(0)
+                    ?.optJSONObject("content")
+                    ?.optJSONArray("parts")
+                    ?.optJSONObject(0)
+                    ?.optString("text") ?: ""
+                Result.success(text)
+            } else {
+                Result.failure(Exception("HTTP ${res.code}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 
     suspend fun generateAiResponse(
         prompt: String,
@@ -53,16 +98,30 @@ object GeminiClient {
             5. EXECUTIVE FORMATTING: Use clean, polished GitHub-flavored Markdown (bolding, clear bullet points, concise sections) to deliver maximum clarity.
         """.trimIndent()
 
+        val contentsArray = JSONArray()
+
+        // Append recent multi-turn context (last 6 turns)
+        synchronized(conversationHistory) {
+            val recentTurns = conversationHistory.takeLast(6)
+            for (turn in recentTurns) {
+                contentsArray.put(JSONObject().apply {
+                    put("role", turn.role)
+                    put("parts", JSONArray().put(JSONObject().put("text", turn.text)))
+                })
+            }
+        }
+
+        // Append current user prompt
+        contentsArray.put(JSONObject().apply {
+            put("role", "user")
+            put("parts", JSONArray().put(JSONObject().put("text", cleanPrompt)))
+        })
+
         val requestBodyJson = JSONObject().apply {
             put("system_instruction", JSONObject().apply {
                 put("parts", JSONArray().put(JSONObject().put("text", systemPrompt)))
             })
-            put("contents", JSONArray().put(
-                JSONObject().apply {
-                    put("role", "user")
-                    put("parts", JSONArray().put(JSONObject().put("text", cleanPrompt)))
-                }
-            ))
+            put("contents", contentsArray)
             put("generationConfig", JSONObject().apply {
                 put("temperature", 0.7)
                 put("maxOutputTokens", 2048)
@@ -84,11 +143,16 @@ object GeminiClient {
 
             if (!response.isSuccessful) {
                 Log.e("GeminiClient", "Gemini API HTTP Error (${response.code}): $resBody")
+                val errorMsg = if (response.code == 429) {
+                    "AI rate limit reached. Please wait a brief moment before sending another prompt."
+                } else {
+                    "Unable to connect to Gemini AI services (HTTP ${response.code}). Please verify your network connection and retry."
+                }
                 return@withContext CommandResponse(
                     conversationId = "err_${UUID.randomUUID().toString().take(8)}",
-                    responseText = "Unable to connect to Gemini AI services (HTTP ${response.code}). Please verify your network connection and retry.",
+                    responseText = errorMsg,
                     steps = listOf(
-                        ExecutionStep("s1", "Contacted Gemini 1.5 Flash API", "error"),
+                        ExecutionStep("s1", "Contacted Gemini 3.6 Flash API", "error"),
                         ExecutionStep("s2", "HTTP ${response.code} Gateway Response", "error")
                     ),
                     pendingAction = null
@@ -103,6 +167,18 @@ object GeminiClient {
             val text = parts?.optJSONObject(0)?.optString("text", "") ?: ""
 
             if (text.isNotBlank()) {
+                val cleanResponse = text.trim()
+
+                // Save turns to conversation history
+                synchronized(conversationHistory) {
+                    conversationHistory.add(ChatMessageTurn("user", cleanPrompt))
+                    conversationHistory.add(ChatMessageTurn("model", cleanResponse))
+                    if (conversationHistory.size > 20) {
+                        conversationHistory.removeAt(0)
+                        conversationHistory.removeAt(0)
+                    }
+                }
+
                 val lower = cleanPrompt.lowercase()
                 var pendingAction: PendingAction? = null
 
@@ -110,7 +186,7 @@ object GeminiClient {
                     pendingAction = PendingAction(
                         id = "act_${UUID.randomUUID().toString().take(6)}",
                         title = if (lower.contains("schedule") || lower.contains("meeting")) "Confirm Calendar Schedule" else "Approve Email Dispatch",
-                        description = "Prepared by Gemini Chief of Staff based on your instruction:\n\n${text.take(240)}...",
+                        description = "Prepared by Gemini Chief of Staff based on your instruction:\n\n${cleanResponse.take(240)}...",
                         targetService = if (lower.contains("schedule") || lower.contains("meeting")) "Google Calendar" else "Gmail",
                         consequenceLevel = "medium",
                         status = ActionStatus.PENDING_APPROVAL
@@ -118,13 +194,13 @@ object GeminiClient {
                 }
 
                 val steps = listOf(
-                    ExecutionStep("s1", "Processed prompt via Gemini 1.5 Flash (${latencyMs}ms)", "complete"),
-                    ExecutionStep("s2", "Generated contextual intelligence", "complete")
+                    ExecutionStep("s1", "Processed prompt via Gemini 3.6 Flash (${latencyMs}ms)", "complete"),
+                    ExecutionStep("s2", "Synthesized contextual intelligence", "complete")
                 )
 
                 return@withContext CommandResponse(
                     conversationId = "conv_${UUID.randomUUID().toString().take(8)}",
-                    responseText = text.trim(),
+                    responseText = cleanResponse,
                     steps = steps,
                     pendingAction = pendingAction
                 )
@@ -132,7 +208,7 @@ object GeminiClient {
                 return@withContext CommandResponse(
                     conversationId = "empty_${UUID.randomUUID().toString().take(8)}",
                     responseText = "Gemini returned an empty response candidate. Please rephrase or submit your prompt again.",
-                    steps = listOf(ExecutionStep("s1", "Processed prompt via Gemini 1.5 Flash", "error")),
+                    steps = listOf(ExecutionStep("s1", "Processed prompt via Gemini 3.6 Flash", "error")),
                     pendingAction = null
                 )
             }

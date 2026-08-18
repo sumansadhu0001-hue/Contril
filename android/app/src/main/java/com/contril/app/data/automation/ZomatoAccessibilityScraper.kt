@@ -10,7 +10,7 @@ import java.net.URLEncoder
 class ZomatoAccessibilityScraper : PlatformScraper {
     override val platformId: String = "zomato"
     override val platformName: String = "Zomato"
-    override val targetPackage: String = "in.zomato.android"
+    override val targetPackage: String = "com.application.zomato"
 
     override fun getDeepLinkUri(query: String): Uri {
         val encoded = try { URLEncoder.encode(query, "UTF-8") } catch (_: Exception) { query }
@@ -92,7 +92,9 @@ class ZomatoAccessibilityScraper : PlatformScraper {
                 val priceVal = priceMatch.groupValues[1].toDoubleOrNull() ?: continue
                 if (maxBudget != null && priceVal > maxBudget) continue
 
-                val title = if (i > 0 && nodes[i - 1].length in 4..60) nodes[i - 1] else "$query (Zomato)"
+                val rawTitle = if (i > 0 && nodes[i - 1].length in 4..60) nodes[i - 1] else ""
+                if (!ProductRelevanceValidator.isRelevant(query, rawTitle)) continue
+
                 val rating = nodes.subList(maxOf(0, i - 2), minOf(nodes.size, i + 3))
                     .mapNotNull { ratingRegex.find(it)?.groupValues?.get(1) }
                     .firstOrNull() ?: "4.2"
@@ -101,11 +103,11 @@ class ZomatoAccessibilityScraper : PlatformScraper {
                     ProductListingItem(
                         platformName = platformName,
                         platformPackage = targetPackage,
-                        itemName = title,
-                        restaurantOrVendor = "Top Rated on Zomato",
+                        itemName = rawTitle,
+                        restaurantOrVendor = "Verified Restaurant",
                         price = priceVal,
-                        rating = "$rating ★",
-                        eta = "30-35 mins",
+                        rating = rating,
+                        eta = "30-40 mins",
                         deepLinkUrl = getDeepLinkUri(query).toString()
                     )
                 )

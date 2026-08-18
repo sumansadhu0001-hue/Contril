@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   Download, 
   Smartphone, 
@@ -13,7 +13,10 @@ import {
   ShieldCheck,
   Zap,
   Sparkles,
-  Layers
+  Layers,
+  Copy,
+  Check,
+  AlertCircle
 } from 'lucide-react';
 import { ContrilLogo } from '../../components/ContrilLogo';
 import { CONTRIL_APK_CONFIG } from '../../config/apkConfig';
@@ -29,9 +32,19 @@ export const DownloadView: React.FC<DownloadViewProps> = ({
   onNavigate, 
   isAuthenticated 
 }) => {
+  const [copiedChecksum, setCopiedChecksum] = useState(false);
+
   const handleOpenContril = () => {
     onNavigate(isAuthenticated ? 'app' : 'login');
   };
+
+  const handleCopyChecksum = () => {
+    navigator.clipboard.writeText(CONTRIL_APK_CONFIG.sha256Checksum);
+    setCopiedChecksum(true);
+    setTimeout(() => setCopiedChecksum(false), 2500);
+  };
+
+  const isPlayStoreMode = CONTRIL_APK_CONFIG.distributionMode === 'PLAY_STORE';
 
   return (
     <div className="w-full text-left font-sans text-[#0B1220] dark:text-[#F8FAFC]">
@@ -58,7 +71,7 @@ export const DownloadView: React.FC<DownloadViewProps> = ({
 
           {/* Supporting Copy */}
           <p className="text-sm sm:text-lg text-[#52627A] dark:text-[#94A3B8] font-normal leading-relaxed max-w-[360px] sm:max-w-xl mx-auto">
-            Use Contril instantly on the web or install the native Android app for a dedicated mobile experience.
+            Use Contril instantly on the web or install the native Android app for an autonomous mobile executive experience.
           </p>
 
           {/* Dual Action CTAs */}
@@ -70,20 +83,87 @@ export const DownloadView: React.FC<DownloadViewProps> = ({
               <span>{isAuthenticated ? 'Open Contril' : 'Open Contril →'}</span>
             </button>
 
-            <a
-              href={CONTRIL_APK_CONFIG.downloadUrl}
-              download="contril-android.apk"
-              className="w-full sm:w-auto px-7 py-3.5 rounded-full bg-white/85 dark:bg-[#0D1322]/85 hover:bg-white dark:hover:bg-[#151D33] backdrop-blur-md border border-[#E5E7EB]/80 dark:border-white/10 hover:border-[#BFDBFE] text-xs font-semibold text-[#0B1220] dark:text-[#E2E8F0] transition-all cursor-pointer flex items-center justify-center gap-2 shadow-xs hover:shadow-sm"
-            >
-              <Download className="w-3.5 h-3.5 text-[#2563EB] dark:text-[#38BDF8]" />
-              <span>Download Android App ↓</span>
-            </a>
+            {isPlayStoreMode ? (
+              <a
+                href={CONTRIL_APK_CONFIG.playStoreUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full sm:w-auto px-7 py-3.5 rounded-full bg-[#0F172A] hover:bg-[#1E293B] text-white text-xs font-semibold transition-all cursor-pointer flex items-center justify-center gap-2 shadow-xs hover:shadow-sm"
+              >
+                <Smartphone className="w-4 h-4 text-[#38BDF8]" />
+                <span>Get it on Google Play</span>
+              </a>
+            ) : (
+              <a
+                href={CONTRIL_APK_CONFIG.downloadUrl}
+                download="contril-android.apk"
+                className="w-full sm:w-auto px-7 py-3.5 rounded-full bg-white/90 dark:bg-[#0D1322]/90 hover:bg-white dark:hover:bg-[#151D33] backdrop-blur-md border border-[#E5E7EB]/80 dark:border-white/10 hover:border-[#BFDBFE] text-xs font-semibold text-[#0B1220] dark:text-[#E2E8F0] transition-all cursor-pointer flex items-center justify-center gap-2 shadow-xs hover:shadow-sm"
+              >
+                <Download className="w-3.5 h-3.5 text-[#2563EB] dark:text-[#38BDF8]" />
+                <span>Download Android (v{CONTRIL_APK_CONFIG.version} · {CONTRIL_APK_CONFIG.fileSize}) ↓</span>
+              </a>
+            )}
           </div>
 
-          {/* Technical Metadata */}
-          <div className="pt-1 font-mono text-[11px] sm:text-xs text-[#52627A] dark:text-[#94A3B8]">
-            Instant Browser Access • Native Android (Kotlin & Jetpack Compose) • {CONTRIL_APK_CONFIG.fileSize}
+          {/* Version & Technical Metadata Badge */}
+          <div className="pt-1 font-mono text-[11px] sm:text-xs text-[#52627A] dark:text-[#94A3B8] flex items-center justify-center gap-2 flex-wrap">
+            <span className="bg-blue-50 dark:bg-blue-950/50 text-[#2563EB] dark:text-[#38BDF8] border border-blue-200 dark:border-blue-800/60 px-2 py-0.5 rounded font-semibold">
+              v{CONTRIL_APK_CONFIG.version}
+            </span>
+            <span>•</span>
+            <span>{CONTRIL_APK_CONFIG.fileSize}</span>
+            <span>•</span>
+            <span>Released {CONTRIL_APK_CONFIG.releaseDate}</span>
+            <span>•</span>
+            <span>Signed Production Release</span>
           </div>
+
+          {/* Sideload / Install Security Advisory Banner */}
+          {!isPlayStoreMode && (
+            <div className="max-w-xl mx-auto mt-4 p-3.5 rounded-xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200/80 dark:border-blue-900/40 text-left flex items-start gap-3">
+              <ShieldCheck className="w-5 h-5 text-[#2563EB] dark:text-[#38BDF8] shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <div className="text-xs font-semibold text-[#1E3A8A] dark:text-[#93C5FD]">
+                  Direct APK Installation Notice
+                </div>
+                <p className="text-[11px] text-[#3B82F6] dark:text-[#BFDBFE] leading-relaxed">
+                  {CONTRIL_APK_CONFIG.installNotice}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* File Integrity SHA-256 Checksum Drawer */}
+          {!isPlayStoreMode && (
+            <div className="max-w-xl mx-auto pt-1">
+              <div className="p-3 rounded-xl bg-neutral-50 dark:bg-[#0B101B] border border-neutral-200 dark:border-white/10 text-left flex items-center justify-between gap-2">
+                <div className="overflow-hidden">
+                  <div className="text-[10px] font-mono uppercase tracking-wider text-neutral-500 dark:text-neutral-400 font-semibold">
+                    SHA-256 Checksum (Integrity Verification)
+                  </div>
+                  <div className="font-mono text-[11px] text-neutral-800 dark:text-neutral-200 truncate select-all">
+                    {CONTRIL_APK_CONFIG.sha256Checksum}
+                  </div>
+                </div>
+                <button
+                  onClick={handleCopyChecksum}
+                  className="px-2.5 py-1.5 rounded-lg bg-white dark:bg-[#151D33] border border-neutral-200 dark:border-white/10 hover:border-blue-400 text-xs font-medium text-neutral-700 dark:text-neutral-300 flex items-center gap-1.5 shrink-0 transition-all cursor-pointer shadow-xs"
+                >
+                  {copiedChecksum ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-emerald-600" />
+                      <span className="text-emerald-600 font-semibold">Copied</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3.5 h-3.5" />
+                      <span>Copy</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          )}
 
         </section>
 
@@ -176,24 +256,36 @@ export const DownloadView: React.FC<DownloadViewProps> = ({
                   </li>
                   <li className="flex items-center gap-2.5">
                     <CheckCircle2 className="w-4 h-4 text-[#2563EB] dark:text-[#38BDF8] shrink-0" />
-                    <span>High-priority Android system notifications</span>
+                    <span>Autonomous overnight triage & notifications</span>
                   </li>
                   <li className="flex items-center gap-2.5">
                     <CheckCircle2 className="w-4 h-4 text-[#2563EB] dark:text-[#38BDF8] shrink-0" />
-                    <span>Offline-first local intelligence fallback</span>
+                    <span>Real-time offline caching with last-synced time</span>
                   </li>
                 </ul>
               </div>
 
               <div className="pt-2">
-                <a
-                  href={CONTRIL_APK_CONFIG.downloadUrl}
-                  download="contril-android.apk"
-                  className="w-full py-3.5 rounded-full bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-semibold transition-all shadow-[0_8px_24px_rgba(37,99,235,0.25)] hover:shadow-[0_12px_32px_rgba(37,99,235,0.35)] cursor-pointer flex items-center justify-center gap-2"
-                >
-                  <Download className="w-4 h-4" />
-                  <span>Download Android App ↓</span>
-                </a>
+                {isPlayStoreMode ? (
+                  <a
+                    href={CONTRIL_APK_CONFIG.playStoreUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full py-3.5 rounded-full bg-[#0F172A] hover:bg-[#1E293B] text-white text-xs font-semibold transition-all shadow-[0_8px_24px_rgba(15,23,42,0.25)] hover:shadow-[0_12px_32px_rgba(15,23,42,0.35)] cursor-pointer flex items-center justify-center gap-2"
+                  >
+                    <Smartphone className="w-4 h-4 text-[#38BDF8]" />
+                    <span>Get on Google Play</span>
+                  </a>
+                ) : (
+                  <a
+                    href={CONTRIL_APK_CONFIG.downloadUrl}
+                    download="contril-android.apk"
+                    className="w-full py-3.5 rounded-full bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-semibold transition-all shadow-[0_8px_24px_rgba(37,99,235,0.25)] hover:shadow-[0_12px_32px_rgba(37,99,235,0.35)] cursor-pointer flex items-center justify-center gap-2"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span>Download Android App (v{CONTRIL_APK_CONFIG.version}) ↓</span>
+                  </a>
+                )}
               </div>
             </div>
 
@@ -246,61 +338,7 @@ export const DownloadView: React.FC<DownloadViewProps> = ({
         </section>
 
         {/* =========================================================================
-            4. CONNECTED ECOSYSTEM (Integrations Grid)
-            ========================================================================= */}
-        <section className="py-14 sm:py-20 bg-transparent border-t border-[#E5E7EB]/60 dark:border-white/10 max-w-full">
-          <div className="max-w-5xl mx-auto px-4 sm:px-8 space-y-8 sm:space-y-10 text-left">
-            
-            <div className="space-y-1.5 sm:space-y-2">
-              <div className="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-[#2563EB] dark:text-[#38BDF8]">
-                CONNECTED ECOSYSTEM
-              </div>
-              <h2 className="text-2xl sm:text-4xl font-bold tracking-tight text-[#0B1220] dark:text-white">
-                Everything connected.
-              </h2>
-              <p className="text-xs sm:text-base text-[#52627A] dark:text-[#94A3B8] max-w-xl">
-                Contril works across the tools you already use every day.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-5">
-              {[
-                { name: 'Gmail', desc: 'Email context, urgent thread summaries, and drafts.', status: 'Active', icon: Mail },
-                { name: 'Google Calendar', desc: 'Meetings, attendee conflicts, and scheduling.', status: 'Active', icon: Calendar },
-                { name: 'Google Drive', desc: 'Indexed documents, notes, and file queries.', status: 'Active', icon: FileText },
-                { name: 'Outlook', desc: 'Email and Microsoft workspace context.', status: 'Available', icon: Mail },
-                { name: 'Microsoft Calendar', desc: 'Enterprise event and meeting coordination.', status: 'Available', icon: Calendar },
-                { name: 'GitHub', desc: 'Issue tracking, pull requests, and dev context.', status: 'Active', icon: Github },
-                { name: 'Google Search', desc: 'Live web intelligence and company research.', status: 'Active', icon: Globe },
-                { name: 'Live Web', desc: 'Comparative research and price verification.', status: 'Active', icon: Search }
-              ].map((tool, idx) => (
-                <div 
-                  key={idx} 
-                  className="p-5 rounded-2xl bg-white/70 dark:bg-[#0D121D]/70 backdrop-blur-md border border-[#E5E7EB]/70 dark:border-white/10 space-y-3 flex flex-col justify-between"
-                >
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <tool.icon className="w-5 h-5 text-[#2563EB] dark:text-[#38BDF8]" />
-                      <span className={`font-mono text-[10px] uppercase px-2 py-0.5 rounded font-semibold ${
-                        tool.status === 'Active'
-                          ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                          : 'bg-slate-500/10 text-slate-600 dark:text-slate-400'
-                      }`}>
-                        {tool.status}
-                      </span>
-                    </div>
-                    <div className="font-semibold text-sm text-[#0B1220] dark:text-white">{tool.name}</div>
-                    <p className="text-xs text-[#52627A] dark:text-[#94A3B8] leading-relaxed">{tool.desc}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-          </div>
-        </section>
-
-        {/* =========================================================================
-            5. FINAL CTA (Contril, wherever you work)
+            4. FINAL CTA (Contril, wherever you work)
             ========================================================================= */}
         <section className="py-14 sm:py-20 bg-transparent border-t border-[#E5E7EB]/60 dark:border-white/10 px-4 sm:px-8 text-center">
           <div className="max-w-2xl mx-auto space-y-5 sm:space-y-6">
@@ -319,13 +357,24 @@ export const DownloadView: React.FC<DownloadViewProps> = ({
                 <span>{isAuthenticated ? 'Open Contril' : 'Open Contril →'}</span>
               </button>
 
-              <a
-                href={CONTRIL_APK_CONFIG.downloadUrl}
-                download="contril-android.apk"
-                className="w-full sm:w-auto px-7 py-3.5 rounded-full bg-white/85 dark:bg-[#0D121D]/85 backdrop-blur-md border border-[#E5E7EB]/80 dark:border-white/10 text-xs font-semibold text-[#0B1220] dark:text-[#E2E8F0] hover:bg-white dark:hover:bg-[#172033] hover:border-[#BFDBFE] transition-all cursor-pointer shadow-xs"
-              >
-                <span>Download Android APK</span>
-              </a>
+              {isPlayStoreMode ? (
+                <a
+                  href={CONTRIL_APK_CONFIG.playStoreUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full sm:w-auto px-7 py-3.5 rounded-full bg-[#0F172A] hover:bg-[#1E293B] text-white text-xs font-semibold transition-all shadow-xs cursor-pointer"
+                >
+                  <span>Get on Google Play</span>
+                </a>
+              ) : (
+                <a
+                  href={CONTRIL_APK_CONFIG.downloadUrl}
+                  download="contril-android.apk"
+                  className="w-full sm:w-auto px-7 py-3.5 rounded-full bg-white/85 dark:bg-[#0D121D]/85 backdrop-blur-md border border-[#E5E7EB]/80 dark:border-white/10 text-xs font-semibold text-[#0B1220] dark:text-[#E2E8F0] hover:bg-white dark:hover:bg-[#172033] hover:border-[#BFDBFE] transition-all cursor-pointer shadow-xs"
+                >
+                  <span>Download Android APK (v{CONTRIL_APK_CONFIG.version})</span>
+                </a>
+              )}
             </div>
           </div>
         </section>

@@ -92,7 +92,9 @@ class SwiggyAccessibilityScraper : PlatformScraper {
                 val priceVal = priceMatch.groupValues[1].toDoubleOrNull() ?: continue
                 if (maxBudget != null && priceVal > maxBudget) continue
 
-                val title = if (i > 0 && nodes[i - 1].length in 4..60) nodes[i - 1] else "$query (Swiggy)"
+                val rawTitle = if (i > 0 && nodes[i - 1].length in 4..60) nodes[i - 1] else ""
+                if (!ProductRelevanceValidator.isRelevant(query, rawTitle)) continue
+
                 val rating = nodes.subList(maxOf(0, i - 2), minOf(nodes.size, i + 3))
                     .mapNotNull { ratingRegex.find(it)?.groupValues?.get(1) }
                     .firstOrNull() ?: "4.3"
@@ -101,11 +103,11 @@ class SwiggyAccessibilityScraper : PlatformScraper {
                     ProductListingItem(
                         platformName = platformName,
                         platformPackage = targetPackage,
-                        itemName = title,
-                        restaurantOrVendor = "Popular on Swiggy",
+                        itemName = rawTitle,
+                        restaurantOrVendor = "Verified Restaurant",
                         price = priceVal,
-                        rating = "$rating ★",
-                        eta = "25-30 mins",
+                        rating = rating,
+                        eta = "25-35 mins",
                         deepLinkUrl = getDeepLinkUri(query).toString()
                     )
                 )

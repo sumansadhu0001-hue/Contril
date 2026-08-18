@@ -22,7 +22,8 @@ enum class ScrapeFailureType {
     UI_DRIFT_NODES_NOT_FOUND,
     SEARCH_ZERO_RESULTS,
     TIMEOUT,
-    APP_CRASHED_OR_CLOSED
+    APP_CRASHED_OR_CLOSED,
+    NO_RELEVANT_LISTINGS
 }
 
 data class ScrapeFailure(
