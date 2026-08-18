@@ -132,9 +132,32 @@ export const AdminInquiriesDashboard: React.FC<{ onBackToApp: () => void }> = ({
 
   const isLocalDev = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 
+  const [isRefreshingRequests, setIsRefreshingRequests] = useState(false);
+
   useEffect(() => {
     checkAdminAccess();
   }, []);
+
+  const fetchSubscriptionRequests = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('subscription_requests')
+        .select('*')
+        .order('requested_at', { ascending: false });
+      if (data) {
+        setSubscriptionRequests(data);
+      }
+    } catch (err) {
+      console.warn('Could not fetch subscription_requests directly:', err);
+    }
+  };
+
+  useEffect(() => {
+    if (!isAuthorized) return;
+    fetchSubscriptionRequests();
+    const interval = setInterval(fetchSubscriptionRequests, 5000);
+    return () => clearInterval(interval);
+  }, [isAuthorized]);
 
   const checkAdminAccess = async () => {
     const session = await supabase.auth.getSession();
@@ -165,18 +188,7 @@ export const AdminInquiriesDashboard: React.FC<{ onBackToApp: () => void }> = ({
       const orgs = await ContrilApiClient.fetchOrganizations();
       setOrganizations(orgs && Array.isArray(orgs.organizations) ? orgs.organizations : []);
 
-      // Fetch subscription requests from Supabase
-      try {
-        const { data: subData } = await supabase
-          .from('subscription_requests')
-          .select('*')
-          .order('requested_at', { ascending: false });
-        if (subData) {
-          setSubscriptionRequests(subData);
-        }
-      } catch (err) {
-        console.warn('Could not fetch subscription_requests directly:', err);
-      }
+      await fetchSubscriptionRequests();
     } catch {
       // Clean fallback
     } finally {
@@ -558,21 +570,36 @@ export const AdminInquiriesDashboard: React.FC<{ onBackToApp: () => void }> = ({
                     </p>
                   </div>
 
-                  {/* Filter Pills */}
-                  <div className="flex items-center gap-1.5 p-1 rounded-xl bg-white/[0.04] border border-white/[0.06] text-[11px]">
-                    {(['ALL', 'PENDING_APPROVAL', 'APPROVED', 'REJECTED'] as const).map((filterKey) => (
-                      <button
-                        key={filterKey}
-                        onClick={() => setPlanFilter(filterKey)}
-                        className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
-                          planFilter === filterKey
-                            ? 'bg-[#00BFA6] text-black font-bold shadow-xs'
-                            : 'text-neutral-400 hover:text-white'
-                        }`}
-                      >
-                        {filterKey.replace('_', ' ')}
-                      </button>
-                    ))}
+                  {/* Actions & Filter Pills */}
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={async () => {
+                        setIsRefreshingRequests(true);
+                        await fetchSubscriptionRequests();
+                        setTimeout(() => setIsRefreshingRequests(false), 500);
+                      }}
+                      className="px-2.5 py-1.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-neutral-400 hover:text-white border border-white/[0.06] text-[11px] font-mono flex items-center gap-1.5 transition-all cursor-pointer"
+                      title="Refresh Queue"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${isRefreshingRequests ? 'animate-spin text-[#00BFA6]' : ''}`} />
+                      <span>Refresh</span>
+                    </button>
+
+                    <div className="flex items-center gap-1.5 p-1 rounded-xl bg-white/[0.04] border border-white/[0.06] text-[11px]">
+                      {(['ALL', 'PENDING_APPROVAL', 'APPROVED', 'REJECTED'] as const).map((filterKey) => (
+                        <button
+                          key={filterKey}
+                          onClick={() => setPlanFilter(filterKey)}
+                          className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                            planFilter === filterKey
+                              ? 'bg-[#00BFA6] text-black font-bold shadow-xs'
+                              : 'text-neutral-400 hover:text-white'
+                          }`}
+                        >
+                          {filterKey.replace('_', ' ')}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
 
