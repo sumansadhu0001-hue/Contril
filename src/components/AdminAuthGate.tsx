@@ -12,14 +12,9 @@ interface AdminAuthGateProps {
 const ADMIN_SESSION_KEY = 'contril_admin_session_token';
 const ADMIN_SESSION_EXPIRY = 'contril_admin_session_expiry';
 
-// Default Master Passkeys accepted:
-// 1. "contril-admin-2026"
-// 2. "Contril@Master2026!"
-// 3. Any key configured via VITE_ADMIN_MASTER_KEY
+// Strict Master Passcode for Owner Administration
 const ACCEPTED_PASSWORDS = [
-  'contril-admin-2026',
-  'Contril@Master2026!',
-  'contril-executive-suman',
+  'contril_x14_suman',
   (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_ADMIN_MASTER_KEY) || ''
 ].filter(Boolean);
 
