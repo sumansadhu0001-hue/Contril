@@ -71,9 +71,10 @@ fun FormattedMarkdownText(
                     }
                 }
 
-                trimmed.startsWith("### ") -> {
+                trimmed.matches(Regex("^#{1,6}\\s*.*")) -> {
+                    val cleanHeader = trimmed.replace(Regex("^#{1,6}\\s*"), "").trim()
                     Text(
-                        text = parseInlineMarkdown(trimmed.removePrefix("### ").trim(), primaryColor, accentColor),
+                        text = parseInlineMarkdown(cleanHeader, primaryColor, accentColor),
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.Bold,
                             letterSpacing = (-0.2).sp
@@ -83,42 +84,18 @@ fun FormattedMarkdownText(
                     )
                 }
 
-                trimmed.startsWith("## ") -> {
-                    Text(
-                        text = parseInlineMarkdown(trimmed.removePrefix("## ").trim(), primaryColor, accentColor),
-                        style = MaterialTheme.typography.titleLarge.copy(
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = (-0.3).sp
-                        ),
-                        color = primaryColor,
-                        modifier = Modifier.padding(top = 8.dp, bottom = 2.dp)
-                    )
-                }
-
-                trimmed.startsWith("# ") -> {
-                    Text(
-                        text = parseInlineMarkdown(trimmed.removePrefix("# ").trim(), primaryColor, accentColor),
-                        style = MaterialTheme.typography.headlineSmall.copy(
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = (-0.4).sp
-                        ),
-                        color = primaryColor,
-                        modifier = Modifier.padding(top = 10.dp, bottom = 4.dp)
-                    )
-                }
-
-                trimmed.startsWith("---") || trimmed.startsWith("***") -> {
+                trimmed.matches(Regex("^[\\*\\-_]{3,}$")) -> {
                     Surface(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(1.dp)
-                            .padding(vertical = 6.dp),
+                            .padding(vertical = 4.dp),
                         color = primaryColor.copy(alpha = 0.10f)
                     ) {}
                 }
 
                 trimmed.startsWith("• ") || trimmed.startsWith("* ") || trimmed.startsWith("- ") -> {
-                    val bulletContent = trimmed.substring(2).trim()
+                    val bulletContent = trimmed.replace(Regex("^[•\\*\\-]\\s+"), "").trim()
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -177,7 +154,13 @@ fun FormattedMarkdownText(
     }
 }
 
-fun parseInlineMarkdown(text: String, primaryColor: Color, accentColor: Color): AnnotatedString {
+fun parseInlineMarkdown(rawText: String, primaryColor: Color, accentColor: Color): AnnotatedString {
+    val text = rawText
+        .replace(Regex("^#{1,6}\\s*"), "")
+        .replace(Regex("^\\s*\\*{3,}\\s*"), "")
+        .replace(Regex("^\\s*-{3,}\\s*"), "")
+        .trim()
+
     return buildAnnotatedString {
         var cursor = 0
         val length = text.length

@@ -124,7 +124,7 @@ object GeminiClient {
             1. UNIVERSAL CONVERSATIONAL ABILITY: Answer ANY user inquiry with precision, speed, depth, and clarity.
             2. WORKSPACE INTELLIGENCE: Proactively leverage workspace context (${connectedNames}) when drafting communications, synthesizing agendas, or summarizing threads.
             3. ACTION SAFETY & AUTONOMY: Autonomy Mode is [${autonomyMode.name}]. If the user asks to write or send an email, create a complete, polished draft with Recipient, Subject, and Body ready for one-tap dispatch.
-            4. EXECUTIVE FORMATTING: Use clean, polished GitHub-flavored Markdown (bolding, clear bullet points, concise sections) to deliver maximum clarity.
+            4. IMMACULATE CLEAN FORMATTING: DO NOT output raw markdown symbols. DO NOT use ###, ##, #, ***, or --- headers and dividers. DO NOT surround text with raw ** asterisks. Write clean, natural, elegant text with clean bullet points (•) and clear spacing.
         """.trimIndent()
 
         val contentsArray = JSONArray()
@@ -184,7 +184,7 @@ object GeminiClient {
 
                     if (text.isNotBlank()) {
                         activeModelName = model
-                        val cleanResponse = text.trim()
+                        val cleanResponse = sanitizeCleanText(text)
 
                         // Save turns to conversation history
                         synchronized(conversationHistory) {
@@ -259,6 +259,18 @@ object GeminiClient {
             else ->
                 "**Chief of Staff Summary**\n\nI have received your request: \"$prompt\".\n\n• **Status:** Ready for execution\n• **Recommendation:** Provide any specific requirements, or let me synthesize next steps for your workflow."
         }
+    }
+
+    fun sanitizeCleanText(text: String): String {
+        return text
+            .replace(Regex("^#{1,6}\\s*\\*\\*", RegexOption.MULTILINE), "")
+            .replace(Regex("^#{1,6}\\s*", RegexOption.MULTILINE), "")
+            .replace(Regex("^\\s*\\*{3,}\\s*$", RegexOption.MULTILINE), "")
+            .replace(Regex("^\\s*-{3,}\\s*$", RegexOption.MULTILINE), "")
+            .replace(Regex("^\\s*_{3,}\\s*$", RegexOption.MULTILINE), "")
+            .replace(Regex("\\*\\*([^*]+)\\*\\*"), "$1")
+            .replace(Regex("^\\*\\s+", RegexOption.MULTILINE), "• ")
+            .trim()
     }
 
     suspend fun summarizeEmailThread(
