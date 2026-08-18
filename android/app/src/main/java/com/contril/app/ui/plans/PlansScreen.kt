@@ -152,7 +152,7 @@ fun PlansScreen(
                 color = MaterialTheme.colorScheme.surface,
                 border = BorderStroke(
                     1.dp,
-                    if (entitlementState.status != SubscriptionStatus.ACTIVE_PRO) ContrilBlue else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+                    if (entitlementState.status != SubscriptionStatus.ACTIVE_PRO && !prefRepository.isElitePlan()) ContrilBlue else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
                 ),
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -165,17 +165,17 @@ fun PlansScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column {
+                        Column(modifier = Modifier.weight(1f)) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 Text(
-                                    text = "Early Access Free",
+                                    text = PaymentConfig.FREE_PLAN_NAME,
                                     style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
-                                if (entitlementState.status != SubscriptionStatus.ACTIVE_PRO) {
+                                if (entitlementState.status != SubscriptionStatus.ACTIVE_PRO && !prefRepository.isElitePlan()) {
                                     Surface(
                                         shape = RoundedCornerShape(6.dp),
                                         color = ContrilBlue.copy(alpha = 0.12f)
@@ -205,13 +205,7 @@ fun PlansScreen(
 
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
 
-                    listOf(
-                        "5 AI command executions per day",
-                        "Live Gmail & Google Calendar feeds",
-                        "Native Android voice assistant",
-                        "Cross-platform price comparison (Zomato & Swiggy)",
-                        "Action approval safety gates"
-                    ).forEach { feature ->
+                    PaymentConfig.FREE_PLAN_FEATURES.forEach { feature ->
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
                             verticalAlignment = Alignment.CenterVertically
@@ -223,13 +217,13 @@ fun PlansScreen(
                 }
             }
 
-            // Plan 2: Contril Pro Tier
+            // Plan 2: Starter Executive (₹899/mo)
             Surface(
                 shape = RoundedCornerShape(18.dp),
                 color = MaterialTheme.colorScheme.surface,
                 border = BorderStroke(
                     1.5.dp,
-                    if (entitlementState.status == SubscriptionStatus.ACTIVE_PRO) StatusActive else ContrilBlue.copy(alpha = 0.5f)
+                    if (entitlementState.status == SubscriptionStatus.ACTIVE_PRO && !prefRepository.isElitePlan()) StatusActive else ContrilBlue.copy(alpha = 0.4f)
                 ),
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -242,7 +236,7 @@ fun PlansScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column {
+                        Column(modifier = Modifier.weight(1f)) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -252,7 +246,7 @@ fun PlansScreen(
                                     style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
-                                if (entitlementState.status == SubscriptionStatus.ACTIVE_PRO) {
+                                if (entitlementState.status == SubscriptionStatus.ACTIVE_PRO && !prefRepository.isElitePlan()) {
                                     Surface(
                                         shape = RoundedCornerShape(6.dp),
                                         color = StatusActive.copy(alpha = 0.15f)
@@ -273,7 +267,7 @@ fun PlansScreen(
                             )
                         }
 
-                        Column(horizontalAlignment = Alignment.End) {
+                        Row(verticalAlignment = Alignment.Bottom) {
                             Text(
                                 text = PaymentConfig.PRO_PLAN_PRICE_FORMATTED,
                                 style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
@@ -282,7 +276,8 @@ fun PlansScreen(
                             Text(
                                 text = PaymentConfig.PRO_PLAN_BILLING_CYCLE,
                                 style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(bottom = 4.dp, start = 2.dp)
                             )
                         }
                     }
@@ -301,125 +296,130 @@ fun PlansScreen(
 
                     Spacer(modifier = Modifier.height(4.dp))
 
-                    // Dynamic State-Gated Action Area
-                    when (entitlementState.status) {
-                        SubscriptionStatus.PENDING_APPROVAL -> {
-                            Surface(
-                                shape = RoundedCornerShape(12.dp),
-                                color = StatusWarning.copy(alpha = 0.12f),
-                                border = BorderStroke(1.dp, StatusWarning.copy(alpha = 0.35f)),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Column(
-                                    modifier = Modifier.padding(14.dp),
-                                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    Row(
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Icon(Icons.Filled.HourglassTop, contentDescription = null, tint = StatusWarning, modifier = Modifier.size(18.dp))
-                                        Text(
-                                            text = "PAYMENT SUBMITTED — VERIFICATION IN PROGRESS",
-                                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                            color = StatusWarning
-                                        )
-                                    }
-                                    Text(
-                                        text = "Payment submitted. Pro access activates within 24 hours after verification.",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        lineHeight = 18.sp
-                                    )
-                                    if (!entitlementState.transactionRef.isNullOrBlank()) {
-                                        Text(
-                                            text = "Reference: ${entitlementState.transactionRef}",
-                                            style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace),
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                                        )
-                                    }
-                                }
+                    // Action Button for Pro Tier
+                    Button(
+                        onClick = {
+                            coroutineScope.launch {
+                                subscriptionManager.initiateUpgradeFlow(context)
                             }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp)
+                            .magneticPress(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = ContrilBlue)
+                    ) {
+                        Icon(Icons.Filled.OpenInBrowser, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Upgrade to Pro (${PaymentConfig.PRO_PLAN_PRICE_FORMATTED}${PaymentConfig.PRO_PLAN_BILLING_CYCLE})",
+                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                            color = Color.White
+                        )
+                    }
+                }
+            }
 
-                            Button(
-                                onClick = {
-                                    isChecking = true
-                                    coroutineScope.launch {
-                                        subscriptionManager.checkBackendApprovalStatus()
-                                        isChecking = false
-                                    }
-                                },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(48.dp)
-                                    .magneticPress(),
-                                shape = RoundedCornerShape(12.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+            // Plan 3: Autonomous Elite (₹3,999/mo)
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.surface,
+                border = BorderStroke(
+                    2.dp,
+                    if (prefRepository.isElitePlan()) Color(0xFF6366F1) else Color(0xFF6366F1).copy(alpha = 0.5f)
+                ),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                if (isChecking) {
-                                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = ContrilBlue)
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text("Checking...", color = MaterialTheme.colorScheme.onSurface)
-                                } else {
-                                    Icon(Icons.Filled.Refresh, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurface)
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text("Check Verification Status", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold), color = MaterialTheme.colorScheme.onSurface)
-                                }
-                            }
-                        }
-
-                        SubscriptionStatus.ACTIVE_PRO -> {
-                            Surface(
-                                shape = RoundedCornerShape(12.dp),
-                                color = StatusActive.copy(alpha = 0.12f),
-                                border = BorderStroke(1.dp, StatusActive.copy(alpha = 0.35f)),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(14.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                                ) {
-                                    Icon(Icons.Filled.Verified, contentDescription = null, tint = StatusActive, modifier = Modifier.size(20.dp))
-                                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                        Text(
-                                            text = "ACTIVE CONTRIL PRO MEMBER",
-                                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                            color = StatusActive
-                                        )
-                                        Text(
-                                            text = "Unbounded autonomous execution active.",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
-                                }
-                            }
-                        }
-
-                        else -> {
-                            Button(
-                                onClick = {
-                                    coroutineScope.launch {
-                                        subscriptionManager.initiateUpgradeFlow(context)
-                                    }
-                                },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(48.dp)
-                                    .magneticPress(),
-                                shape = RoundedCornerShape(12.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = ContrilBlue)
-                            ) {
-                                Icon(Icons.Filled.OpenInBrowser, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = "Upgrade to Pro (${PaymentConfig.PRO_PLAN_PRICE_FORMATTED}${PaymentConfig.PRO_PLAN_BILLING_CYCLE})",
-                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                                    color = Color.White
+                                    text = PaymentConfig.ELITE_PLAN_NAME,
+                                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.onSurface
                                 )
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = Color(0xFF6366F1).copy(alpha = 0.15f)
+                                ) {
+                                    Text(
+                                        text = if (prefRepository.isElitePlan()) "ACTIVE" else "OVERNIGHT AUTONOMY",
+                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                        color = Color(0xFF6366F1),
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                }
                             }
+                            Text(
+                                text = "24/7 continuous autonomous Chief of Staff intelligence",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
+
+                        Row(verticalAlignment = Alignment.Bottom) {
+                            Text(
+                                text = PaymentConfig.ELITE_PLAN_PRICE_FORMATTED,
+                                style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+                                color = Color(0xFF6366F1)
+                            )
+                            Text(
+                                text = PaymentConfig.ELITE_PLAN_BILLING_CYCLE,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(bottom = 4.dp, start = 2.dp)
+                            )
+                        }
+                    }
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+
+                    PaymentConfig.ELITE_PLAN_FEATURES.forEach { feature ->
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = Color(0xFF6366F1), modifier = Modifier.size(16.dp))
+                            Text(text = feature, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Button(
+                        onClick = {
+                            try {
+                                val url = PaymentConfig.getPrefilledPaymentLink("elite")
+                                val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url))
+                                context.startActivity(intent)
+                            } catch (_: Exception) {}
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp)
+                            .magneticPress(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6366F1))
+                    ) {
+                        Icon(Icons.Filled.OpenInBrowser, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Upgrade to Elite (${PaymentConfig.ELITE_PLAN_PRICE_FORMATTED}${PaymentConfig.ELITE_PLAN_BILLING_CYCLE})",
+                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                            color = Color.White
+                        )
                     }
                 }
             }

@@ -375,6 +375,58 @@ class ContrilBackendClient(
             }
         }
 
+        suspend fun sendDirectEmailResult(
+            token: String,
+            to: String,
+            subject: String,
+            body: String
+        ): Pair<Boolean, String> = withContext(Dispatchers.IO) {
+            try {
+                val client = OkHttpClient.Builder().connectTimeout(15, TimeUnit.SECONDS).build()
+                val rawEmail = "To: $to\r\nSubject: $subject\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n$body"
+                val encodedRaw = android.util.Base64.encodeToString(
+                    rawEmail.toByteArray(Charsets.UTF_8),
+                    android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP
+                )
+
+                val postJson = JSONObject().apply {
+                    put("raw", encodedRaw)
+                }
+
+                val req = Request.Builder()
+                    .url("https://gmail.googleapis.com/gmail/v1/users/me/messages/send")
+                    .header("Authorization", "Bearer $token")
+                    .header("Content-Type", "application/json")
+                    .post(postJson.toString().toRequestBody("application/json; charset=utf-8".toMediaType()))
+                    .build()
+
+                val res = client.newCall(req).execute()
+                val resBody = res.body?.string() ?: ""
+                Log.i("ContrilBackend", "sendDirectEmail HTTP response: ${res.code}, body: $resBody")
+
+                if (res.isSuccessful) {
+                    Pair(true, "Email sent successfully to $to via Gmail.")
+                } else {
+                    val errMsg = when (res.code) {
+                        403 -> "Gmail Send permission (gmail.send) not granted. Please reconnect Gmail to grant Send permission."
+                        401 -> "Google session expired. Please reconnect Gmail."
+                        else -> "Gmail API Error (HTTP ${res.code}): ${resBody.take(120)}"
+                    }
+                    Pair(false, errMsg)
+                }
+            } catch (e: Exception) {
+                Log.e("ContrilBackend", "Failed to send direct email", e)
+                Pair(false, "Network error: ${e.localizedMessage}")
+            }
+        }
+
+        suspend fun sendDirectEmail(
+            token: String,
+            to: String,
+            subject: String,
+            body: String
+        ): Boolean = sendDirectEmailResult(token, to, subject, body).first
+
         suspend fun sendGmailReply(
             token: String,
             threadId: String,

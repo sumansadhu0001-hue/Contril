@@ -80,6 +80,7 @@ class MainActivity : ComponentActivity() {
                             prefRepository.connectService("google_workspace", email)
                             prefRepository.connectService("gmail", email)
                             prefRepository.connectService("calendar", email)
+                            prefRepository.connectService("drive", email)
                             Log.i("ContrilMain", "AppAuth PKCE Google OAuth flow completed successfully and verified.")
                             return@launch
                         }
@@ -144,6 +145,7 @@ class MainActivity : ComponentActivity() {
                                 prefRepository.connectService("google_workspace", user.email)
                                 prefRepository.connectService("gmail", user.email)
                                 prefRepository.connectService("calendar", user.email)
+                                prefRepository.connectService("drive", user.email)
                                 Log.i("ContrilMain", "Google Workspace integration validated and marked CONNECTED.")
                             } else {
                                 Log.w("ContrilMain", "Google provider token verification failed; not marking connected.")
@@ -170,6 +172,7 @@ class MainActivity : ComponentActivity() {
                         prefRepository.connectService("google_workspace", email)
                         prefRepository.connectService("gmail", email)
                         prefRepository.connectService("calendar", email)
+                        prefRepository.connectService("drive", email)
                         Log.i("ContrilMain", "Google Workspace integration validated and marked CONNECTED.")
                     } else {
                         Log.w("ContrilMain", "Google provider token verification failed; not marking connected.")

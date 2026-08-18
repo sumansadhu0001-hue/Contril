@@ -212,12 +212,31 @@ class ContrilRepository(
     }
 
     suspend fun approveAction(actionId: String) {
+        val targetAction = _pendingActions.value.find { it.id == actionId }
         try {
             apiService?.approveAction(actionId)
         } catch (_: Throwable) { }
 
         _pendingActions.value = _pendingActions.value.map {
-            if (it.id == actionId) it.copy(status = ActionStatus.APPROVED) else it
+            if (it.id == actionId) it.copy(status = ActionStatus.EXECUTED) else it
+        }
+
+        if (targetAction != null && (targetAction.targetService.equals("Gmail", ignoreCase = true) || targetAction.title.contains("Email", ignoreCase = true))) {
+            val token = com.contril.app.data.api.ContrilBackendClient.getFreshGoogleToken(prefRepository)
+            if (!token.isNullOrBlank()) {
+                val raw = targetAction.description
+                val emailRegex = Regex("[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}")
+                val recipient = emailRegex.find(raw)?.value ?: (prefRepository?.currentUser?.value?.email?.ifBlank { null } ?: "recipient@example.com")
+                val subject = if (targetAction.title.isNotBlank()) targetAction.title else "Executive Update from Contril"
+                val body = raw.replace(Regex("(?i)Draft prepared:?"), "").trim()
+
+                com.contril.app.data.api.ContrilBackendClient.sendDirectEmailResult(
+                    token = token,
+                    to = recipient,
+                    subject = subject,
+                    body = body
+                )
+            }
         }
     }
 

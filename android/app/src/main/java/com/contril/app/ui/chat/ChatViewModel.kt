@@ -198,14 +198,54 @@ class ChatViewModel(
     }
 
     fun approveAction(action: PendingAction) {
-        action.status = ActionStatus.APPROVED
+        action.status = ActionStatus.EXECUTED
         _uiState.update { current ->
             val updated = current.messages.map { msg ->
                 if (msg.pendingAction?.id == action.id) {
-                    msg.copy(pendingAction = action.copy(status = ActionStatus.APPROVED))
+                    msg.copy(pendingAction = action.copy(status = ActionStatus.EXECUTED))
                 } else msg
             }
             current.copy(messages = updated)
+        }
+
+        viewModelScope.launch {
+            if (action.targetService.equals("Gmail", ignoreCase = true) || action.title.contains("Email", ignoreCase = true)) {
+                val token = com.contril.app.data.api.ContrilBackendClient.getFreshGoogleToken(prefRepository)
+                if (token.isNullOrBlank()) {
+                    val errorMsg = ChatMessage(
+                        isUser = false,
+                        text = "⚠️ Unable to send email: Gmail is not connected. Please connect your Gmail account in Profile Hub."
+                    )
+                    _uiState.update { it.copy(messages = it.messages + errorMsg) }
+                    return@launch
+                }
+
+                // Extract recipient, subject, body from action
+                val raw = action.description
+                val emailRegex = Regex("[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}")
+                val recipient = emailRegex.find(raw)?.value ?: (prefRepository?.currentUser?.value?.email?.ifBlank { null } ?: "recipient@example.com")
+                val subject = if (action.title.isNotBlank()) action.title else "Executive Update from Contril"
+                val body = raw.replace(Regex("(?i)Draft prepared:?"), "").trim()
+
+                val (success, message) = com.contril.app.data.api.ContrilBackendClient.sendDirectEmailResult(
+                    token = token,
+                    to = recipient,
+                    subject = subject,
+                    body = body
+                )
+
+                val confirmationMsg = ChatMessage(
+                    isUser = false,
+                    text = if (success) "✅ $message" else "❌ Failed to send email: $message"
+                )
+                _uiState.update { it.copy(messages = it.messages + confirmationMsg) }
+            } else {
+                val confirmationMsg = ChatMessage(
+                    isUser = false,
+                    text = "✅ Action approved and executed successfully."
+                )
+                _uiState.update { it.copy(messages = it.messages + confirmationMsg) }
+            }
         }
     }
 
