@@ -168,6 +168,16 @@ class PreferenceRepository(context: Context? = null) {
         _currentUser.value = user
     }
 
+    fun getUserPhone(): String {
+        return prefs?.getString("user_phone", "") ?: ""
+    }
+
+    fun setUserPhone(phone: String) {
+        try {
+            prefs?.edit()?.putString("user_phone", phone)?.apply()
+        } catch (_: Throwable) {}
+    }
+
     private val _connectedServices = MutableStateFlow<Map<String, String>>(getSavedConnectedServices())
     val connectedServices: StateFlow<Map<String, String>> = _connectedServices.asStateFlow()
 

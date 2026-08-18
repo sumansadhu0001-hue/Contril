@@ -34,6 +34,12 @@ import com.contril.app.theme.*
 import com.contril.app.ui.components.magneticPress
 import kotlinx.coroutines.launch
 
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Phone
+import androidx.compose.ui.text.input.KeyboardType
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlansScreen(
@@ -41,13 +47,14 @@ fun PlansScreen(
     onBack: () -> Unit
 ) {
     val currentPlan by prefRepository.currentPlan.collectAsState()
-    val aiUsage = remember(prefRepository, currentPlan) { prefRepository.getTodayAiUsage() }
     val context = LocalContext.current
 
     val subscriptionManager = remember(prefRepository) { SubscriptionRequestManager(prefRepository) }
     val entitlementState by subscriptionManager.entitlementState.collectAsState()
     val coroutineScope = rememberCoroutineScope()
     var isChecking by remember { mutableStateOf(false) }
+
+    var targetUpgradePlan by remember { mutableStateOf<String?>(null) }
 
     // Check backend approval on screen launch
     LaunchedEffect(Unit) {
@@ -99,7 +106,7 @@ fun PlansScreen(
                 )
             }
 
-            // Pending Approval Banner (When a paid plan has been chosen)
+            // Under Review Notice (When a paid plan application has been submitted)
             if (entitlementState.status == SubscriptionStatus.PENDING_APPROVAL) {
                 Surface(
                     shape = RoundedCornerShape(14.dp),
@@ -115,15 +122,15 @@ fun PlansScreen(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = Color(0xFFD97706), modifier = Modifier.size(20.dp))
+                            Icon(Icons.Filled.HourglassTop, contentDescription = null, tint = Color(0xFFD97706), modifier = Modifier.size(20.dp))
                             Text(
-                                text = "Plan Upgrade Pending Approval",
+                                text = "Application Under Review",
                                 style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                                 color = Color(0xFF92400E)
                             )
                         }
                         Text(
-                            text = "Your request for ${entitlementState.planName} has been submitted to the admin console for manual verification. Access unlocks automatically upon approval.",
+                            text = "Your application for ${entitlementState.planName} has been submitted directly to the administrator for review. Contact: ${prefRepository.getUserPhone().ifBlank { prefRepository.getUserProfile()?.email ?: "Registered Contact" }}. Once payment is verified, your access will be activated immediately.",
                             style = MaterialTheme.typography.bodySmall,
                             color = Color(0xFFB45309)
                         )
@@ -134,10 +141,16 @@ fun PlansScreen(
                             TextButton(
                                 onClick = {
                                     coroutineScope.launch {
+                                        isChecking = true
                                         subscriptionManager.checkBackendApprovalStatus()
+                                        isChecking = false
                                     }
                                 }
                             ) {
+                                if (isChecking) {
+                                    CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp, color = Color(0xFFB45309))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                }
                                 Text("Check Live Status", color = Color(0xFFB45309), fontWeight = FontWeight.Bold)
                             }
                         }
@@ -298,9 +311,7 @@ fun PlansScreen(
                     // Action Button for Pro Tier
                     Button(
                         onClick = {
-                            coroutineScope.launch {
-                                subscriptionManager.initiateUpgradeFlow(context)
-                            }
+                            targetUpgradePlan = PaymentConfig.PRO_PLAN_NAME
                         },
                         modifier = Modifier
                             .fillMaxWidth()
@@ -309,10 +320,10 @@ fun PlansScreen(
                         shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = ContrilBlue)
                     ) {
-                        Icon(Icons.Filled.OpenInBrowser, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Filled.Verified, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "Upgrade to Pro (${PaymentConfig.PRO_PLAN_PRICE_FORMATTED}${PaymentConfig.PRO_PLAN_BILLING_CYCLE})",
+                            text = "Apply for Pro (${PaymentConfig.PRO_PLAN_PRICE_FORMATTED}${PaymentConfig.PRO_PLAN_BILLING_CYCLE})",
                             style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
                             color = Color.White
                         )
@@ -396,13 +407,7 @@ fun PlansScreen(
 
                     Button(
                         onClick = {
-                            coroutineScope.launch {
-                                subscriptionManager.initiateUpgradeFlow(
-                                    context = context,
-                                    targetPlan = PaymentConfig.ELITE_PLAN_NAME,
-                                    planAlias = "elite"
-                                )
-                            }
+                            targetUpgradePlan = PaymentConfig.ELITE_PLAN_NAME
                         },
                         modifier = Modifier
                             .fillMaxWidth()
@@ -411,10 +416,10 @@ fun PlansScreen(
                         shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6366F1))
                     ) {
-                        Icon(Icons.Filled.OpenInBrowser, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Filled.Verified, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "Upgrade to Elite (${PaymentConfig.ELITE_PLAN_PRICE_FORMATTED}${PaymentConfig.ELITE_PLAN_BILLING_CYCLE})",
+                            text = "Apply for Elite (${PaymentConfig.ELITE_PLAN_PRICE_FORMATTED}${PaymentConfig.ELITE_PLAN_BILLING_CYCLE})",
                             style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
                             color = Color.White
                         )
@@ -424,5 +429,157 @@ fun PlansScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
         }
+
+        // Plan Upgrade Application Modal
+        targetUpgradePlan?.let { plan ->
+            PlanUpgradeApplicationDialog(
+                planName = plan,
+                prefRepository = prefRepository,
+                onDismiss = { targetUpgradePlan = null },
+                onSubmit = { phone, email, name ->
+                    coroutineScope.launch {
+                        subscriptionManager.submitPlanUpgradeApplication(
+                            targetPlan = plan,
+                            phoneNumber = phone,
+                            email = email,
+                            name = name
+                        )
+                        targetUpgradePlan = null
+                    }
+                }
+            )
+        }
     }
+}
+
+@Composable
+fun PlanUpgradeApplicationDialog(
+    planName: String,
+    prefRepository: PreferenceRepository,
+    onDismiss: () -> Unit,
+    onSubmit: (phone: String, email: String, name: String) -> Unit
+) {
+    val isElite = planName.contains("Elite", ignoreCase = true)
+    val priceText = if (isElite) "₹3,999/month" else "₹899/month"
+    val accentColor = if (isElite) Color(0xFF6366F1) else ContrilBlue
+
+    var phoneNumber by remember { mutableStateOf(prefRepository.getUserPhone()) }
+    var email by remember { mutableStateOf(prefRepository.getUserProfile()?.email ?: "") }
+    var name by remember { mutableStateOf(prefRepository.getUserProfile()?.name ?: "") }
+    var errorMessage by remember { mutableStateOf("") }
+    var isSubmitting by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = { if (!isSubmitting) onDismiss() },
+        title = {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    text = "Apply for Plan Upgrade",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                )
+                Text(
+                    text = "$planName ($priceText)",
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                    color = accentColor
+                )
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = Color(0xFFFEF3C7),
+                    border = BorderStroke(1.dp, Color(0xFFF59E0B).copy(alpha = 0.5f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "Your request will be submitted directly to the administrator for review. Please provide your phone number so payment and account activation can be confirmed.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color(0xFF92400E),
+                        modifier = Modifier.padding(10.dp)
+                    )
+                }
+
+                OutlinedTextField(
+                    value = phoneNumber,
+                    onValueChange = { 
+                        phoneNumber = it
+                        errorMessage = ""
+                    },
+                    label = { Text("Phone Number *") },
+                    placeholder = { Text("e.g. +91 98765 43210") },
+                    leadingIcon = { Icon(Icons.Filled.Phone, contentDescription = null, tint = accentColor) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                    singleLine = true,
+                    isError = errorMessage.isNotBlank(),
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                )
+
+                OutlinedTextField(
+                    value = email,
+                    onValueChange = { email = it },
+                    label = { Text("Email Address") },
+                    leadingIcon = { Icon(Icons.Filled.Email, contentDescription = null) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                )
+
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("Full Name") },
+                    leadingIcon = { Icon(Icons.Filled.Person, contentDescription = null) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                )
+
+                if (errorMessage.isNotBlank()) {
+                    Text(
+                        text = errorMessage,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.labelSmall
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (phoneNumber.trim().length < 8) {
+                        errorMessage = "Please enter a valid phone number to apply."
+                        return@Button
+                    }
+                    isSubmitting = true
+                    onSubmit(phoneNumber.trim(), email.trim(), name.trim())
+                },
+                enabled = !isSubmitting,
+                colors = ButtonDefaults.buttonColors(containerColor = accentColor),
+                shape = RoundedCornerShape(10.dp)
+            ) {
+                if (isSubmitting) {
+                    CircularProgressIndicator(modifier = Modifier.size(16.dp), color = Color.White, strokeWidth = 2.dp)
+                    Spacer(modifier = Modifier.width(6.dp))
+                }
+                Text("Submit Application", fontWeight = FontWeight.Bold, color = Color.White)
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = onDismiss,
+                enabled = !isSubmitting
+            ) {
+                Text("Cancel")
+            }
+        },
+        shape = RoundedCornerShape(18.dp)
+    )
 }

@@ -589,7 +589,8 @@ export const AdminInquiriesDashboard: React.FC<{ onBackToApp: () => void }> = ({
                     <table className="w-full text-left text-xs">
                       <thead className="text-neutral-400 border-b border-white/[0.06] text-[11px]">
                         <tr>
-                          <th className="p-3">User</th>
+                          <th className="p-3">User & Contact</th>
+                          <th className="p-3">Phone Number</th>
                           <th className="p-3">Plan Selected</th>
                           <th className="p-3">Amount</th>
                           <th className="p-3">Requested At</th>
@@ -611,7 +612,30 @@ export const AdminInquiriesDashboard: React.FC<{ onBackToApp: () => void }> = ({
                               <tr key={req.id || req.transaction_ref} className="hover:bg-white/[0.02] transition-colors">
                                 <td className="p-3">
                                   <div className="font-semibold text-white">{req.user_name || req.email?.split('@')[0] || 'User'}</div>
-                                  <div className="text-[11px] text-neutral-400">{req.email || 'No email'}</div>
+                                  <div className="text-[11px] text-neutral-400 font-mono">{req.email || 'No email'}</div>
+                                </td>
+                                <td className="p-3">
+                                  {req.phone_number ? (
+                                    <div className="space-y-0.5">
+                                      <a
+                                        href={`tel:${req.phone_number}`}
+                                        className="text-[#00BFA6] hover:underline font-mono font-bold text-xs flex items-center gap-1"
+                                      >
+                                        <span>📞</span>
+                                        <span>{req.phone_number}</span>
+                                      </a>
+                                      <a
+                                        href={`https://wa.me/${req.phone_number.replace(/[^0-9]/g, '')}`}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="text-[10px] text-emerald-400/80 hover:text-emerald-300 block"
+                                      >
+                                        Open WhatsApp →
+                                      </a>
+                                    </div>
+                                  ) : (
+                                    <span className="text-neutral-500 text-[11px] font-mono">Not provided</span>
+                                  )}
                                 </td>
                                 <td className="p-3">
                                   <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold border ${

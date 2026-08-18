@@ -49,56 +49,32 @@ class SubscriptionRequestManager(
     }
 
     /**
-     * Initiates the upgrade flow by opening the Razorpay Payment Link and recording
-     * the PENDING_APPROVAL status in Supabase.
+     * Submits a direct plan upgrade application to the administrator with phone number,
+     * email, and user name. (No external Razorpay redirection).
      */
-    suspend fun initiateUpgradeFlow(
-        context: Context,
+    suspend fun submitPlanUpgradeApplication(
         targetPlan: String = PaymentConfig.PRO_PLAN_NAME,
-        planAlias: String = "pro"
-    ): Result<EntitlementState> = withContext(Dispatchers.IO) {
-        val user = prefRepository.getUserProfile()
-        val userEmail = user?.email
-        val userName = user?.name
-        val paymentUrl = PaymentConfig.getPrefilledPaymentLink(plan = planAlias, email = userEmail, name = userName)
-        val transactionRef = "RZP_PL_${UUID.randomUUID().toString().take(8).uppercase()}"
-
-        // Open Payment Link in external browser / Custom Tab
-        withContext(Dispatchers.Main) {
-            try {
-                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(paymentUrl)).apply {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-                context.startActivity(intent)
-            } catch (e: Exception) {
-                Log.e("SubscriptionRequest", "Could not open browser for payment link", e)
-            }
-        }
-
-        // Immediately record PENDING_APPROVAL in Supabase and local store
-        return@withContext submitSubscriptionRequest(
-            targetPlan = targetPlan,
-            transactionRef = transactionRef,
-            paymentLink = paymentUrl
-        )
-    }
-
-    suspend fun submitSubscriptionRequest(
-        targetPlan: String = PaymentConfig.PRO_PLAN_NAME,
-        transactionRef: String = "TXN_${UUID.randomUUID().toString().take(8).uppercase()}",
-        paymentLink: String = PaymentConfig.razorpayPaymentLinkUrl
+        phoneNumber: String = "",
+        email: String = "",
+        name: String = ""
     ): Result<EntitlementState> = withContext(Dispatchers.IO) {
         val token = prefRepository.userSessionToken.value
         val user = prefRepository.getUserProfile()
         val userId = user?.id ?: "user_${UUID.randomUUID().toString().take(8)}"
-        val userEmail = user?.email ?: "user@contril.app"
-        val userName = user?.name ?: "Executive User"
+        val userEmail = email.ifBlank { user?.email ?: "user@contril.app" }
+        val userName = name.ifBlank { user?.name ?: "Executive User" }
+        val userPhone = phoneNumber.trim().ifBlank { prefRepository.getUserPhone() }
 
         val requestTime = Instant.now().toString()
         val isElite = targetPlan.contains("Elite", ignoreCase = true)
         val amount = if (isElite) 3999 else 899
+        val transactionRef = "REQ_${UUID.randomUUID().toString().take(8).uppercase()}"
 
-        // 1. Immediately move state to PENDING_APPROVAL
+        if (userPhone.isNotBlank()) {
+            prefRepository.setUserPhone(userPhone)
+        }
+
+        // 1. Move local state to PENDING_APPROVAL
         prefRepository.setSubscriptionStatus(SubscriptionStatus.PENDING_APPROVAL)
         val pendingState = EntitlementState(
             status = SubscriptionStatus.PENDING_APPROVAL,
@@ -114,13 +90,14 @@ class SubscriptionRequestManager(
             val bodyJson = JSONObject().apply {
                 put("user_id", userId)
                 put("email", userEmail)
+                put("phone_number", userPhone)
                 put("user_name", userName)
                 put("plan", targetPlan)
                 put("amount", amount)
                 put("currency", "INR")
                 put("status", "PENDING_APPROVAL")
                 put("transaction_ref", transactionRef)
-                put("payment_link", paymentLink)
+                put("payment_link", "MANUAL_ADMIN_VERIFICATION")
                 put("requested_at", requestTime)
             }
 
@@ -138,12 +115,18 @@ class SubscriptionRequestManager(
             val response = httpClient.newCall(requestBuilder.build()).execute()
             val resBody = response.body?.string() ?: ""
             Log.i("SubscriptionRequest", "Supabase subscription_requests response (${response.code}): $resBody")
-
-            Result.success(pendingState)
+            return@withContext Result.success(pendingState)
         } catch (e: Exception) {
-            Log.w("SubscriptionRequest", "Network submit warning: ${e.message}")
-            Result.success(pendingState)
+            Log.e("SubscriptionRequest", "Failed to submit subscription request to Supabase", e)
+            return@withContext Result.success(pendingState)
         }
+    }
+
+    suspend fun submitSubscriptionRequest(
+        targetPlan: String = PaymentConfig.PRO_PLAN_NAME,
+        transactionRef: String? = null
+    ): Result<EntitlementState> {
+        return submitPlanUpgradeApplication(targetPlan = targetPlan)
     }
 
     /**
