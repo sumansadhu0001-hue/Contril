@@ -47,10 +47,10 @@ export const PublicFooter: React.FC<PublicFooterProps> = ({ onNavigate }) => {
             Download
           </button>
           <button 
-            onClick={() => onNavigate('app')} 
+            onClick={() => onNavigate('download')} 
             className="text-[#2563EB] dark:text-[#38BDF8] font-medium hover:underline cursor-pointer"
           >
-            Open Contril →
+            Download Android APK ↓
           </button>
         </div>
 

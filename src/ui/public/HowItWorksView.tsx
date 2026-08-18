@@ -204,10 +204,10 @@ export const HowItWorksView: React.FC<HowItWorksViewProps> = ({ onNavigate, isAu
 
           <div className="pt-2">
             <button
-              onClick={() => onNavigate(isAuthenticated ? 'app' : 'login')}
+              onClick={() => onNavigate('download')}
               className="px-8 py-3.5 rounded-full bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-semibold transition-all shadow-[0_8px_24px_rgba(37,99,235,0.25)] hover:-translate-y-0.5 cursor-pointer inline-flex items-center gap-2"
             >
-              <span>{isAuthenticated ? 'Open Contril' : 'Open Contril →'}</span>
+              <span>Download Android APK ↓</span>
             </button>
           </div>
         </div>

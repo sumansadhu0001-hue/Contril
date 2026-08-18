@@ -71,36 +71,29 @@ export const DownloadView: React.FC<DownloadViewProps> = ({
 
           {/* Supporting Copy */}
           <p className="text-sm sm:text-lg text-[#52627A] dark:text-[#94A3B8] font-normal leading-relaxed max-w-[360px] sm:max-w-xl mx-auto">
-            Use Contril instantly on the web or install the native Android app for an autonomous mobile executive experience.
+            Install the native Contril Android application on your phone for an autonomous mobile Chief of Staff experience.
           </p>
 
-          {/* Dual Action CTAs */}
+          {/* Primary APK Download CTA */}
           <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3 max-w-[340px] sm:max-w-none mx-auto w-full">
-            <button
-              onClick={handleOpenContril}
-              className="w-full sm:w-auto px-8 py-3.5 rounded-full bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-sm font-semibold transition-all shadow-[0_8px_24px_rgba(37,99,235,0.25)] hover:shadow-[0_12px_32px_rgba(37,99,235,0.35)] hover:-translate-y-0.5 cursor-pointer flex items-center justify-center gap-2"
-            >
-              <span>{isAuthenticated ? 'Open Contril' : 'Open Contril →'}</span>
-            </button>
-
             {isPlayStoreMode ? (
               <a
                 href={CONTRIL_APK_CONFIG.playStoreUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full sm:w-auto px-7 py-3.5 rounded-full bg-[#0F172A] hover:bg-[#1E293B] text-white text-xs font-semibold transition-all cursor-pointer flex items-center justify-center gap-2 shadow-xs hover:shadow-sm"
+                className="w-full sm:w-auto px-8 py-4 rounded-full bg-[#0F172A] hover:bg-[#1E293B] text-white text-sm font-semibold transition-all cursor-pointer flex items-center justify-center gap-2.5 shadow-[0_8px_24px_rgba(15,23,42,0.25)] hover:shadow-[0_12px_32px_rgba(15,23,42,0.35)]"
               >
-                <Smartphone className="w-4 h-4 text-[#38BDF8]" />
+                <Smartphone className="w-5 h-5 text-[#38BDF8]" />
                 <span>Get it on Google Play</span>
               </a>
             ) : (
               <a
                 href={CONTRIL_APK_CONFIG.downloadUrl}
                 download="contril-android.apk"
-                className="w-full sm:w-auto px-7 py-3.5 rounded-full bg-white/90 dark:bg-[#0D1322]/90 hover:bg-white dark:hover:bg-[#151D33] backdrop-blur-md border border-[#E5E7EB]/80 dark:border-white/10 hover:border-[#BFDBFE] text-xs font-semibold text-[#0B1220] dark:text-[#E2E8F0] transition-all cursor-pointer flex items-center justify-center gap-2 shadow-xs hover:shadow-sm"
+                className="w-full sm:w-auto px-8 py-4 rounded-full bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-sm font-semibold transition-all shadow-[0_8px_24px_rgba(37,99,235,0.25)] hover:shadow-[0_12px_32px_rgba(37,99,235,0.35)] hover:-translate-y-0.5 cursor-pointer flex items-center justify-center gap-2.5"
               >
-                <Download className="w-3.5 h-3.5 text-[#2563EB] dark:text-[#38BDF8]" />
-                <span>Download Android (v{CONTRIL_APK_CONFIG.version} · {CONTRIL_APK_CONFIG.fileSize}) ↓</span>
+                <Download className="w-5 h-5" />
+                <span>Download Android APK (v{CONTRIL_APK_CONFIG.version} · {CONTRIL_APK_CONFIG.fileSize}) ↓</span>
               </a>
             )}
           </div>
@@ -168,127 +161,72 @@ export const DownloadView: React.FC<DownloadViewProps> = ({
         </section>
 
         {/* =========================================================================
-            2. PLATFORM OPTIONS (Two Contril Native Experience Cards)
+            2. NATIVE ANDROID ARCHITECTURE & FEATURES
             ========================================================================= */}
-        <section className="px-4 sm:px-8 lg:px-12 max-w-5xl mx-auto pb-16 sm:pb-24">
+        <section className="px-4 sm:px-8 lg:px-12 max-w-4xl mx-auto pb-16 sm:pb-24">
           
-          <div className="text-center space-y-1.5 sm:space-y-2 mb-8 sm:mb-12">
-            <div className="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-[#2563EB] dark:text-[#38BDF8]">
-              PLATFORM OPTIONS
-            </div>
-            <h2 className="text-2xl sm:text-4xl font-bold tracking-tight text-[#0B1220] dark:text-white">
-              One workspace. Everywhere you work.
-            </h2>
-            <p className="text-xs sm:text-base text-[#52627A] dark:text-[#94A3B8] max-w-md mx-auto">
-              Choose the experience that fits how you work.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-8 max-w-xl md:max-w-none mx-auto">
-            
-            {/* PANEL 1: Contril for Web */}
-            <div className="rounded-2xl bg-white/85 dark:bg-[#0D121D]/90 backdrop-blur-xl border border-white/60 dark:border-white/10 shadow-sm sm:shadow-[0_30px_80px_rgba(37,99,235,0.12)] dark:shadow-[0_30px_80px_rgba(0,0,0,0.7)] p-6 sm:p-8 flex flex-col justify-between space-y-6 sm:space-y-8 transition-all hover:border-[#BFDBFE] dark:hover:border-blue-500/40">
-              <div className="space-y-4 sm:space-y-5">
-                <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-blue-50 dark:bg-blue-950/60 border border-blue-100 dark:border-blue-900/50 flex items-center justify-center text-[#2563EB] dark:text-[#38BDF8]">
-                  <Globe className="w-5 h-5 sm:w-6 sm:h-6" />
+          <div className="rounded-2xl bg-white/85 dark:bg-[#0D121D]/90 backdrop-blur-xl border border-white/60 dark:border-white/10 shadow-sm sm:shadow-[0_30px_80px_rgba(37,99,235,0.12)] dark:shadow-[0_30px_80px_rgba(0,0,0,0.7)] p-6 sm:p-10 space-y-6 sm:space-y-8">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="w-12 h-12 rounded-xl bg-blue-50 dark:bg-blue-950/60 border border-blue-100 dark:border-blue-900/50 flex items-center justify-center text-[#2563EB] dark:text-[#38BDF8]">
+                  <Smartphone className="w-6 h-6" />
                 </div>
-
-                <div className="space-y-1 text-left">
-                  <h3 className="text-xl sm:text-2xl font-bold text-[#0B1220] dark:text-white">
-                    Contril for Web
-                  </h3>
-                  <p className="text-xs sm:text-sm text-[#52627A] dark:text-[#94A3B8] leading-relaxed">
-                    Use Contril instantly from your browser. Zero setup required on desktop and mobile browsers.
-                  </p>
-                </div>
-
-                <ul className="space-y-2.5 sm:space-y-3 pt-1 sm:pt-2 text-left text-xs sm:text-sm text-[#334155] dark:text-[#CBD5E1]">
-                  <li className="flex items-center gap-2.5">
-                    <CheckCircle2 className="w-4 h-4 text-[#2563EB] dark:text-[#38BDF8] shrink-0" />
-                    <span>Instant access on any modern browser</span>
-                  </li>
-                  <li className="flex items-center gap-2.5">
-                    <CheckCircle2 className="w-4 h-4 text-[#2563EB] dark:text-[#38BDF8] shrink-0" />
-                    <span>Always updated to the latest build</span>
-                  </li>
-                  <li className="flex items-center gap-2.5">
-                    <CheckCircle2 className="w-4 h-4 text-[#2563EB] dark:text-[#38BDF8] shrink-0" />
-                    <span>Cross-platform intelligence sync</span>
-                  </li>
-                </ul>
+                <span className="text-xs font-mono font-bold uppercase px-3 py-1 rounded bg-blue-500/10 text-[#2563EB] dark:text-[#38BDF8] border border-[#BFDBFE] dark:border-blue-800">
+                  NATIVE ANDROID
+                </span>
               </div>
 
-              <div className="pt-2">
-                <button
-                  onClick={handleOpenContril}
-                  className="w-full py-3.5 rounded-full bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-semibold transition-all shadow-[0_8px_24px_rgba(37,99,235,0.25)] hover:shadow-[0_12px_32px_rgba(37,99,235,0.35)] cursor-pointer flex items-center justify-center gap-2"
+              <div className="space-y-2 text-left">
+                <h2 className="text-2xl sm:text-3xl font-bold text-[#0B1220] dark:text-white">
+                  Contril for Android
+                </h2>
+                <p className="text-sm text-[#52627A] dark:text-[#94A3B8] leading-relaxed">
+                  Built purely in native Kotlin and Jetpack Compose. Runs continuously on your phone to triage emails, synthesize schedules, and automate workflows safely with zero web latency.
+                </p>
+              </div>
+
+              <ul className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 text-left text-xs sm:text-sm text-[#334155] dark:text-[#CBD5E1]">
+                <li className="flex items-center gap-2.5 p-3 rounded-xl bg-neutral-50 dark:bg-white/5 border border-neutral-200/60 dark:border-white/5">
+                  <CheckCircle2 className="w-4 h-4 text-[#2563EB] dark:text-[#38BDF8] shrink-0" />
+                  <span>100% Jetpack Compose Native UI (0% WebView)</span>
+                </li>
+                <li className="flex items-center gap-2.5 p-3 rounded-xl bg-neutral-50 dark:bg-white/5 border border-neutral-200/60 dark:border-white/5">
+                  <CheckCircle2 className="w-4 h-4 text-[#2563EB] dark:text-[#38BDF8] shrink-0" />
+                  <span>24/7 Overnight Autonomy Mode</span>
+                </li>
+                <li className="flex items-center gap-2.5 p-3 rounded-xl bg-neutral-50 dark:bg-white/5 border border-neutral-200/60 dark:border-white/5">
+                  <CheckCircle2 className="w-4 h-4 text-[#2563EB] dark:text-[#38BDF8] shrink-0" />
+                  <span>Real-time offline caching with last-synced time</span>
+                </li>
+                <li className="flex items-center gap-2.5 p-3 rounded-xl bg-neutral-50 dark:bg-white/5 border border-neutral-200/60 dark:border-white/5">
+                  <CheckCircle2 className="w-4 h-4 text-[#2563EB] dark:text-[#38BDF8] shrink-0" />
+                  <span>Gemini 3.6 Flash / High-Speed Intelligence</span>
+                </li>
+              </ul>
+            </div>
+
+            <div className="pt-2">
+              {isPlayStoreMode ? (
+                <a
+                  href={CONTRIL_APK_CONFIG.playStoreUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full py-4 rounded-full bg-[#0F172A] hover:bg-[#1E293B] text-white text-sm font-semibold transition-all shadow-[0_8px_24px_rgba(15,23,42,0.25)] hover:shadow-[0_12px_32px_rgba(15,23,42,0.35)] cursor-pointer flex items-center justify-center gap-2"
                 >
-                  <span>Open Contril →</span>
-                </button>
-              </div>
+                  <Smartphone className="w-4 h-4 text-[#38BDF8]" />
+                  <span>Get on Google Play</span>
+                </a>
+              ) : (
+                <a
+                  href={CONTRIL_APK_CONFIG.downloadUrl}
+                  download="contril-android.apk"
+                  className="w-full py-4 rounded-full bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-sm font-semibold transition-all shadow-[0_8px_24px_rgba(37,99,235,0.25)] hover:shadow-[0_12px_32px_rgba(37,99,235,0.35)] cursor-pointer flex items-center justify-center gap-2"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>Download Android APK (v{CONTRIL_APK_CONFIG.version}) ↓</span>
+                </a>
+              )}
             </div>
-
-            {/* PANEL 2: Contril for Android */}
-            <div className="rounded-2xl bg-white/85 dark:bg-[#0D121D]/90 backdrop-blur-xl border border-white/60 dark:border-white/10 shadow-sm sm:shadow-[0_30px_80px_rgba(37,99,235,0.12)] dark:shadow-[0_30px_80px_rgba(0,0,0,0.7)] p-6 sm:p-8 flex flex-col justify-between space-y-6 sm:space-y-8 transition-all hover:border-[#BFDBFE] dark:hover:border-blue-500/40">
-              <div className="space-y-4 sm:space-y-5">
-                <div className="flex items-center justify-between">
-                  <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-blue-50 dark:bg-blue-950/60 border border-blue-100 dark:border-blue-900/50 flex items-center justify-center text-[#2563EB] dark:text-[#38BDF8]">
-                    <Smartphone className="w-5 h-5 sm:w-6 sm:h-6" />
-                  </div>
-                  <span className="text-[10px] font-mono font-bold uppercase px-2.5 py-1 rounded bg-blue-500/10 text-[#2563EB] dark:text-[#38BDF8] border border-[#BFDBFE] dark:border-blue-800">
-                    NATIVE APP
-                  </span>
-                </div>
-
-                <div className="space-y-1 text-left">
-                  <h3 className="text-xl sm:text-2xl font-bold text-[#0B1220] dark:text-white">
-                    Contril for Android
-                  </h3>
-                  <p className="text-xs sm:text-sm text-[#52627A] dark:text-[#94A3B8] leading-relaxed">
-                    Install the native Android application built with Kotlin and Jetpack Compose for a dedicated mobile experience.
-                  </p>
-                </div>
-
-                <ul className="space-y-2.5 sm:space-y-3 pt-1 sm:pt-2 text-left text-xs sm:text-sm text-[#334155] dark:text-[#CBD5E1]">
-                  <li className="flex items-center gap-2.5">
-                    <CheckCircle2 className="w-4 h-4 text-[#2563EB] dark:text-[#38BDF8] shrink-0" />
-                    <span>Pure Jetpack Compose UI (0% WebView)</span>
-                  </li>
-                  <li className="flex items-center gap-2.5">
-                    <CheckCircle2 className="w-4 h-4 text-[#2563EB] dark:text-[#38BDF8] shrink-0" />
-                    <span>Autonomous overnight triage & notifications</span>
-                  </li>
-                  <li className="flex items-center gap-2.5">
-                    <CheckCircle2 className="w-4 h-4 text-[#2563EB] dark:text-[#38BDF8] shrink-0" />
-                    <span>Real-time offline caching with last-synced time</span>
-                  </li>
-                </ul>
-              </div>
-
-              <div className="pt-2">
-                {isPlayStoreMode ? (
-                  <a
-                    href={CONTRIL_APK_CONFIG.playStoreUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-full py-3.5 rounded-full bg-[#0F172A] hover:bg-[#1E293B] text-white text-xs font-semibold transition-all shadow-[0_8px_24px_rgba(15,23,42,0.25)] hover:shadow-[0_12px_32px_rgba(15,23,42,0.35)] cursor-pointer flex items-center justify-center gap-2"
-                  >
-                    <Smartphone className="w-4 h-4 text-[#38BDF8]" />
-                    <span>Get on Google Play</span>
-                  </a>
-                ) : (
-                  <a
-                    href={CONTRIL_APK_CONFIG.downloadUrl}
-                    download="contril-android.apk"
-                    className="w-full py-3.5 rounded-full bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-semibold transition-all shadow-[0_8px_24px_rgba(37,99,235,0.25)] hover:shadow-[0_12px_32px_rgba(37,99,235,0.35)] cursor-pointer flex items-center justify-center gap-2"
-                  >
-                    <Download className="w-4 h-4" />
-                    <span>Download Android App (v{CONTRIL_APK_CONFIG.version}) ↓</span>
-                  </a>
-                )}
-              </div>
-            </div>
-
           </div>
         </section>
 
@@ -303,7 +241,7 @@ export const DownloadView: React.FC<DownloadViewProps> = ({
                 WHAT YOU GET
               </div>
               <h2 className="text-2xl sm:text-4xl font-bold tracking-tight text-[#0B1220] dark:text-white">
-                Everything in one place.
+                Everything in one app.
               </h2>
               <p className="text-xs sm:text-base text-[#52627A] dark:text-[#94A3B8] max-w-xl">
                 Contril coordinates your workflow so you can focus on making high-leverage decisions.
@@ -312,9 +250,9 @@ export const DownloadView: React.FC<DownloadViewProps> = ({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-5">
               {[
-                { title: 'One workspace', desc: 'Bring your email, calendar, documents, and code into one unified view.' },
-                { title: 'Understand', desc: 'Contril continuously indexes context across your connected tools.' },
-                { title: 'Act', desc: 'Turn instructions into useful, verified drafts, summaries, and actions.' },
+                { title: 'One mobile hub', desc: 'Bring your email, calendar, documents, and priorities into one native view.' },
+                { title: 'Understand', desc: 'Contril continuously indexes context across your connected Google workspace.' },
+                { title: 'Act', desc: 'Turn instructions into useful, verified drafts, summaries, and real actions.' },
                 { title: 'Stay ahead', desc: 'Get important briefings and context before you even ask.' }
               ].map((item, idx) => (
                 <div 
@@ -338,31 +276,24 @@ export const DownloadView: React.FC<DownloadViewProps> = ({
         </section>
 
         {/* =========================================================================
-            4. FINAL CTA (Contril, wherever you work)
+            4. FINAL CTA
             ========================================================================= */}
         <section className="py-14 sm:py-20 bg-transparent border-t border-[#E5E7EB]/60 dark:border-white/10 px-4 sm:px-8 text-center">
           <div className="max-w-2xl mx-auto space-y-5 sm:space-y-6">
             <h2 className="text-3xl sm:text-5xl font-bold text-[#0B1220] dark:text-white tracking-tight">
-              Contril, wherever you work.
+              Get Contril for Android.
             </h2>
             <p className="text-xs sm:text-base text-[#52627A] dark:text-[#94A3B8] leading-relaxed max-w-lg mx-auto">
-              Use it instantly in your browser, or install the Android application on your phone.
+              Install the native Android application on your smartphone to experience true autonomous leverage.
             </p>
 
             <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3 max-w-[340px] sm:max-w-none mx-auto w-full">
-              <button
-                onClick={handleOpenContril}
-                className="w-full sm:w-auto px-8 py-3.5 rounded-full bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-semibold transition-all shadow-[0_8px_24px_rgba(37,99,235,0.25)] hover:-translate-y-0.5 cursor-pointer"
-              >
-                <span>{isAuthenticated ? 'Open Contril' : 'Open Contril →'}</span>
-              </button>
-
               {isPlayStoreMode ? (
                 <a
                   href={CONTRIL_APK_CONFIG.playStoreUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-full sm:w-auto px-7 py-3.5 rounded-full bg-[#0F172A] hover:bg-[#1E293B] text-white text-xs font-semibold transition-all shadow-xs cursor-pointer"
+                  className="w-full sm:w-auto px-8 py-3.5 rounded-full bg-[#0F172A] hover:bg-[#1E293B] text-white text-xs font-semibold transition-all shadow-xs cursor-pointer"
                 >
                   <span>Get on Google Play</span>
                 </a>
@@ -370,9 +301,10 @@ export const DownloadView: React.FC<DownloadViewProps> = ({
                 <a
                   href={CONTRIL_APK_CONFIG.downloadUrl}
                   download="contril-android.apk"
-                  className="w-full sm:w-auto px-7 py-3.5 rounded-full bg-white/85 dark:bg-[#0D121D]/85 backdrop-blur-md border border-[#E5E7EB]/80 dark:border-white/10 text-xs font-semibold text-[#0B1220] dark:text-[#E2E8F0] hover:bg-white dark:hover:bg-[#172033] hover:border-[#BFDBFE] transition-all cursor-pointer shadow-xs"
+                  className="w-full sm:w-auto px-8 py-3.5 rounded-full bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-semibold transition-all shadow-[0_8px_24px_rgba(37,99,235,0.25)] hover:shadow-[0_12px_32px_rgba(37,99,235,0.35)] cursor-pointer flex items-center justify-center gap-2"
                 >
-                  <span>Download Android APK (v{CONTRIL_APK_CONFIG.version})</span>
+                  <Download className="w-4 h-4" />
+                  <span>Download Android APK (v{CONTRIL_APK_CONFIG.version}) ↓</span>
                 </a>
               )}
             </div>
@@ -383,3 +315,4 @@ export const DownloadView: React.FC<DownloadViewProps> = ({
     </div>
   );
 };
+

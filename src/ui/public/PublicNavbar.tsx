@@ -112,12 +112,12 @@ export const PublicNavbar: React.FC<PublicNavbarProps> = ({
             </div>
           )}
 
-          {/* Primary Action Button */}
+          {/* Primary Action Button - Direct Android APK Download */}
           <button
-            onClick={() => onNavigate(isAuthenticated ? 'app' : 'login')}
+            onClick={() => onNavigate('download')}
             className="px-5 py-2.5 rounded-full bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-semibold transition-all shadow-[0_4px_16px_rgba(37,99,235,0.25)] hover:shadow-[0_6px_20px_rgba(37,99,235,0.35)] hover:-translate-y-0.5 cursor-pointer flex items-center gap-1.5"
           >
-            <span>{isAuthenticated ? 'Open Contril' : 'Open Contril'}</span>
+            <span>Download APK</span>
             <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </div>
@@ -158,11 +158,11 @@ export const PublicNavbar: React.FC<PublicNavbarProps> = ({
             <button
               onClick={() => {
                 setMobileMenuOpen(false);
-                onNavigate(isAuthenticated ? 'app' : 'login');
+                onNavigate('download');
               }}
-              className="w-full py-3 rounded-full bg-[#2563EB] text-white text-xs font-semibold shadow-xs"
+              className="w-full py-3 rounded-full bg-[#2563EB] text-white text-xs font-semibold shadow-xs flex items-center justify-center gap-2"
             >
-              Open Contril →
+              <span>Download Android APK ↓</span>
             </button>
           </div>
         </div>

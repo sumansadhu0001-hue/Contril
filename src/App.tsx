@@ -315,172 +315,26 @@ export default function App() {
     );
   }
 
-  // 2. Auth Routes: /login, /signup, /forgot-password
-  if (currentRoute === 'login' || currentRoute === 'signup' || currentRoute === 'forgot-password') {
-    if (sessionUser) {
-      navigateTo('app');
-    }
+  // 2. Browser App Deprecated -> Redirect cleanly to Android Download Portal
+  if (currentRoute === 'login' || currentRoute === 'signup' || currentRoute === 'forgot-password' || currentRoute === 'app' || ['focus', 'workspace', 'inbox', 'meetings', 'docs', 'memory', 'settings', 'profile', 'chat'].includes(currentRoute)) {
     return (
-      <AuthView
-        onAuthComplete={handleAuthComplete}
-        onBackToHome={() => navigateTo('/')}
-      />
-    );
-  }
-
-  // 3. Authenticated App Experience: /app (or internal sub-modes)
-  if (currentRoute === 'app' || ['focus', 'workspace', 'inbox', 'meetings', 'docs', 'memory', 'settings', 'profile', 'chat'].includes(currentRoute)) {
-    if (!sessionUser) {
-      return (
-        <AuthView
-          onAuthComplete={handleAuthComplete}
-          onBackToHome={() => navigateTo('/')}
+      <div className="min-h-screen bg-[#F8FAFC] dark:bg-[#070B14] text-[#0B1220] dark:text-[#F8FAFC] flex flex-col justify-between">
+        <PublicNavbar
+          onNavigate={navigateTo}
+          currentRoute="download"
+          isAuthenticated={false}
+          themePreference={themePreference}
+          onSelectThemePreference={handleSelectThemePreference}
         />
-      );
-    }
-
-    if (showOnboarding) {
-      return <OnboardingView onComplete={handleOnboardingComplete} />;
-    }
-
-    return (
-      <AppShell
-        currentMode={appMode}
-        onSelectMode={(mode) => {
-          if (mode === '/') navigateTo('/');
-          else {
-            setAppMode(mode as OperatingMode);
-            navigateTo('app');
-          }
-        }}
-        userProfile={userProfile}
-        themePreference={themePreference}
-        onSelectThemePreference={handleSelectThemePreference}
-        onOpenSpotlight={() => setIsSpotlightOpen(true)}
-        onOpenVoiceBriefing={() => setIsVoiceBriefingOpen(true)}
-        onOpenSettings={() => setAppMode('profile')}
-        meetings={meetings}
-        emails={emails}
-        documents={documents}
-      >
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={appMode}
-            initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: shouldReduceMotion ? 0 : -8 }}
-            transition={{ duration: 0.18, ease: 'easeOut' }}
-            className="w-full flex-1"
-          >
-            {appMode === 'focus' && (
-              <TodayView
-                userProfile={userProfile}
-                meetings={meetings}
-                emails={emails}
-                recentDocs={documents}
-                onSelectMode={(mode) => setAppMode(mode as OperatingMode)}
-                onOpenSpotlight={() => setIsSpotlightOpen(true)}
-                onOpenVoiceBriefing={() => setIsVoiceBriefingOpen(true)}
-                onStartChat={handleStartChat}
-              />
-            )}
-
-            {appMode === 'workspace' && (
-              <WorkspaceView
-                userProfile={userProfile}
-                decisions={decisions}
-                documents={documents}
-                meetings={meetings}
-                onSelectMode={(mode) => setAppMode(mode as OperatingMode)}
-              />
-            )}
-
-            {appMode === 'inbox' && (
-              <InboxView
-                emails={emails}
-                onSendReply={(id, text) => console.info(`Reply to ${id}: ${text}`)}
-                onOpenSettings={() => setAppMode('settings')}
-              />
-            )}
-
-            {appMode === 'meetings' && (
-              <MeetingsView
-                meetings={meetings}
-                onAddMeetingIntelligence={(id, intel) => {
-                  setMeetings(prev => prev.map(m => m.id === id ? { ...m, intelligence: intel } : m));
-                }}
-              />
-            )}
-
-            {appMode === 'docs' && (
-              <DocumentsView
-                documents={documents}
-                onOpenSettings={() => setAppMode('settings')}
-              />
-            )}
-
-            {appMode === 'memory' && (
-              <MemoryView
-                memoryItems={memoryBank}
-                onOpenSettings={() => setAppMode('settings')}
-              />
-            )}
-
-            {appMode === 'settings' && (
-              <IntegrationsView
-                onBack={() => setAppMode('focus')}
-                onDataChanged={refreshLiveData}
-              />
-            )}
-
-            {appMode === 'profile' && (
-              <SettingsView
-                userProfile={userProfile}
-                themePreference={themePreference}
-                onSelectThemePreference={handleSelectThemePreference}
-                onResetOnboarding={() => {
-                  localStorage.removeItem('contril_onboarding_completed');
-                  setShowOnboarding(true);
-                }}
-                onLogout={handleLogout}
-              />
-            )}
-
-            {appMode === 'chat' && (
-              <div className="max-w-5xl mx-auto py-4 px-4 sm:px-6">
-                <ChatView
-                  conversationId={activeConvId}
-                  userProfile={userProfile}
-                  initialPrompt={activeChatPrompt}
-                  onBack={() => {
-                    setActiveChatPrompt(undefined);
-                    setAppMode('focus');
-                  }}
-                  onSelectConversation={(id) => {
-                    setActiveConvId(id);
-                    saveActiveConvId(id);
-                    setActiveChatPrompt(undefined);
-                  }}
-                  onOpenSpotlight={() => setIsSpotlightOpen(true)}
-                />
-              </div>
-            )}
-          </motion.div>
-        </AnimatePresence>
-
-        <SpotlightModal
-          isOpen={isSpotlightOpen}
-          onClose={() => setIsSpotlightOpen(false)}
-          memoryItems={memoryBank}
-          onSelectMode={(mode) => setAppMode(mode as OperatingMode)}
-        />
-
-        <DailyVoiceBriefingModal
-          isOpen={isVoiceBriefingOpen}
-          onClose={() => setIsVoiceBriefingOpen(false)}
-          userProfile={userProfile}
-        />
-      </AppShell>
+        <main className="flex-1 flex flex-col justify-center">
+          <DownloadView
+            onNavigate={navigateTo}
+            isAuthenticated={false}
+            deviceInfo={deviceInfo}
+          />
+        </main>
+        <PublicFooter onNavigate={navigateTo} />
+      </div>
     );
   }
 

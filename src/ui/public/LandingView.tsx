@@ -62,59 +62,25 @@ export const LandingView: React.FC<LandingViewProps> = ({
 
           {/* Supporting Copy */}
           <p className="text-base sm:text-lg text-[#52627A] dark:text-[#94A3B8] font-normal leading-relaxed max-w-xl mx-auto">
-            Contril connects your email, calendar, documents, and the web, then helps you actually get things done.
+            Contril is your autonomous on-device AI Chief of Staff for Android — connecting your Gmail, Google Calendar, and priorities to get things done.
           </p>
 
-          {/* Action Row (Responsive Stack on Mobile with Controlled Width) */}
+          {/* Action Row - Exclusively Android Download Focused */}
           <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3 max-w-[360px] sm:max-w-none mx-auto w-full">
-            {deviceInfo.isIOS ? (
-              <div className="space-y-2 w-full sm:w-auto">
-                <button
-                  onClick={handleOpenContril}
-                  className="w-full sm:w-auto px-8 py-3.5 rounded-full bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-sm font-semibold transition-all shadow-[0_8px_24px_rgba(37,99,235,0.25)] hover:shadow-[0_12px_32px_rgba(37,99,235,0.35)] hover:-translate-y-0.5 cursor-pointer flex items-center justify-center gap-2"
-                >
-                  <span>{isAuthenticated ? 'Open Contril' : 'Open in Browser'}</span>
-                  <ArrowRight className="w-4 h-4" />
-                </button>
-                <div className="text-[11px] text-[#52627A] dark:text-[#94A3B8]">
-                  Android installation available separately • Web active
-                </div>
-              </div>
-            ) : deviceInfo.isAndroidPhone ? (
-              <>
-                <button
-                  onClick={() => onNavigate('download')}
-                  className="w-full sm:w-auto px-8 py-3.5 rounded-full bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-sm font-semibold transition-all shadow-[0_8px_24px_rgba(37,99,235,0.25)] hover:-translate-y-0.5 cursor-pointer flex items-center justify-center gap-2"
-                >
-                  <Smartphone className="w-4 h-4" />
-                  <span>Download Android APK</span>
-                </button>
+            <button
+              onClick={() => onNavigate('download')}
+              className="w-full sm:w-auto px-8 py-3.5 rounded-full bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-sm font-semibold transition-all shadow-[0_8px_24px_rgba(37,99,235,0.25)] hover:shadow-[0_12px_32px_rgba(37,99,235,0.35)] hover:-translate-y-0.5 cursor-pointer flex items-center justify-center gap-2"
+            >
+              <Smartphone className="w-4 h-4" />
+              <span>Download Android APK ↓</span>
+            </button>
 
-                <button
-                  onClick={handleOpenContril}
-                  className="w-full sm:w-auto px-7 py-3.5 rounded-full bg-white/80 dark:bg-[#0D1322]/80 hover:bg-white dark:hover:bg-[#151D33] backdrop-blur-md border border-[#E5E7EB]/80 dark:border-white/10 text-xs font-semibold text-[#0B1220] dark:text-[#E2E8F0] transition-all cursor-pointer flex items-center justify-center gap-2"
-                >
-                  <span>Open in Browser →</span>
-                </button>
-              </>
-            ) : (
-              <>
-                <button
-                  onClick={handleOpenContril}
-                  className="w-full sm:w-auto px-8 py-3.5 rounded-full bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-sm font-semibold transition-all shadow-[0_8px_24px_rgba(37,99,235,0.25)] hover:shadow-[0_12px_32px_rgba(37,99,235,0.35)] hover:-translate-y-0.5 cursor-pointer flex items-center justify-center gap-2"
-                >
-                  <span>{isAuthenticated ? 'Open Contril' : 'Open Contril →'}</span>
-                </button>
-
-                <button
-                  onClick={() => onNavigate('download')}
-                  className="w-full sm:w-auto px-7 py-3.5 rounded-full bg-white/80 dark:bg-[#0D1322]/80 hover:bg-white dark:hover:bg-[#151D33] backdrop-blur-md border border-[#E5E7EB]/80 dark:border-white/10 hover:border-[#BFDBFE] text-xs font-semibold text-[#0B1220] dark:text-[#E2E8F0] transition-all cursor-pointer flex items-center justify-center gap-2 shadow-xs hover:shadow-sm"
-                >
-                  <Smartphone className="w-3.5 h-3.5 text-[#2563EB] dark:text-[#38BDF8]" />
-                  <span>Download Android</span>
-                </button>
-              </>
-            )}
+            <button
+              onClick={() => onNavigate('how-it-works')}
+              className="w-full sm:w-auto px-7 py-3.5 rounded-full bg-white/80 dark:bg-[#0D1322]/80 hover:bg-white dark:hover:bg-[#151D33] backdrop-blur-md border border-[#E5E7EB]/80 dark:border-white/10 hover:border-[#BFDBFE] text-xs font-semibold text-[#0B1220] dark:text-[#E2E8F0] transition-all cursor-pointer flex items-center justify-center gap-2 shadow-xs hover:shadow-sm"
+            >
+              <span>How It Works →</span>
+            </button>
           </div>
 
         </section>
@@ -346,25 +312,26 @@ export const LandingView: React.FC<LandingViewProps> = ({
         <section className="py-16 sm:py-20 bg-transparent border-t border-[#E5E7EB]/60 dark:border-white/10 px-5 sm:px-8 text-center">
           <div className="max-w-2xl mx-auto space-y-6">
             <h2 className="text-3xl sm:text-5xl font-bold text-[#0B1220] dark:text-white tracking-tight">
-              Contril, wherever you work.
+              Get Contril for Android.
             </h2>
             <p className="text-sm sm:text-base text-[#52627A] dark:text-[#94A3B8] leading-relaxed">
-              Use it instantly in your browser, or install the Android preview on your phone.
+              Install the autonomous Chief of Staff on your Android device to triage emails, manage schedules, and run multi-step actions.
             </p>
 
             <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3 max-w-[360px] sm:max-w-none mx-auto w-full">
               <button
-                onClick={handleOpenContril}
-                className="w-full sm:w-auto px-8 py-3.5 rounded-full bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-semibold transition-all shadow-[0_8px_24px_rgba(37,99,235,0.25)] hover:-translate-y-0.5 cursor-pointer"
+                onClick={() => onNavigate('download')}
+                className="w-full sm:w-auto px-8 py-3.5 rounded-full bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-semibold transition-all shadow-[0_8px_24px_rgba(37,99,235,0.25)] hover:-translate-y-0.5 cursor-pointer flex items-center justify-center gap-2"
               >
-                <span>{isAuthenticated ? 'Open Contril' : 'Open Contril →'}</span>
+                <Smartphone className="w-4 h-4" />
+                <span>Download Android APK ↓</span>
               </button>
 
               <button
-                onClick={() => onNavigate('download')}
+                onClick={() => onNavigate('about')}
                 className="w-full sm:w-auto px-7 py-3.5 rounded-full bg-white/80 dark:bg-[#0D121D]/80 backdrop-blur-md border border-[#E5E7EB]/80 dark:border-white/10 text-xs font-semibold text-[#0B1220] dark:text-[#E2E8F0] hover:bg-white dark:hover:bg-[#172033] hover:border-[#BFDBFE] transition-all cursor-pointer shadow-xs"
               >
-                <span>Download Android APK</span>
+                <span>About Contril →</span>
               </button>
             </div>
           </div>
