@@ -126,6 +126,9 @@ export const AdminInquiriesDashboard: React.FC<{ onBackToApp: () => void }> = ({
   const [aiOperations, setAiOperations] = useState<any[]>([]);
   const [organizations, setOrganizations] = useState<any[]>([]);
   const [subscriptions, setSubscriptions] = useState<any[]>([]);
+  const [subscriptionRequests, setSubscriptionRequests] = useState<any[]>([]);
+  const [planFilter, setPlanFilter] = useState<'ALL' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED'>('ALL');
+  const [approvalLoadingId, setApprovalLoadingId] = useState<string | null>(null);
 
   const isLocalDev = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 
@@ -161,6 +164,19 @@ export const AdminInquiriesDashboard: React.FC<{ onBackToApp: () => void }> = ({
       setAiOperations(ops && Array.isArray(ops.usage) ? ops.usage : []);
       const orgs = await ContrilApiClient.fetchOrganizations();
       setOrganizations(orgs && Array.isArray(orgs.organizations) ? orgs.organizations : []);
+
+      // Fetch subscription requests from Supabase
+      try {
+        const { data: subData } = await supabase
+          .from('subscription_requests')
+          .select('*')
+          .order('requested_at', { ascending: false });
+        if (subData) {
+          setSubscriptionRequests(subData);
+        }
+      } catch (err) {
+        console.warn('Could not fetch subscription_requests directly:', err);
+      }
     } catch {
       // Clean fallback
     } finally {
@@ -168,15 +184,76 @@ export const AdminInquiriesDashboard: React.FC<{ onBackToApp: () => void }> = ({
     }
   };
 
+  const handleApprovePlanRequest = async (req: any) => {
+    setApprovalLoadingId(req.id || req.transaction_ref);
+    try {
+      // 1. Update subscription_requests table in Supabase
+      if (req.id) {
+        await supabase
+          .from('subscription_requests')
+          .update({
+            status: 'APPROVED',
+            approved_at: new Date().toISOString()
+          })
+          .eq('id', req.id);
+      }
+
+      // 2. Update user profile
+      if (req.user_id) {
+        const isElite = (req.plan || '').toLowerCase().includes('elite');
+        await supabase
+          .from('profiles')
+          .update({
+            is_paid: true,
+            plan: req.plan,
+            subscription_status: isElite ? 'ACTIVE_ELITE' : 'ACTIVE_PRO'
+          })
+          .eq('id', req.user_id);
+      }
+
+      // 3. Update local state
+      setSubscriptionRequests(prev =>
+        prev.map(item => (item.id === req.id || item.transaction_ref === req.transaction_ref)
+          ? { ...item, status: 'APPROVED' }
+          : item
+        )
+      );
+    } catch (err) {
+      console.error('Error approving request:', err);
+    } finally {
+      setApprovalLoadingId(null);
+    }
+  };
+
+  const handleRejectPlanRequest = async (req: any) => {
+    setApprovalLoadingId(req.id || req.transaction_ref);
+    try {
+      if (req.id) {
+        await supabase
+          .from('subscription_requests')
+          .update({ status: 'REJECTED' })
+          .eq('id', req.id);
+      }
+
+      setSubscriptionRequests(prev =>
+        prev.map(item => (item.id === req.id || item.transaction_ref === req.transaction_ref)
+          ? { ...item, status: 'REJECTED' }
+          : item
+        )
+      );
+    } catch (err) {
+      console.error('Error rejecting request:', err);
+    } finally {
+      setApprovalLoadingId(null);
+    }
+  };
+
   const [showPassword, setShowPassword] = useState(false);
 
+  // Strict single passcode
   const VALID_PASSCODES = [
-    import.meta.env.VITE_DEV_ADMIN_PASSCODE || '',
     'contril_x14_suman',
-    'dev_pass_contril_9921_xk',
-    'contril2026',
-    'contril_admin_2026',
-    'admin'
+    import.meta.env.VITE_DEV_ADMIN_PASSCODE || ''
   ].filter(Boolean);
 
   const handleDevPasscodeSubmit = (e: React.FormEvent) => {
@@ -188,7 +265,7 @@ export const AdminInquiriesDashboard: React.FC<{ onBackToApp: () => void }> = ({
       setAuthError('');
       loadAdminData();
     } else {
-      setAuthError('Authentication failed. Please verify your developer passcode.');
+      setAuthError('Access Denied: Invalid master administrative credentials.');
     }
   };
 
@@ -457,6 +534,149 @@ export const AdminInquiriesDashboard: React.FC<{ onBackToApp: () => void }> = ({
                         </div>
                       </div>
                     ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Paid Plan Purchase Inquiries & Manual Approval Queue */}
+              <div className="p-6 rounded-2xl bg-[#0D0D11] border border-white/[0.08] space-y-5 font-mono shadow-xl">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2.5">
+                      <CreditCard className="w-5 h-5 text-[#00BFA6]" />
+                      <h3 className="text-sm font-bold text-white tracking-wide">
+                        Paid Plan Inquiries & Manual Approval Queue
+                      </h3>
+                      {subscriptionRequests.filter(r => (r.status || 'PENDING_APPROVAL').toUpperCase() === 'PENDING_APPROVAL').length > 0 && (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse font-bold">
+                          {subscriptionRequests.filter(r => (r.status || 'PENDING_APPROVAL').toUpperCase() === 'PENDING_APPROVAL').length} PENDING
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-neutral-400 font-sans">
+                      Users who selected ₹899 Pro or ₹3,999 Elite appear here for 1-click manual activation.
+                    </p>
+                  </div>
+
+                  {/* Filter Pills */}
+                  <div className="flex items-center gap-1.5 p-1 rounded-xl bg-white/[0.04] border border-white/[0.06] text-[11px]">
+                    {(['ALL', 'PENDING_APPROVAL', 'APPROVED', 'REJECTED'] as const).map((filterKey) => (
+                      <button
+                        key={filterKey}
+                        onClick={() => setPlanFilter(filterKey)}
+                        className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                          planFilter === filterKey
+                            ? 'bg-[#00BFA6] text-black font-bold shadow-xs'
+                            : 'text-neutral-400 hover:text-white'
+                        }`}
+                      >
+                        {filterKey.replace('_', ' ')}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {subscriptionRequests.length === 0 ? (
+                  <div className="p-8 rounded-xl bg-white/[0.02] border border-white/[0.04] text-center space-y-2">
+                    <CheckCircle2 className="w-6 h-6 text-neutral-500 mx-auto" />
+                    <div className="text-xs text-neutral-300 font-semibold">No Pending Plan Inquiries</div>
+                    <p className="text-[11px] text-neutral-500 max-w-sm mx-auto font-sans">
+                      When a user chooses a Pro or Elite plan in the app, their request will appear here for you to manually approve.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead className="text-neutral-400 border-b border-white/[0.06] text-[11px]">
+                        <tr>
+                          <th className="p-3">User</th>
+                          <th className="p-3">Plan Selected</th>
+                          <th className="p-3">Amount</th>
+                          <th className="p-3">Requested At</th>
+                          <th className="p-3">Status</th>
+                          <th className="p-3 text-right">Manual Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/[0.04]">
+                        {subscriptionRequests
+                          .filter(req => planFilter === 'ALL' || (req.status || 'PENDING_APPROVAL').toUpperCase() === planFilter)
+                          .map((req) => {
+                            const isPending = (req.status || 'PENDING_APPROVAL').toUpperCase() === 'PENDING_APPROVAL';
+                            const isApproved = (req.status || '').toUpperCase() === 'APPROVED';
+                            const isRejected = (req.status || '').toUpperCase() === 'REJECTED';
+                            const isElite = (req.plan || '').toLowerCase().includes('elite');
+                            const isLoadingThis = approvalLoadingId === (req.id || req.transaction_ref);
+
+                            return (
+                              <tr key={req.id || req.transaction_ref} className="hover:bg-white/[0.02] transition-colors">
+                                <td className="p-3">
+                                  <div className="font-semibold text-white">{req.user_name || req.email?.split('@')[0] || 'User'}</div>
+                                  <div className="text-[11px] text-neutral-400">{req.email || 'No email'}</div>
+                                </td>
+                                <td className="p-3">
+                                  <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold border ${
+                                    isElite 
+                                      ? 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30' 
+                                      : 'bg-blue-500/15 text-blue-300 border-blue-500/30'
+                                  }`}>
+                                    {req.plan || 'Pro Plan'}
+                                  </span>
+                                </td>
+                                <td className="p-3 font-semibold text-[#00BFA6]">
+                                  ₹{req.amount ? req.amount.toLocaleString() : (isElite ? '3,999' : '899')}/mo
+                                </td>
+                                <td className="p-3 text-neutral-400 text-[11px]">
+                                  {req.requested_at ? new Date(req.requested_at).toLocaleDateString() + ' ' + new Date(req.requested_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recent'}
+                                </td>
+                                <td className="p-3">
+                                  {isPending && (
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] bg-amber-500/15 text-amber-300 border border-amber-500/30 font-semibold flex items-center gap-1 w-fit">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
+                                      Pending Approval
+                                    </span>
+                                  )}
+                                  {isApproved && (
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 font-semibold flex items-center gap-1 w-fit">
+                                      <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                                      Approved
+                                    </span>
+                                  )}
+                                  {isRejected && (
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] bg-rose-500/15 text-rose-300 border border-rose-500/30 font-semibold w-fit">
+                                      Rejected
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="p-3 text-right">
+                                  {isPending ? (
+                                    <div className="flex items-center justify-end gap-2">
+                                      <button
+                                        disabled={isLoadingThis}
+                                        onClick={() => handleApprovePlanRequest(req)}
+                                        className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold shadow-xs hover:shadow-emerald-600/30 transition-all cursor-pointer flex items-center gap-1 disabled:opacity-50"
+                                      >
+                                        <CheckCircle2 className="w-3.5 h-3.5" />
+                                        <span>{isLoadingThis ? 'Approving...' : 'Approve Plan'}</span>
+                                      </button>
+                                      <button
+                                        disabled={isLoadingThis}
+                                        onClick={() => handleRejectPlanRequest(req)}
+                                        className="px-2.5 py-1.5 rounded-lg bg-white/[0.04] hover:bg-rose-950/40 text-neutral-400 hover:text-rose-400 border border-white/[0.08] hover:border-rose-500/30 text-[11px] transition-all cursor-pointer disabled:opacity-50"
+                                      >
+                                        Reject
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <span className="text-[11px] text-neutral-500">
+                                      {isApproved ? 'Access Granted' : 'Declined'}
+                                    </span>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                      </tbody>
+                    </table>
                   </div>
                 )}
               </div>

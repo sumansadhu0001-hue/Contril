@@ -354,7 +354,8 @@ class PreferenceRepository(context: Context? = null) {
 
     fun isElitePlan(): Boolean {
         val plan = _currentPlan.value
-        return plan.equals("Elite", ignoreCase = true) || 
+        return plan.contains("Elite", ignoreCase = true) || 
+               plan.equals("Autonomous Elite", ignoreCase = true) ||
                plan.equals("Autonomous Pro", ignoreCase = true) ||
                plan.equals("Elite Plan", ignoreCase = true)
     }

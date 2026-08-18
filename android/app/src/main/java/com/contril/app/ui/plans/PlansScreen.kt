@@ -99,49 +99,48 @@ fun PlansScreen(
                 )
             }
 
-            // Current Usage Banner
-            Surface(
-                shape = RoundedCornerShape(14.dp),
-                color = ContrilBlue.copy(alpha = 0.08f),
-                border = BorderStroke(1.dp, ContrilBlue.copy(alpha = 0.3f)),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    modifier = Modifier.padding(16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+            // Pending Approval Banner (When a paid plan has been chosen)
+            if (entitlementState.status == SubscriptionStatus.PENDING_APPROVAL) {
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = Color(0xFFFEF3C7),
+                    border = BorderStroke(1.dp, Color(0xFFF59E0B)),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        Text(
-                            text = "Daily AI Commands",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            text = if (entitlementState.status == SubscriptionStatus.ACTIVE_PRO) {
-                                "Unlimited (Pro Active)"
-                            } else {
-                                "${aiUsage.first} of ${aiUsage.second} used today"
-                            },
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = if (entitlementState.status == SubscriptionStatus.ACTIVE_PRO || aiUsage.first < aiUsage.second) {
-                            StatusActive.copy(alpha = 0.15f)
-                        } else {
-                            StatusError.copy(alpha = 0.15f)
-                        }
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = Color(0xFFD97706), modifier = Modifier.size(20.dp))
+                            Text(
+                                text = "Plan Upgrade Pending Approval",
+                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                color = Color(0xFF92400E)
+                            )
+                        }
                         Text(
-                            text = if (entitlementState.status == SubscriptionStatus.ACTIVE_PRO) "Pro Active" else if (aiUsage.first < aiUsage.second) "Active" else "Limit Reached",
-                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                            color = if (entitlementState.status == SubscriptionStatus.ACTIVE_PRO || aiUsage.first < aiUsage.second) StatusActive else StatusError,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            text = "Your request for ${entitlementState.planName} has been submitted to the admin console for manual verification. Access unlocks automatically upon approval.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color(0xFFB45309)
                         )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End
+                        ) {
+                            TextButton(
+                                onClick = {
+                                    coroutineScope.launch {
+                                        subscriptionManager.checkBackendApprovalStatus()
+                                    }
+                                }
+                            ) {
+                                Text("Check Live Status", color = Color(0xFFB45309), fontWeight = FontWeight.Bold)
+                            }
+                        }
                     }
                 }
             }
@@ -338,30 +337,27 @@ fun PlansScreen(
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.Top
                     ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = Color(0xFF6366F1).copy(alpha = 0.15f),
+                                modifier = Modifier.padding(bottom = 6.dp)
                             ) {
                                 Text(
-                                    text = PaymentConfig.ELITE_PLAN_NAME,
-                                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                                    color = MaterialTheme.colorScheme.onSurface
+                                    text = if (prefRepository.isElitePlan()) "ACTIVE ELITE" else "OVERNIGHT AUTONOMY",
+                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                    color = Color(0xFF6366F1),
+                                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
                                 )
-                                Surface(
-                                    shape = RoundedCornerShape(6.dp),
-                                    color = Color(0xFF6366F1).copy(alpha = 0.15f)
-                                ) {
-                                    Text(
-                                        text = if (prefRepository.isElitePlan()) "ACTIVE" else "OVERNIGHT AUTONOMY",
-                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                        color = Color(0xFF6366F1),
-                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                    )
-                                }
                             }
+                            Text(
+                                text = PaymentConfig.ELITE_PLAN_NAME,
+                                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
                             Text(
                                 text = "24/7 continuous autonomous Chief of Staff intelligence",
                                 style = MaterialTheme.typography.bodySmall,
@@ -400,11 +396,13 @@ fun PlansScreen(
 
                     Button(
                         onClick = {
-                            try {
-                                val url = PaymentConfig.getPrefilledPaymentLink("elite")
-                                val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url))
-                                context.startActivity(intent)
-                            } catch (_: Exception) {}
+                            coroutineScope.launch {
+                                subscriptionManager.initiateUpgradeFlow(
+                                    context = context,
+                                    targetPlan = PaymentConfig.ELITE_PLAN_NAME,
+                                    planAlias = "elite"
+                                )
+                            }
                         },
                         modifier = Modifier
                             .fillMaxWidth()
