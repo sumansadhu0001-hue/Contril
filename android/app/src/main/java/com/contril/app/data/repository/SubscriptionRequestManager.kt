@@ -74,18 +74,7 @@ class SubscriptionRequestManager(
             prefRepository.setUserPhone(userPhone)
         }
 
-        // 1. Move local state to PENDING_APPROVAL
-        prefRepository.setSubscriptionStatus(SubscriptionStatus.PENDING_APPROVAL)
-        val pendingState = EntitlementState(
-            status = SubscriptionStatus.PENDING_APPROVAL,
-            planName = targetPlan,
-            transactionRef = transactionRef,
-            requestedAt = requestTime,
-            isPaidActive = false
-        )
-        _entitlementState.value = pendingState
-
-        // 2. Submit to Supabase Backend subscription_requests table
+        // 1. Submit to Supabase Backend subscription_requests table FIRST
         try {
             val bodyJson = JSONObject().apply {
                 put("user_id", userId)
@@ -101,24 +90,39 @@ class SubscriptionRequestManager(
                 put("requested_at", requestTime)
             }
 
+            val authHeaderVal = if (!token.isNullOrBlank()) "Bearer $token" else "Bearer $anonKey"
             val requestBuilder = Request.Builder()
                 .url("$baseUrl/rest/v1/subscription_requests")
                 .header("apikey", anonKey)
+                .header("Authorization", authHeaderVal)
                 .header("Content-Type", "application/json")
                 .header("Prefer", "return=representation")
                 .post(bodyJson.toString().toRequestBody(jsonMediaType))
 
-            if (!token.isNullOrBlank()) {
-                requestBuilder.header("Authorization", "Bearer $token")
-            }
-
             val response = httpClient.newCall(requestBuilder.build()).execute()
             val resBody = response.body?.string() ?: ""
             Log.i("SubscriptionRequest", "Supabase subscription_requests response (${response.code}): $resBody")
+
+            if (!response.isSuccessful) {
+                val errorMsg = "Supabase rejected request (HTTP ${response.code}): $resBody"
+                Log.e("SubscriptionRequest", errorMsg)
+                return@withContext Result.failure(Exception(errorMsg))
+            }
+
+            // 2. Only upon confirmed database write, mutate local state to PENDING_APPROVAL
+            prefRepository.setSubscriptionStatus(SubscriptionStatus.PENDING_APPROVAL)
+            val pendingState = EntitlementState(
+                status = SubscriptionStatus.PENDING_APPROVAL,
+                planName = targetPlan,
+                transactionRef = transactionRef,
+                requestedAt = requestTime,
+                isPaidActive = false
+            )
+            _entitlementState.value = pendingState
             return@withContext Result.success(pendingState)
         } catch (e: Exception) {
-            Log.e("SubscriptionRequest", "Failed to submit subscription request to Supabase", e)
-            return@withContext Result.success(pendingState)
+            Log.e("SubscriptionRequest", "Network error submitting subscription request to Supabase", e)
+            return@withContext Result.failure(e)
         }
     }
 

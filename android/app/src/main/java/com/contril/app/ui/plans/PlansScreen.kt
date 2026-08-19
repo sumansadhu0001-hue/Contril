@@ -27,6 +27,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.contril.app.data.config.PaymentConfig
+import com.contril.app.data.model.EntitlementState
 import com.contril.app.data.model.SubscriptionStatus
 import com.contril.app.data.repository.PreferenceRepository
 import com.contril.app.data.repository.SubscriptionRequestManager
@@ -437,15 +438,16 @@ fun PlansScreen(
                 prefRepository = prefRepository,
                 onDismiss = { targetUpgradePlan = null },
                 onSubmit = { phone, email, name ->
-                    coroutineScope.launch {
-                        subscriptionManager.submitPlanUpgradeApplication(
-                            targetPlan = plan,
-                            phoneNumber = phone,
-                            email = email,
-                            name = name
-                        )
+                    val result = subscriptionManager.submitPlanUpgradeApplication(
+                        targetPlan = plan,
+                        phoneNumber = phone,
+                        email = email,
+                        name = name
+                    )
+                    if (result.isSuccess) {
                         targetUpgradePlan = null
                     }
+                    result
                 }
             )
         }
@@ -457,12 +459,13 @@ fun PlanUpgradeApplicationDialog(
     planName: String,
     prefRepository: PreferenceRepository,
     onDismiss: () -> Unit,
-    onSubmit: (phone: String, email: String, name: String) -> Unit
+    onSubmit: suspend (phone: String, email: String, name: String) -> Result<EntitlementState>
 ) {
     val isElite = planName.contains("Elite", ignoreCase = true)
     val priceText = if (isElite) "₹3,999/month" else "₹899/month"
     val accentColor = if (isElite) Color(0xFF6366F1) else ContrilBlue
 
+    val dialogScope = rememberCoroutineScope()
     var phoneNumber by remember { mutableStateOf(prefRepository.getUserPhone()) }
     var email by remember { mutableStateOf(prefRepository.getUserProfile()?.email ?: "") }
     var name by remember { mutableStateOf(prefRepository.getUserProfile()?.name ?: "") }
@@ -559,7 +562,14 @@ fun PlanUpgradeApplicationDialog(
                         return@Button
                     }
                     isSubmitting = true
-                    onSubmit(phoneNumber.trim(), email.trim(), name.trim())
+                    errorMessage = ""
+                    dialogScope.launch {
+                        val result = onSubmit(phoneNumber.trim(), email.trim(), name.trim())
+                        isSubmitting = false
+                        if (result.isFailure) {
+                            errorMessage = result.exceptionOrNull()?.localizedMessage ?: "Failed to submit request. Please verify internet connection."
+                        }
+                    }
                 },
                 enabled = !isSubmitting,
                 colors = ButtonDefaults.buttonColors(containerColor = accentColor),
