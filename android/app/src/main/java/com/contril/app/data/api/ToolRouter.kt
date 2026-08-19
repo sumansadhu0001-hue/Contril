@@ -26,17 +26,23 @@ class ToolRouter(
     private val backendClient: ContrilBackendClient = ContrilBackendClient()
 ) {
 
-    suspend fun evaluateAndExecute(prompt: String): Pair<List<ExecutionStep>, ToolExecutionResult?> {
+    suspend fun evaluateAndExecute(
+        prompt: String,
+        passedServices: Map<String, String> = emptyMap()
+    ): Pair<List<ExecutionStep>, ToolExecutionResult?> {
         val steps = mutableListOf<ExecutionStep>()
         val providerToken = ContrilBackendClient.getFreshGoogleToken(prefRepository)
-        val connectedServices = prefRepository?.connectedServices?.value ?: emptyMap()
+        val prefConnected = prefRepository?.connectedServices?.value ?: emptyMap()
+        val connectedServices = if (prefConnected.isNotEmpty()) prefConnected else passedServices
 
-        val isGmailConnected = !providerToken.isNullOrBlank() ||
+        val isGmailConnected = prefRepository?.isGmailConnected() == true ||
+                !providerToken.isNullOrBlank() ||
                 connectedServices.containsKey("gmail") ||
                 connectedServices.containsKey("google_workspace") ||
                 connectedServices.containsKey("google")
 
-        val isCalendarConnected = !providerToken.isNullOrBlank() ||
+        val isCalendarConnected = prefRepository?.isCalendarConnected() == true ||
+                !providerToken.isNullOrBlank() ||
                 connectedServices.containsKey("calendar") ||
                 connectedServices.containsKey("google_workspace") ||
                 connectedServices.containsKey("google")

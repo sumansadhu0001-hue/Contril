@@ -46,7 +46,7 @@ class ContrilRepository(
         autonomyMode: AutonomyMode,
         connectedServices: Map<String, String> = emptyMap()
     ): CommandResponse {
-        val (steps, toolResult) = toolRouter.evaluateAndExecute(prompt)
+        val (steps, toolResult) = toolRouter.evaluateAndExecute(prompt, connectedServices)
         when (toolResult) {
             is com.contril.app.data.api.ToolExecutionResult.RequiresConnection -> {
                 return CommandResponse(
@@ -58,7 +58,7 @@ class ContrilRepository(
             is com.contril.app.data.api.ToolExecutionResult.Success -> {
                 if (toolResult.proposedPlan != null) {
                     return CommandResponse(
-                        conversationId = "plan_${java.util.UUID.randomUUID().toString().take(6)}",
+                        conversationId = "tool_plan_${java.util.UUID.randomUUID().toString().take(6)}",
                         responseText = toolResult.summary,
                         steps = steps,
                         proposedPlan = toolResult.proposedPlan
@@ -111,10 +111,12 @@ class ContrilRepository(
         connectedServices: Map<String, String>
     ): CommandResponse {
         val lower = prompt.lowercase()
-        val isGmailConnected = connectedServices.containsKey("gmail") ||
+        val isGmailConnected = prefRepository?.isGmailConnected() == true ||
+                connectedServices.containsKey("gmail") ||
                 connectedServices.containsKey("google_workspace") ||
                 connectedServices.containsKey("google")
-        val isCalendarConnected = connectedServices.containsKey("calendar") ||
+        val isCalendarConnected = prefRepository?.isCalendarConnected() == true ||
+                connectedServices.containsKey("calendar") ||
                 connectedServices.containsKey("google_workspace") ||
                 connectedServices.containsKey("google")
         val isDriveConnected = connectedServices.containsKey("drive") ||

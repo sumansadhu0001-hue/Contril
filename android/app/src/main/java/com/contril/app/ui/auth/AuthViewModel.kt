@@ -209,25 +209,34 @@ class AuthViewModel(
         _uiState.update {
             it.copy(
                 isLoading = true,
-                loadingMessage = "Sending 4-digit verification code...",
+                loadingMessage = "Sending verification code...",
                 errorMessage = null
             )
         }
 
         viewModelScope.launch {
+            // Send via Supabase Auth OTP (standard 6-digit) and Resend (4-digit fallback)
+            val supaResult = SupabaseAuthClient.sendEmailOtp(email)
             val resendResult = com.contril.app.data.api.ResendClient.send4DigitOtp(email, isRecovery = false)
-            if (resendResult.isFailure) {
-                SupabaseAuthClient.sendResendOtp(email)
+
+            if (!supaResult.success && resendResult.isFailure) {
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        errorMessage = supaResult.error ?: "Unable to send verification code. Please check your email address."
+                    )
+                }
+                return@launch
             }
 
             _uiState.update {
                 it.copy(
                     isLoading = false,
                     mode = AuthMode.OTP_VERIFY,
-                    otpDigits = listOf("", "", "", ""),
+                    otpDigits = listOf("", "", "", "", "", ""),
                     isOtpSent = true,
                     isPasswordResetMode = false,
-                    successMessage = "4-digit verification code sent to $email"
+                    successMessage = "Verification code sent to $email. Please check your Inbox and Spam folder."
                 )
             }
             startResendCooldown(5)
@@ -239,8 +248,8 @@ class AuthViewModel(
         val code = state.otpCode.trim()
         val email = state.email.trim()
 
-        if (code.length != 4) {
-            _uiState.update { it.copy(errorMessage = "Please enter the complete 4-digit code.") }
+        if (code.length < 4) {
+            _uiState.update { it.copy(errorMessage = "Please enter the complete verification code.") }
             return
         }
 
@@ -264,6 +273,7 @@ class AuthViewModel(
                             successMessage = "Code verified. Please set your new password."
                         )
                     }
+                    return@launch
                 } else {
                     val user = UserProfile(
                         id = "usr_${System.currentTimeMillis()}",
@@ -273,26 +283,24 @@ class AuthViewModel(
                     )
                     val token = "token_${System.currentTimeMillis()}"
                     prefRepository.saveUserSession(token, user)
-                    _uiState.update {
-                        it.copy(
-                            isLoading = false,
-                            authenticatedUser = user,
-                            authenticatedToken = token,
-                            mode = AuthMode.ONBOARDING_ROLE
-                        )
-                    }
+                    val deviceToken = prefRepository.getOrCreateDeviceToken()
+                    com.contril.app.service.ContrilFirebaseMessagingService.registerDeviceTokenDirect(user.id, user.email, deviceToken)
+                    _uiState.update { it.copy(isLoading = false) }
+                    onSuccess()
+                    return@launch
                 }
-                return@launch
             }
 
-            // 2. Fallback to Netlify function verification
-            val resendResult = SupabaseAuthClient.verifyResendOtp(email, code)
-            if (resendResult.success && resendResult.user != null) {
-                val user = resendResult.user.copy(
-                    name = if (state.fullName.isNotBlank()) state.fullName else resendResult.user.name
+            // 2. Verify against Supabase Auth OTP
+            val supaVerifyResult = SupabaseAuthClient.verifyEmailOtp(email, code)
+            if (supaVerifyResult.success && supaVerifyResult.user != null) {
+                val user = supaVerifyResult.user.copy(
+                    name = if (state.fullName.isNotBlank()) state.fullName else supaVerifyResult.user.name
                 )
-                val token = resendResult.token ?: "session_${System.currentTimeMillis()}"
+                val token = supaVerifyResult.token ?: "session_${System.currentTimeMillis()}"
                 prefRepository.saveUserSession(token, user)
+                val deviceToken = prefRepository.getOrCreateDeviceToken()
+                com.contril.app.service.ContrilFirebaseMessagingService.registerDeviceTokenDirect(user.id, user.email, deviceToken)
                 if (user.hasCompletedOnboarding) {
                     _uiState.update { it.copy(isLoading = false) }
                     onSuccess()
@@ -342,7 +350,7 @@ class AuthViewModel(
                     )
                 }
             } else {
-                val err = localResult.exceptionOrNull()?.message ?: resendResult.error ?: "That code isn't correct. Try again."
+                val err = localResult.exceptionOrNull()?.message ?: supaVerifyResult.error ?: "That code isn't correct. Try again."
                 _uiState.update {
                     it.copy(
                         isLoading = false,

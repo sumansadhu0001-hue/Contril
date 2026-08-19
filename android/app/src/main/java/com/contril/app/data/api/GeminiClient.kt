@@ -277,8 +277,14 @@ object GeminiClient {
         return when {
             lower.contains("hello") || lower.contains("hi") || lower.contains("hey") ->
                 "Hello! I am Contril, your personal AI Chief of Staff. How can I assist you with your emails, schedule, or priorities today?"
-            lower.contains("email") || lower.contains("inbox") ->
-                "I'm ready to inspect your emails or draft messages. Connect Gmail in Connected Services or provide the recipient and details to compose an email."
+            lower.contains("email") || lower.contains("inbox") -> {
+                val isGmail = connectedServices.containsKey("gmail") || connectedServices.containsKey("google_workspace") || connectedServices.containsKey("google")
+                if (isGmail) {
+                    "Your Gmail is connected and active. I am ready to inspect your inbox, summarize unread messages, or draft responses."
+                } else {
+                    "I'm ready to inspect your emails or draft messages. Connect Gmail in Connected Services to inspect and manage your inbox."
+                }
+            }
             lower.contains("meeting") || lower.contains("schedule") || lower.contains("calendar") ->
                 "Your schedule can be coordinated directly through Google Calendar. Let me know if you would like me to review upcoming meetings or resolve conflicts."
             else ->

@@ -192,15 +192,9 @@ fun IntegrationsScreen(viewModel: IntegrationsViewModel) {
                 integration = integration,
                 onConnect = {
                     try {
-                        if (integration.id == "gmail" || integration.id == "calendar" || integration.id == "drive" || integration.id == "google_workspace") {
-                            val googleOAuthManager = com.contril.app.data.api.GoogleOAuthManager(context)
-                            val authIntent = googleOAuthManager.createAuthorizationIntent(forceConsent = true)
-                            context.startActivity(authIntent)
-                        } else {
-                            val oauthUrl = SupabaseAuthClient.getOAuthUrlForService(integration.id)
-                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(oauthUrl))
-                            context.startActivity(intent)
-                        }
+                        val oauthUrl = SupabaseAuthClient.getOAuthUrlForService(integration.id)
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(oauthUrl))
+                        context.startActivity(intent)
                     } catch (e: Exception) {
                         viewModel.setErrorMessage("Unable to launch authorization: ${e.message}")
                     }

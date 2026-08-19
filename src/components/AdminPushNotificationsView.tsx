@@ -74,12 +74,31 @@ export const AdminPushNotificationsView: React.FC = () => {
     try {
       const targetCount = targetType === 'BROADCAST' ? deviceTokens.length : 1;
       
-      // REST call to trigger push dispatcher
-      await new Promise(r => setTimeout(r, 600));
+      const payload = {
+        title: title.trim(),
+        message: body.trim(),
+        type: targetType === 'BROADCAST' ? 'system_broadcast' : 'user_alert',
+        is_read: false
+      };
+
+      const res = await fetch('https://qjyowojnvbfezznezxrr.supabase.co/rest/v1/notifications', {
+        method: 'POST',
+        headers: {
+          'apikey': 'sb_publishable_FPaC7OtL6iAsYiQ_JDS9IA_ZmTuYeyT',
+          'Authorization': 'Bearer sb_publishable_FPaC7OtL6iAsYiQ_JDS9IA_ZmTuYeyT',
+          'Content-Type': 'application/json',
+          'Prefer': 'return=representation'
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) {
+        throw new Error(`Supabase push queue rejected write (HTTP ${res.status})`);
+      }
 
       setStatusMessage({
         type: 'success',
-        text: `Push notification dispatched successfully to ${targetCount} active device${targetCount === 1 ? '' : 's'}!`
+        text: `Push notification recorded and dispatched to ${targetCount} active device${targetCount === 1 ? '' : 's'}!`
       });
       setBody('');
     } catch (err: any) {
