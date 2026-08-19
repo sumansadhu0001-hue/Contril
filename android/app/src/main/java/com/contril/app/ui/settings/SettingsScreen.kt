@@ -942,12 +942,11 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
         )
     }
 
-    // Activity Log Modal
+    // Unified Activity & Notifications Modal
     if (showActivityLogDialog) {
-        ActivityLogDialog(
-            logs = activityLogs,
-            onDismiss = { showActivityLogDialog = false },
-            onPurgeLogs = { viewModel.purgeOldLogs() }
+        com.contril.app.ui.components.UnifiedNotificationCenterSheet(
+            overnightLogs = activityLogs,
+            onDismiss = { showActivityLogDialog = false }
         )
     }
 

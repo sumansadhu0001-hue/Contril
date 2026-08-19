@@ -72,6 +72,12 @@ CRITICAL RULES:
             )
         }
 
+        // Fast zero-latency heuristic pre-check (0ms)
+        val localDecision = classifyAndRoute(cleanInput)
+        if (localDecision.category != IntentCategory.GENERAL_ASSISTANT && localDecision.category != IntentCategory.AMBIGUOUS) {
+            return@withContext localDecision
+        }
+
         try {
             val aiResult = GeminiClient.generateContent(
                 prompt = "User Query: \"$cleanInput\"\n\n$NLU_SYSTEM_PROMPT"
@@ -243,9 +249,25 @@ CRITICAL RULES:
         if (lower.contains("calendar") || lower.contains("schedule") || lower.contains("meeting")) {
             return QueryRoutingDecision(rawQuery = prompt, category = IntentCategory.CALENDAR_SCHEDULE, cleanedSearchTerm = prompt)
         }
-        if (lower.contains("briefing") || lower.contains("brief")) {
+        val isBriefingOrPriority = lower.contains("briefing") ||
+                lower.contains("brief") ||
+                lower.contains("focus") ||
+                lower.contains("priorities") ||
+                lower.contains("priority") ||
+                lower.contains("agenda") ||
+                lower.contains("my day") ||
+                lower.contains("today's plan") ||
+                lower.contains("plan my day") ||
+                lower.contains("what should i do") ||
+                lower.contains("what to do") ||
+                lower.contains("what do i have") ||
+                lower.contains("on my plate") ||
+                (lower.contains("what") && lower.contains("today"))
+
+        if (isBriefingOrPriority) {
             return QueryRoutingDecision(rawQuery = prompt, category = IntentCategory.BRIEFING, cleanedSearchTerm = prompt)
         }
+
         if (lower.startsWith("task") || lower.startsWith("remind")) {
             return QueryRoutingDecision(rawQuery = prompt, category = IntentCategory.TASK_MANAGEMENT, cleanedSearchTerm = prompt)
         }

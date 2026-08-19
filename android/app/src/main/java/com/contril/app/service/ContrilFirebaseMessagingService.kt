@@ -93,14 +93,27 @@ class ContrilFirebaseMessagingService {
                 PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0)
             )
 
-            val notification = NotificationCompat.Builder(context, FCM_CHANNEL_ID)
-                .setSmallIcon(R.mipmap.ic_launcher)
+            val largeIconBitmap = try {
+                android.graphics.BitmapFactory.decodeResource(context.resources, R.mipmap.ic_launcher)
+            } catch (_: Exception) {
+                null
+            }
+
+            val notificationBuilder = NotificationCompat.Builder(context, FCM_CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_notification_contril)
                 .setContentTitle(title)
                 .setContentText(body)
+                .setStyle(NotificationCompat.BigTextStyle().bigText(body))
                 .setAutoCancel(true)
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setDefaults(NotificationCompat.DEFAULT_ALL)
                 .setContentIntent(pendingIntent)
-                .build()
+
+            if (largeIconBitmap != null) {
+                notificationBuilder.setLargeIcon(largeIconBitmap)
+            }
+
+            val notification = notificationBuilder.build()
 
             notificationManager.notify((System.currentTimeMillis() % 10000).toInt(), notification)
         }

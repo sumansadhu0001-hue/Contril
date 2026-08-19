@@ -34,14 +34,11 @@ object GeminiClient {
 
     private const val GEMINI_API_KEY = "AIzaSyDC72lXEVy-YnooYhSOiADOLiDFXkll6tg"
     
-    // Priority order of high-performance models (Google API endpoints verified active)
+    // Priority order of high-performance models (Verified active on Google Gemini API)
     private val CANDIDATE_MODELS = listOf(
         "gemini-3.5-flash-lite",
-        "gemini-3.1-flash-lite",
-        "gemini-flash-latest",
-        "gemini-3.6-flash",
-        "gemini-3.7-flash",
-        "gemini-3.5-flash"
+        "gemini-flash-lite-latest",
+        "gemini-3.1-flash-lite"
     )
 
     private var activeModelName: String = "gemini-3.5-flash-lite"
@@ -51,9 +48,9 @@ object GeminiClient {
 
     private val httpClient: OkHttpClient by lazy {
         OkHttpClient.Builder()
-            .connectTimeout(10, TimeUnit.SECONDS)
-            .readTimeout(20, TimeUnit.SECONDS)
-            .writeTimeout(10, TimeUnit.SECONDS)
+            .connectTimeout(5, TimeUnit.SECONDS)
+            .readTimeout(10, TimeUnit.SECONDS)
+            .writeTimeout(5, TimeUnit.SECONDS)
             .connectionPool(ConnectionPool(5, 5, TimeUnit.MINUTES))
             .retryOnConnectionFailure(true)
             .build()
@@ -143,6 +140,7 @@ object GeminiClient {
             2. WORKSPACE INTELLIGENCE: Proactively leverage workspace context (${connectedNames}) when drafting communications, synthesizing agendas, or summarizing threads.
             3. ACTION SAFETY & AUTONOMY: Autonomy Mode is [${autonomyMode.name}]. If the user asks to write or send an email, create a complete, polished draft with Recipient, Subject, and Body ready for one-tap dispatch.
             4. IMMACULATE CLEAN FORMATTING: DO NOT output raw markdown symbols. DO NOT use ###, ##, #, ***, or --- headers and dividers. DO NOT surround text with raw ** asterisks. Write clean, natural, elegant text with clean bullet points (•) and clear spacing.
+            5. ZERO-HALLUCINATION GROUNDING: NEVER invent, fabricate, or hallucinate fictional meetings, fake client correspondence, fake stand-ups, fake deadlines, or fictional companies (such as 'Apex Holdings', 'Sarah Jenkins', 'service agreement update', or 'Q3 initiative'). If no specific workspace data was provided in the prompt, speak only generally about Contril's capabilities or state truthfully that the user's schedule and inbox are clear.
         """.trimIndent()
 
         val contentsArray = JSONArray()

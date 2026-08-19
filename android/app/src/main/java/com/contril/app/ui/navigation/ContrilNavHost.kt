@@ -205,6 +205,7 @@ fun ContrilAppContent(
         }
     }
 
+    val overnightLogs by prefRepository.activityLogs.collectAsState()
     var showProfileHub by remember { mutableStateOf(false) }
 
     Box(
@@ -218,6 +219,7 @@ fun ContrilAppContent(
                 if (currentRoute != Screen.Chat.route && !currentRoute.startsWith("chat") && currentRoute != Screen.Permissions.route) {
                     ContrilTopBar(
                         userProfile = currentUser,
+                        overnightLogs = overnightLogs,
                         onAvatarClick = {
                             showProfileHub = true
                         }

@@ -106,6 +106,22 @@ class MainActivity : ComponentActivity() {
                 Log.e("ContrilMain", "Error handling PKCE deep link", e)
             }
 
+            if (uri.scheme == "contril" && (uri.host == "test-notification" || uri.host == "notification")) {
+                val title = uri.getQueryParameter("title") ?: "Contril Executive Alert"
+                val body = uri.getQueryParameter("body") ?: "Your workspace intelligence notification is active."
+                com.contril.app.service.ContrilFirebaseMessagingService.showNotification(this@MainActivity, title, body)
+                prefRepository.addActivityLog(
+                    com.contril.app.data.model.OvernightActivityLog(
+                        eventType = com.contril.app.data.model.ActivityEventType.EMAILS_SCANNED,
+                        title = title,
+                        description = body,
+                        timestamp = System.currentTimeMillis()
+                    )
+                )
+                Log.i("ContrilMain", "Test push notification displayed and recorded in activity feed: $title - $body")
+                return@launch
+            }
+
             val isContrilScheme = uri.scheme == "contril" && ((uri.host == "auth" && uri.path == "/callback") || uri.host == "login-callback" || uri.host == "auth")
             val isHttpsCallback = uri.scheme == "https" && (uri.host == "contril.netlify.app" || uri.host == "contril.app")
 

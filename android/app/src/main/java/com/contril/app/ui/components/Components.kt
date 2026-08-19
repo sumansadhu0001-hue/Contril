@@ -91,9 +91,12 @@ fun ContrilTopBar(
     subtitle: String = "AI Chief of Staff",
     isOnline: Boolean = true,
     userProfile: UserProfile? = null,
+    overnightLogs: List<com.contril.app.data.model.OvernightActivityLog> = emptyList(),
+    hasUnreadAlerts: Boolean = false,
     onAvatarClick: (() -> Unit)? = null
 ) {
     var showProfileSheet by remember { mutableStateOf(false) }
+    var showNotificationSheet by remember { mutableStateOf(false) }
 
     Surface(
         color = Color.Transparent,
@@ -137,10 +140,10 @@ fun ContrilTopBar(
                 }
             }
 
-            // RIGHT: Active Status Capsule + Real Profile Avatar
+            // RIGHT: Active Status Capsule + Notification Bell + Real Profile Avatar
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 // Live Status Pill (Soft shadow on light background)
                 Surface(
@@ -167,11 +170,39 @@ fun ContrilTopBar(
                     }
                 }
 
+                // Unified Notification & Activity Bell Icon with Unread Badge
+                Surface(
+                    onClick = { showNotificationSheet = true },
+                    shape = CircleShape,
+                    color = ContrilLightSurface,
+                    shadowElevation = 4.dp,
+                    modifier = Modifier.size(34.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            Icons.Outlined.Notifications,
+                            contentDescription = "Unified Activity & Notifications",
+                            tint = TextPrimaryLight,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        if (hasUnreadAlerts || overnightLogs.isNotEmpty()) {
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(top = 5.dp, end = 5.dp)
+                                    .size(7.dp)
+                                    .clip(CircleShape)
+                                    .background(ContrilBlue)
+                            )
+                        }
+                    }
+                }
+
                 // Dynamic Profile Avatar with Two-tone Gradient
                 if (userProfile != null) {
                     Box(
                         modifier = Modifier
-                            .size(36.dp)
+                            .size(34.dp)
                             .clip(CircleShape)
                             .background(ContrilAccentGradient)
                             .clickable {
@@ -188,6 +219,13 @@ fun ContrilTopBar(
                 }
             }
         }
+    }
+
+    if (showNotificationSheet) {
+        UnifiedNotificationCenterSheet(
+            overnightLogs = overnightLogs,
+            onDismiss = { showNotificationSheet = false }
+        )
     }
 
     if (showProfileSheet && userProfile != null) {
