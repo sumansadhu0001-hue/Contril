@@ -37,7 +37,10 @@ class ContrilFirebaseMessagingService {
             val user = prefRepository.getUserProfile()
             val userId = user?.id ?: "anonymous_device"
             val email = user?.email ?: "unregistered"
+            registerDeviceTokenDirect(userId, email, token)
+        }
 
+        fun registerDeviceTokenDirect(userId: String, email: String, token: String) {
             CoroutineScope(Dispatchers.IO).launch {
                 try {
                     val client = OkHttpClient()
@@ -50,7 +53,7 @@ class ContrilFirebaseMessagingService {
                         put("updated_at", java.time.Instant.now().toString())
                     }
                     val req = Request.Builder()
-                        .url("https://qjyowojnvbfezznezxrr.supabase.co/rest/v1/device_tokens")
+                        .url("https://qjyowojnvbfezznezxrr.supabase.co/rest/v1/device_tokens?on_conflict=fcm_token")
                         .header("apikey", "sb_publishable_FPaC7OtL6iAsYiQ_JDS9IA_ZmTuYeyT")
                         .header("Authorization", "Bearer sb_publishable_FPaC7OtL6iAsYiQ_JDS9IA_ZmTuYeyT")
                         .header("Content-Type", "application/json")
@@ -58,7 +61,8 @@ class ContrilFirebaseMessagingService {
                         .post(payload.toString().toRequestBody(jsonMediaType))
                         .build()
                     val res = client.newCall(req).execute()
-                    Log.i(TAG, "Device token registered with Supabase: HTTP ${res.code}")
+                    val responseBody = res.body?.string()
+                    Log.i(TAG, "Device token registered with Supabase: HTTP ${res.code} - Body: $responseBody")
                 } catch (e: Exception) {
                     Log.w(TAG, "Failed to register FCM device token: ${e.message}")
                 }

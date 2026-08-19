@@ -80,7 +80,10 @@ fun HomeScreen(
                 isOnline = uiState.isOnline,
                 hasCachedData = true
             )
-            DismissibleAppUpdateBanner()
+            DismissibleAppUpdateBanner(
+                latestVersion = uiState.latestAppVersion,
+                downloadUrl = uiState.appDownloadUrl
+            )
         }
 
         // 1. Executive Greeting Section

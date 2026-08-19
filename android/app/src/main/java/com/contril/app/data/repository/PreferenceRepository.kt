@@ -882,6 +882,18 @@ class PreferenceRepository(context: Context? = null) {
         _lastInboxSyncTime.value = 0L
     }
 
+    fun getOrCreateDeviceToken(): String {
+        val existing = prefs?.getString("device_fcm_token", null)
+        if (!existing.isNullOrBlank()) return existing
+        val newToken = "contril_android_" + java.util.UUID.randomUUID().toString().replace("-", "")
+        prefs?.edit()?.putString("device_fcm_token", newToken)?.apply()
+        return newToken
+    }
+
+    fun getSavedDeviceToken(): String? {
+        return prefs?.getString("device_fcm_token", null)
+    }
+
     fun isEmailNotified(emailId: String): Boolean {
         val notifiedSet = prefs?.getStringSet("notified_email_ids", emptySet()) ?: emptySet()
         return notifiedSet.contains(emailId)

@@ -43,7 +43,11 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
                 prefRepository.syncSubscriptionStatusFromCloud()
-            } catch (_: Throwable) {}
+                val token = prefRepository.getOrCreateDeviceToken()
+                com.contril.app.service.ContrilFirebaseMessagingService.registerDeviceToken(applicationContext, token)
+            } catch (e: Throwable) {
+                Log.w("ContrilMain", "Failed to sync device token on launch: ${e.message}")
+            }
         }
 
         setContent {

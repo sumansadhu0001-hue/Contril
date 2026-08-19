@@ -318,6 +318,8 @@ class AuthViewModel(
                 )
                 val token = customResult.token ?: "session_${System.currentTimeMillis()}"
                 prefRepository.saveUserSession(token, user)
+                val deviceToken = prefRepository.getOrCreateDeviceToken()
+                com.contril.app.service.ContrilFirebaseMessagingService.registerDeviceTokenDirect(user.id, user.email, deviceToken)
                 if (user.hasCompletedOnboarding) {
                     _uiState.update { it.copy(isLoading = false) }
                     onSuccess()

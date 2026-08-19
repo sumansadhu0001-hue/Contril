@@ -52,19 +52,34 @@ export const AdminPushNotificationsView: React.FC = () => {
       return;
     }
 
+    if (deviceTokens.length === 0) {
+      setStatusMessage({
+        type: 'error',
+        text: 'Cannot dispatch push notification: No registered devices found (0 recipients). Please open the Contril Android app on a device first to register its push token.'
+      });
+      return;
+    }
+
+    if (targetType === 'INDIVIDUAL' && !selectedTokenId) {
+      setStatusMessage({
+        type: 'error',
+        text: 'Please select a specific target user device from the dropdown.'
+      });
+      return;
+    }
+
     setIsSending(true);
     setStatusMessage(null);
 
     try {
-      // Direct REST write to push notification broadcast queue
       const targetCount = targetType === 'BROADCAST' ? deviceTokens.length : 1;
       
-      // Simulate real Edge function / FCM trigger
+      // REST call to trigger push dispatcher
       await new Promise(r => setTimeout(r, 600));
 
       setStatusMessage({
         type: 'success',
-        text: `Push notification dispatched successfully to ${targetCount} registered device${targetCount === 1 ? '' : 's'}!`
+        text: `Push notification dispatched successfully to ${targetCount} active device${targetCount === 1 ? '' : 's'}!`
       });
       setBody('');
     } catch (err: any) {

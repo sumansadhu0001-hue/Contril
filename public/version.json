@@ -1,0 +1,7 @@
+﻿{
+  version: 0.2.0-native,
+  minSupportedVersion: 0.1.0,
+  downloadUrl: https://contril.netlify.app/downloads/contril-android.apk,
+  releaseDate: August 19, 2026,
+  releaseNotes: Live Gmail intelligence, FCM push notifications, universal intent routing, and refined 8px design system.
+}

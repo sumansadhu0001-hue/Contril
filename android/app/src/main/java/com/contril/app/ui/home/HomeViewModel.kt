@@ -29,7 +29,9 @@ data class HomeUiState(
     val userRole: String = "Executive",
     val connectedServicesCount: Int = 0,
     val aiUsage: Pair<Int, Int> = Pair(0, 5),
-    val isOnline: Boolean = true
+    val isOnline: Boolean = true,
+    val latestAppVersion: String? = null,
+    val appDownloadUrl: String = "https://contril.netlify.app/downloads/contril-android.apk"
 )
 
 class HomeViewModel(
@@ -51,6 +53,9 @@ class HomeViewModel(
             try {
                 prefRepository?.syncSubscriptionStatusFromCloud()
             } catch (_: Throwable) {}
+        }
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            fetchRemoteAppVersion()
         }
         viewModelScope.launch {
             prefRepository?.currentPlan?.collect { _ ->
@@ -261,5 +266,53 @@ class HomeViewModel(
         viewModelScope.launch {
             repository.rejectAction(actionId)
         }
+    }
+
+    private fun fetchRemoteAppVersion() {
+        // 1. Check Supabase app_config
+        try {
+            val client = okhttp3.OkHttpClient()
+            val req = okhttp3.Request.Builder()
+                .url("https://qjyowojnvbfezznezxrr.supabase.co/rest/v1/app_config?id=eq.app_version_config")
+                .header("apikey", "sb_publishable_FPaC7OtL6iAsYiQ_JDS9IA_ZmTuYeyT")
+                .header("Authorization", "Bearer sb_publishable_FPaC7OtL6iAsYiQ_JDS9IA_ZmTuYeyT")
+                .build()
+            val res = client.newCall(req).execute()
+            if (res.isSuccessful) {
+                val body = res.body?.string()
+                if (!body.isNullOrBlank() && body != "[]") {
+                    val arr = org.json.JSONArray(body)
+                    if (arr.length() > 0) {
+                        val obj = arr.getJSONObject(0)
+                        val ver = obj.optString("latest_app_version", null)
+                        val url = obj.optString("download_url", "https://contril.netlify.app/downloads/contril-android.apk")
+                        if (!ver.isNullOrBlank()) {
+                            _uiState.update { it.copy(latestAppVersion = ver, appDownloadUrl = url) }
+                            return
+                        }
+                    }
+                }
+            }
+        } catch (_: Throwable) {}
+
+        // 2. Fallback to Netlify version.json endpoint
+        try {
+            val client = okhttp3.OkHttpClient()
+            val req = okhttp3.Request.Builder()
+                .url("https://contril.netlify.app/version.json")
+                .build()
+            val res = client.newCall(req).execute()
+            if (res.isSuccessful) {
+                val body = res.body?.string()
+                if (!body.isNullOrBlank()) {
+                    val obj = org.json.JSONObject(body)
+                    val ver = obj.optString("version", null)
+                    val url = obj.optString("downloadUrl", "https://contril.netlify.app/downloads/contril-android.apk")
+                    if (!ver.isNullOrBlank()) {
+                        _uiState.update { it.copy(latestAppVersion = ver, appDownloadUrl = url) }
+                    }
+                }
+            }
+        } catch (_: Throwable) {}
     }
 }

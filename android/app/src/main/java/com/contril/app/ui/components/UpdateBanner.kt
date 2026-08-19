@@ -22,6 +22,22 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.contril.app.theme.ContrilBlue
 
+fun isNewerVersion(remote: String?, local: String): Boolean {
+    if (remote.isNullOrBlank()) return false
+    val cleanRemote = remote.split("-").first().trim()
+    val cleanLocal = local.split("-").first().trim()
+    val rParts = cleanRemote.split(".").mapNotNull { it.toIntOrNull() }
+    val lParts = cleanLocal.split(".").mapNotNull { it.toIntOrNull() }
+    val length = maxOf(rParts.size, lParts.size)
+    for (i in 0 until length) {
+        val r = rParts.getOrElse(i) { 0 }
+        val l = lParts.getOrElse(i) { 0 }
+        if (r > l) return true
+        if (r < l) return false
+    }
+    return false
+}
+
 @Composable
 fun DismissibleAppUpdateBanner(
     currentVersion: String = "0.2.0-native",
@@ -31,7 +47,7 @@ fun DismissibleAppUpdateBanner(
 ) {
     var isDismissed by remember { mutableStateOf(false) }
     val context = LocalContext.current
-    val isNewVersionAvailable = latestVersion != null && latestVersion != currentVersion
+    val isNewVersionAvailable = isNewerVersion(latestVersion, currentVersion)
 
     AnimatedVisibility(
         visible = isNewVersionAvailable && !isDismissed,
