@@ -46,7 +46,15 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
     val user by viewModel.currentUser.collectAsState()
     val connectedMap by viewModel.connectedServices.collectAsState()
     val currentPlan by viewModel.currentPlan.collectAsState()
-    val isEliteUser = currentPlan.equals("Elite", ignoreCase = true) || currentPlan.equals("Autonomous Pro", ignoreCase = true) || currentPlan.equals("Elite Plan", ignoreCase = true)
+    val isEliteUser = viewModel.isElitePlan() || 
+                      currentPlan.contains("Elite", ignoreCase = true) || 
+                      currentPlan.equals("Autonomous Elite", ignoreCase = true) || 
+                      currentPlan.equals("Autonomous Pro", ignoreCase = true) || 
+                      currentPlan.equals("Elite Plan", ignoreCase = true)
+
+    LaunchedEffect(Unit) {
+        viewModel.refreshSubscriptionStatus()
+    }
 
     var showSignOutDialog by remember { mutableStateOf(false) }
     var showOvernightExplanationDialog by remember { mutableStateOf(false) }

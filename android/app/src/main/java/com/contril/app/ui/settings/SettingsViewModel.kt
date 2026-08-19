@@ -9,6 +9,7 @@ import com.contril.app.data.model.UserProfile
 import com.contril.app.data.repository.PreferenceRepository
 import com.contril.app.service.OvernightAutonomyService
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
 
 class SettingsViewModel(
     private val prefRepository: PreferenceRepository
@@ -23,6 +24,16 @@ class SettingsViewModel(
     val currentUser: StateFlow<UserProfile?> = prefRepository.currentUser
     val connectedServices: StateFlow<Map<String, String>> = prefRepository.connectedServices
     val currentPlan: StateFlow<String> = prefRepository.currentPlan
+
+    init {
+        refreshSubscriptionStatus()
+    }
+
+    fun refreshSubscriptionStatus() {
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+            prefRepository.syncSubscriptionStatusFromCloud()
+        }
+    }
 
     fun isElitePlan(): Boolean = prefRepository.isElitePlan()
 
