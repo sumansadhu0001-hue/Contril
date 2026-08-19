@@ -40,6 +40,12 @@ class MainActivity : ComponentActivity() {
 
         handleAuthDeepLink(intent)
 
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                prefRepository.syncSubscriptionStatusFromCloud()
+            } catch (_: Throwable) {}
+        }
+
         setContent {
             val isDark by prefRepository.isDarkTheme.collectAsState()
             ContrilTheme(darkTheme = isDark) {

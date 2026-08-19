@@ -369,6 +369,18 @@ class PreferenceRepository(context: Context? = null) {
         false
     }
 
+    suspend fun syncSubscriptionStatusFromCloud(): Boolean = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        try {
+            val subManager = com.contril.app.data.repository.SubscriptionRequestManager(this@PreferenceRepository)
+            val result = subManager.checkBackendApprovalStatus()
+            Log.i("ContrilPref", "syncSubscriptionStatusFromCloud completed: status=${result.status}, plan=${result.planName}, isPaid=${result.isPaidActive}")
+            result.isPaidActive
+        } catch (e: Throwable) {
+            Log.w("ContrilPref", "syncSubscriptionStatusFromCloud error: ${e.message}")
+            false
+        }
+    }
+
     fun updateUserRole(role: String) {
         try {
             prefs?.edit()?.putString("user_role", role)?.apply()

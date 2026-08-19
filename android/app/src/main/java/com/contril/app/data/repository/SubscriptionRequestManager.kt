@@ -138,66 +138,82 @@ class SubscriptionRequestManager(
      */
     suspend fun checkBackendApprovalStatus(): EntitlementState = withContext(Dispatchers.IO) {
         val token = prefRepository.userSessionToken.value
-        val user = prefRepository.getUserProfile()
-        val userId = user?.id ?: return@withContext _entitlementState.value
+        val user = prefRepository.getUserProfile() ?: prefRepository.currentUser.value
+        val userId = user?.id ?: ""
+        val email = user?.email ?: ""
+
+        if (userId.isBlank() && email.isBlank()) {
+            return@withContext _entitlementState.value
+        }
 
         try {
-            // 1. Check profiles table
-            val url = "$baseUrl/rest/v1/profiles?id=eq.$userId&select=is_paid,plan,subscription_status"
-            val requestBuilder = Request.Builder()
-                .url(url)
-                .header("apikey", anonKey)
-                .get()
+            // 1. Check profiles table (if valid UUID)
+            if (userId.isNotBlank() && userId.length > 10 && !userId.startsWith("user_")) {
+                val url = "$baseUrl/rest/v1/profiles?id=eq.$userId&select=is_paid,plan,subscription_status"
+                val requestBuilder = Request.Builder()
+                    .url(url)
+                    .header("apikey", anonKey)
+                    .get()
 
-            if (!token.isNullOrBlank()) {
-                requestBuilder.header("Authorization", "Bearer $token")
-            }
+                if (!token.isNullOrBlank()) {
+                    requestBuilder.header("Authorization", "Bearer $token")
+                }
 
-            val response = httpClient.newCall(requestBuilder.build()).execute()
-            val resBody = response.body?.string() ?: ""
+                val response = httpClient.newCall(requestBuilder.build()).execute()
+                val resBody = response.body?.string() ?: ""
 
-            if (response.isSuccessful && resBody.isNotBlank()) {
-                val jsonArr = JSONArray(resBody)
-                if (jsonArr.length() > 0) {
-                    val obj = jsonArr.getJSONObject(0)
-                    val isPaid = obj.optBoolean("is_paid", false)
-                    val rawStatus = obj.optString("subscription_status", "")
-                    val rawPlan = obj.optString("plan", "")
+                if (response.isSuccessful && resBody.isNotBlank()) {
+                    val jsonArr = JSONArray(resBody)
+                    if (jsonArr.length() > 0) {
+                        val obj = jsonArr.getJSONObject(0)
+                        val isPaid = obj.optBoolean("is_paid", false)
+                        val rawStatus = obj.optString("subscription_status", "")
+                        val rawPlan = obj.optString("plan", "")
+                        val isElite = rawPlan.contains("Elite", ignoreCase = true)
 
-                    val isElite = rawPlan.contains("Elite", ignoreCase = true)
+                        val newStatus = when {
+                            isPaid || rawStatus.equals("ACTIVE_PRO", ignoreCase = true) || rawStatus.equals("ACTIVE_ELITE", ignoreCase = true) || rawStatus.equals("APPROVED", ignoreCase = true) || rawStatus.equals("ACTIVE", ignoreCase = true) -> SubscriptionStatus.ACTIVE_PRO
+                            rawStatus.equals("PENDING_APPROVAL", ignoreCase = true) -> SubscriptionStatus.PENDING_APPROVAL
+                            rawStatus.equals("REJECTED", ignoreCase = true) -> SubscriptionStatus.REJECTED
+                            else -> SubscriptionStatus.FREE
+                        }
 
-                    val newStatus = when {
-                        isPaid || rawStatus.equals("ACTIVE_PRO", ignoreCase = true) || rawStatus.equals("ACTIVE_ELITE", ignoreCase = true) || rawStatus.equals("APPROVED", ignoreCase = true) || rawStatus.equals("ACTIVE", ignoreCase = true) -> SubscriptionStatus.ACTIVE_PRO
-                        rawStatus.equals("PENDING_APPROVAL", ignoreCase = true) -> SubscriptionStatus.PENDING_APPROVAL
-                        rawStatus.equals("REJECTED", ignoreCase = true) -> SubscriptionStatus.REJECTED
-                        else -> SubscriptionStatus.FREE
+                        prefRepository.setSubscriptionStatus(newStatus)
+                        if (newStatus == SubscriptionStatus.ACTIVE_PRO) {
+                            prefRepository.setPlan(if (isElite) PaymentConfig.ELITE_PLAN_NAME else PaymentConfig.PRO_PLAN_NAME)
+                        } else {
+                            prefRepository.setPlan("Free")
+                        }
+
+                        val updatedState = EntitlementState(
+                            status = newStatus,
+                            planName = if (newStatus == SubscriptionStatus.ACTIVE_PRO) {
+                                if (isElite) PaymentConfig.ELITE_PLAN_NAME else PaymentConfig.PRO_PLAN_NAME
+                            } else "Free",
+                            isPaidActive = newStatus == SubscriptionStatus.ACTIVE_PRO
+                        )
+                        _entitlementState.value = updatedState
+                        if (newStatus == SubscriptionStatus.ACTIVE_PRO) {
+                            return@withContext updatedState
+                        }
                     }
-
-                    prefRepository.setSubscriptionStatus(newStatus)
-                    if (newStatus == SubscriptionStatus.ACTIVE_PRO) {
-                        prefRepository.setPlan(if (isElite) PaymentConfig.ELITE_PLAN_NAME else PaymentConfig.PRO_PLAN_NAME)
-                    } else {
-                        prefRepository.setPlan("Free")
-                    }
-
-                    val updatedState = EntitlementState(
-                        status = newStatus,
-                        planName = if (newStatus == SubscriptionStatus.ACTIVE_PRO) {
-                            if (isElite) PaymentConfig.ELITE_PLAN_NAME else PaymentConfig.PRO_PLAN_NAME
-                        } else "Free",
-                        isPaidActive = newStatus == SubscriptionStatus.ACTIVE_PRO
-                    )
-                    _entitlementState.value = updatedState
-                    return@withContext updatedState
                 }
             }
 
-            // 2. Also check subscription_requests table as secondary confirmation
-            val subReqUrl = "$baseUrl/rest/v1/subscription_requests?user_id=eq.$userId&order=requested_at.desc&limit=1"
+            // 2. Check subscription_requests table (by email or user_id)
+            val subReqUrl = if (email.isNotBlank() && userId.isNotBlank()) {
+                "$baseUrl/rest/v1/subscription_requests?or=(user_id.eq.$userId,email.eq.$email)&order=requested_at.desc&limit=1"
+            } else if (email.isNotBlank()) {
+                "$baseUrl/rest/v1/subscription_requests?email=eq.$email&order=requested_at.desc&limit=1"
+            } else {
+                "$baseUrl/rest/v1/subscription_requests?user_id=eq.$userId&order=requested_at.desc&limit=1"
+            }
+
             val subReq = Request.Builder().url(subReqUrl).header("apikey", anonKey).get()
             if (!token.isNullOrBlank()) subReq.header("Authorization", "Bearer $token")
             val subRes = httpClient.newCall(subReq.build()).execute()
             val subBody = subRes.body?.string() ?: ""
+
             if (subRes.isSuccessful && subBody.isNotBlank()) {
                 val subArr = JSONArray(subBody)
                 if (subArr.length() > 0) {
@@ -205,10 +221,11 @@ class SubscriptionRequestManager(
                     val subStatus = subObj.optString("status", "")
                     val subPlan = subObj.optString("plan", "")
                     val isElite = subPlan.contains("Elite", ignoreCase = true)
+                    Log.i("SubscriptionRequest", "Found subscription request: status=$subStatus, plan=$subPlan")
 
                     if (subStatus.equals("APPROVED", ignoreCase = true) || subStatus.equals("ACTIVE", ignoreCase = true)) {
                         prefRepository.setSubscriptionStatus(SubscriptionStatus.ACTIVE_PRO)
-                        val planName = if (isElite) PaymentConfig.ELITE_PLAN_NAME else PaymentConfig.PRO_PLAN_NAME
+                        val planName = if (isElite) PaymentConfig.ELITE_PLAN_NAME else (if (subPlan.isNotBlank()) subPlan else PaymentConfig.PRO_PLAN_NAME)
                         prefRepository.setPlan(planName)
                         val activeState = EntitlementState(
                             status = SubscriptionStatus.ACTIVE_PRO,
@@ -217,6 +234,24 @@ class SubscriptionRequestManager(
                         )
                         _entitlementState.value = activeState
                         return@withContext activeState
+                    } else if (subStatus.equals("PENDING_APPROVAL", ignoreCase = true)) {
+                        prefRepository.setSubscriptionStatus(SubscriptionStatus.PENDING_APPROVAL)
+                        val pendingState = EntitlementState(
+                            status = SubscriptionStatus.PENDING_APPROVAL,
+                            planName = if (isElite) PaymentConfig.ELITE_PLAN_NAME else PaymentConfig.PRO_PLAN_NAME,
+                            isPaidActive = false
+                        )
+                        _entitlementState.value = pendingState
+                        return@withContext pendingState
+                    } else if (subStatus.equals("REJECTED", ignoreCase = true)) {
+                        prefRepository.setSubscriptionStatus(SubscriptionStatus.REJECTED)
+                        val rejectedState = EntitlementState(
+                            status = SubscriptionStatus.REJECTED,
+                            planName = "Free",
+                            isPaidActive = false
+                        )
+                        _entitlementState.value = rejectedState
+                        return@withContext rejectedState
                     }
                 }
             }

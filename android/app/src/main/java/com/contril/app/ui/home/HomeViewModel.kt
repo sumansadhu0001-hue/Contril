@@ -48,6 +48,17 @@ class HomeViewModel(
 
     init {
         viewModelScope.launch {
+            try {
+                prefRepository?.syncSubscriptionStatusFromCloud()
+            } catch (_: Throwable) {}
+        }
+        viewModelScope.launch {
+            prefRepository?.currentPlan?.collect { _ ->
+                val usage = prefRepository?.getTodayAiUsage() ?: Pair(0, 50)
+                _uiState.update { it.copy(aiUsage = usage) }
+            }
+        }
+        viewModelScope.launch {
             networkMonitor?.isOnline?.collect { online ->
                 _uiState.update { it.copy(isOnline = online) }
             }
