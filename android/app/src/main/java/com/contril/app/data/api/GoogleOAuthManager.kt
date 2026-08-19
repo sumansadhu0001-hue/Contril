@@ -113,7 +113,7 @@ class GoogleOAuthManager(private val context: Context) {
      * Only triggers prompt=consent if the account is missing required scopes or has never consented before.
      */
     fun createAuthorizationIntent(
-        clientId: String = "896172605886-contril-android.apps.googleusercontent.com",
+        clientId: String = "708030276416-913atdon7hgroo5mtoo6ebso4blvd11k.apps.googleusercontent.com",
         forceConsent: Boolean = false
     ): Intent {
         val missingScopes = !hasAllRequiredScopes()

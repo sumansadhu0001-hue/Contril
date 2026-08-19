@@ -49,7 +49,7 @@ class ContrilBackendClient(
         try {
             Log.i("ContrilBackend", "Silently refreshing Google OAuth token via Google OAuth endpoint...")
             val formBody = okhttp3.FormBody.Builder()
-                .add("client_id", "896172605886-contril-android.apps.googleusercontent.com")
+                .add("client_id", "708030276416-913atdon7hgroo5mtoo6ebso4blvd11k.apps.googleusercontent.com")
                 .add("grant_type", "refresh_token")
                 .add("refresh_token", refreshToken)
                 .build()
