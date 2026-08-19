@@ -19,6 +19,7 @@ import { AdminHealthCenterView } from './AdminHealthCenterView';
 import { AdminAnalyticsCenterView } from './AdminAnalyticsCenterView';
 import { AdminDeveloperConsoleView } from './AdminDeveloperConsoleView';
 import { AdminAuditCenterView } from './AdminAuditCenterView';
+import { AdminPushNotificationsView } from './AdminPushNotificationsView';
 
 type AdminTab = 
   | 'dashboard' | 'platform_mode' | 'feature_flags' | 'early_access' | 'users' | 'support' | 'subscriptions' 
@@ -839,6 +840,11 @@ export const AdminInquiriesDashboard: React.FC<{ onBackToApp: () => void }> = ({
           {/* AUDIT LOGS TAB */}
           {activeTab === 'audit_logs' && (
             <AdminAuditCenterView auditLogs={auditLogs} />
+          )}
+
+          {/* PUSH NOTIFICATIONS TAB */}
+          {activeTab === 'notifications' && (
+            <AdminPushNotificationsView />
           )}
 
           {/* SUBSCRIPTIONS / APPROVAL QUEUE / CRM / EARLY ACCESS TABS */}
