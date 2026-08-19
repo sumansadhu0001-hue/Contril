@@ -19,6 +19,7 @@ class ContrilApplication : Application() {
         try {
             createNotificationChannels()
             schedulePeriodicEmailSync()
+            com.contril.app.service.NotificationSyncEngine.start(this)
         } catch (e: Exception) {
             Log.e("ContrilApp", "Failed to initialize app components: ${e.message}", e)
         }
