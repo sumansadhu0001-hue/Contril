@@ -1,16 +1,20 @@
 package com.contril.app.data.api
 
-import android.util.Log
-import com.contril.app.data.model.ActionStatus
-import com.contril.app.data.model.ExecutionStep
-import com.contril.app.data.model.PendingAction
+import com.contril.app.data.automation.IntentCategory
+import com.contril.app.data.automation.QueryIntentClassifier
+import com.contril.app.data.model.*
 import com.contril.app.data.repository.CalendarRepository
 import com.contril.app.data.repository.PreferenceRepository
 import com.contril.app.data.repository.TaskRepository
 import java.util.UUID
 
 sealed class ToolExecutionResult {
-    data class Success(val summary: String, val rawData: Any? = null, val pendingAction: PendingAction? = null) : ToolExecutionResult()
+    data class Success(
+        val summary: String,
+        val rawData: Any? = null,
+        val pendingAction: PendingAction? = null,
+        val proposedPlan: AgenticExecutionPlan? = null
+    ) : ToolExecutionResult()
     data class RequiresConnection(val serviceName: String, val message: String) : ToolExecutionResult()
     data class Failure(val errorMessage: String) : ToolExecutionResult()
 }
@@ -23,7 +27,6 @@ class ToolRouter(
 ) {
 
     suspend fun evaluateAndExecute(prompt: String): Pair<List<ExecutionStep>, ToolExecutionResult?> {
-        val lower = prompt.lowercase().trim()
         val steps = mutableListOf<ExecutionStep>()
         val connectedServices = prefRepository?.connectedServices?.value ?: emptyMap()
 
@@ -35,14 +38,54 @@ class ToolRouter(
                 connectedServices.containsKey("google_workspace") ||
                 connectedServices.containsKey("google")
 
-        // 0. Explicit Daily Briefing / Agenda Synthesis
-        val isExplicitBriefing = lower.contains("briefing") || lower.contains("daily brief") ||
-                lower.contains("morning brief") || lower.contains("today's brief") ||
-                lower == "briefing" || lower == "what is my briefing" ||
-                lower.contains("summarize my day") || lower.contains("today's agenda") ||
-                lower.contains("what's on for today")
+        steps.add(ExecutionStep("nlu1", "Understanding request intent with Gemini", "complete"))
+        val decision = QueryIntentClassifier.classifyAndRouteWithAi(prompt)
 
-        if (isExplicitBriefing) {
+        // 1. Ambiguous Input -> Transparent, Honest Clarification
+        if (decision.category == IntentCategory.AMBIGUOUS) {
+            val clarify = decision.clarificationMessage ?: "I'm not sure what you're asking — could you clarify whether you'd like to search prices, manage your emails, or check your schedule?"
+            steps.add(ExecutionStep("nlu2", "Requested intent clarification", "complete"))
+            return Pair(steps, ToolExecutionResult.Success(clarify))
+        }
+
+        // 2. Price Comparison Intent -> Create Ray-style Execution Plan
+        if (decision.category in listOf(IntentCategory.ECOMMERCE, IntentCategory.FOOD_DELIVERY, IntentCategory.FASHION_BEAUTY, IntentCategory.GROCERY_QUICK_COMMERCE)) {
+            steps.add(ExecutionStep("shop1", "Identified ${decision.category.name.lowercase().replace('_', ' ')} query", "complete"))
+            if (!decision.isComparisonSupported) {
+                return Pair(steps, ToolExecutionResult.Success(decision.unsupportedMessage ?: "Comparison not supported for this category."))
+            }
+
+            val targetPlatforms = decision.targetScraperIds
+            val planItems = targetPlatforms.map { platform ->
+                PlanItem(
+                    id = "scrape_$platform",
+                    title = "Search on ${platform.replaceFirstChar { it.uppercase() }}",
+                    subtitle = "Query: \"${decision.cleanedSearchTerm}\"${decision.budget?.let { " (Budget: ≤ ₹${it.toInt()})" } ?: ""}",
+                    sourceData = platform,
+                    isSelected = true
+                )
+            }
+
+            val plan = AgenticExecutionPlan(
+                title = "Price Comparison Plan: ${decision.cleanedSearchTerm}",
+                description = "Contril will search and rank deals across ${targetPlatforms.joinToString(", ") { it.replaceFirstChar { c -> c.uppercase() } }}.",
+                actionType = PlanActionType.PRICE_COMPARISON,
+                items = planItems,
+                status = PlanStatus.PROPOSED
+            )
+
+            steps.add(ExecutionStep("shop2", "Prepared comparison plan across ${targetPlatforms.size} platforms", "complete"))
+            return Pair(
+                steps,
+                ToolExecutionResult.Success(
+                    summary = "Proposed plan to compare prices for \"${decision.cleanedSearchTerm}\".",
+                    proposedPlan = plan
+                )
+            )
+        }
+
+        // 3. Daily Briefing / Agenda Synthesis
+        if (decision.category == IntentCategory.BRIEFING) {
             steps.add(ExecutionStep("b1", "Evaluating Executive Briefing Engine", "complete"))
 
             if (!isGmailConnected && !isCalendarConnected) {
@@ -62,17 +105,11 @@ class ToolRouter(
             }
 
             steps.add(ExecutionStep("b2", "Fetching live inbox & calendar feeds", "complete"))
-
-            val gmailResult = if (isGmailConnected) backendClient.fetchGmailInbox(token) else ApiResult.Success(emptyList())
-            val calResult = if (isCalendarConnected) backendClient.fetchCalendarEvents(token) else ApiResult.Success(emptyList())
+            val emails = if (isGmailConnected) ContrilBackendClient.fetchDirectGmailMessages(token) else emptyList()
+            val calResult = if (isCalendarConnected) (calendarRepository?.refreshCalendar() ?: ApiResult.Success(emptyList())) else ApiResult.Success(emptyList())
             val tasks = taskRepository?.tasks?.value?.filter { !it.isCompleted } ?: emptyList()
 
-            val emails = (gmailResult as? ApiResult.Success)?.data ?: emptyList()
             val meetings = (calResult as? ApiResult.Success)?.data ?: emptyList()
-
-            if (gmailResult is ApiResult.Error && calResult is ApiResult.Error) {
-                return Pair(steps, ToolExecutionResult.Failure("Couldn't load briefing — check connection or re-authenticate in Profile Hub."))
-            }
 
             if (emails.isEmpty() && meetings.isEmpty() && tasks.isEmpty()) {
                 val cleanEmptyBriefing = "Today's Executive Briefing:\n\n• Inbox: Your connected Gmail inbox is clear. No unread priority threads.\n• Schedule: No meetings scheduled on your Google Calendar today.\n• Tasks: All focus tasks are completed."
@@ -127,20 +164,14 @@ class ToolRouter(
             return Pair(steps, ToolExecutionResult.Success(GeminiClient.sanitizeCleanText(briefingText)))
         }
 
-        // 1. Explicit Gmail Inbox Inspection (Not drafting or creative writing)
-        val isExplicitInboxCheck = (lower.contains("check email") || lower.contains("check my email") ||
-                lower.contains("read email") || lower.contains("unread email") ||
-                lower.contains("check inbox") || lower.contains("scan inbox") ||
-                lower.contains("my emails") || lower.contains("recent emails")) &&
-                !lower.contains("write") && !lower.contains("draft") && !lower.contains("compose") && !lower.contains("generate")
-
-        if (isExplicitInboxCheck) {
-            steps.add(ExecutionStep("t1", "Routed to Gmail Tool Engine", "complete"))
+        // 4. Email Communication Intent -> Structured Ray-Style Plan
+        if (decision.category == IntentCategory.EMAIL_COMMUNICATION) {
+            steps.add(ExecutionStep("e1", "Routed to Gmail Engine", "complete"))
             if (!isGmailConnected) {
-                steps.add(ExecutionStep("t2", "Checked Gmail Connection: Disconnected", "complete"))
+                steps.add(ExecutionStep("e2", "Checked Gmail Connection: Disconnected", "complete"))
                 return Pair(
                     steps,
-                    ToolExecutionResult.RequiresConnection("Gmail", "Connect Gmail in your Profile Hub to inspect emails.")
+                    ToolExecutionResult.RequiresConnection("Gmail", "Connect Gmail in your Profile Hub to inspect and manage emails.")
                 )
             }
 
@@ -149,55 +180,67 @@ class ToolRouter(
                 return Pair(steps, ToolExecutionResult.Failure("Session expired. Please re-authenticate in Profile Hub."))
             }
 
-            steps.add(ExecutionStep("t2", "Fetched live inbox threads", "complete"))
-            val result = backendClient.fetchGmailInbox(token)
-            return when (result) {
-                is ApiResult.Success -> {
-                    val count = result.data.size
-                    val summary = if (count == 0) {
-                        "Your Gmail inbox is clear. No unread priority messages."
-                    } else {
-                        "Found $count unread email threads in your connected Gmail."
-                    }
-                    Pair(steps, ToolExecutionResult.Success(summary, rawData = result.data))
+            steps.add(ExecutionStep("e2", "Fetched live inbox threads", "complete"))
+            val emails = ContrilBackendClient.fetchDirectGmailMessages(token)
+            if (emails.isEmpty()) {
+                return Pair(steps, ToolExecutionResult.Success("Your Gmail inbox is clear. No unread priority messages."))
+            } else {
+                val isTrash = decision.proposedAction == "TRASH_EMAILS" || prompt.contains("delete", ignoreCase = true) || prompt.contains("clean", ignoreCase = true) || prompt.contains("trash", ignoreCase = true)
+                val planItems = emails.take(10).map { em ->
+                    PlanItem(
+                        id = em.id,
+                        title = em.sender,
+                        subtitle = em.subject,
+                        sourceData = em.summarySnippet,
+                        isSelected = true,
+                        isDestructive = isTrash
+                    )
                 }
-                is ApiResult.Error -> {
-                    Pair(steps, ToolExecutionResult.Failure(result.message))
-                }
+
+                val actionType = if (isTrash) PlanActionType.EMAIL_BULK_ACTION else PlanActionType.EMAIL_DRAFT_REPLY
+                val plan = AgenticExecutionPlan(
+                    title = if (isTrash) "Email Cleanup Plan (${planItems.size} threads)" else "Email Follow-up Plan (${planItems.size} threads)",
+                    description = if (isTrash) "Review and select messages to move to Trash (30-day recovery)." else "Review and select incoming messages for AI draft replies.",
+                    actionType = actionType,
+                    items = planItems,
+                    status = PlanStatus.PROPOSED,
+                    canUndo = isTrash,
+                    requiresTypedConfirmation = isTrash && planItems.size > 5
+                )
+
+                steps.add(ExecutionStep("e3", "Constructed interactive plan with ${planItems.size} items", "complete"))
+                return Pair(
+                    steps,
+                    ToolExecutionResult.Success(
+                        summary = "Found ${emails.size} relevant email threads.",
+                        rawData = emails,
+                        proposedPlan = plan
+                    )
+                )
             }
         }
 
-        // 2. Explicit Google Calendar Inspection
-        val isExplicitCalendarCheck = (lower.contains("check calendar") || lower.contains("my calendar") ||
-                lower.contains("check meetings") || lower.contains("upcoming meetings") ||
-                lower.contains("what's on my schedule") || lower.contains("schedule today") ||
-                lower.contains("calendar today") || lower.contains("my agenda")) &&
-                !lower.contains("explain") && !lower.contains("how to") && !lower.contains("strategy")
-
-        if (isExplicitCalendarCheck) {
-            steps.add(ExecutionStep("t1", "Routed to Google Calendar Engine", "complete"))
+        // 5. Calendar Schedule Intent
+        if (decision.category == IntentCategory.CALENDAR_SCHEDULE) {
+            steps.add(ExecutionStep("c1", "Routed to Google Calendar Engine", "complete"))
             if (!isCalendarConnected) {
-                steps.add(ExecutionStep("t2", "Checked Calendar Connection: Disconnected", "complete"))
+                steps.add(ExecutionStep("c2", "Checked Calendar Connection: Disconnected", "complete"))
                 return Pair(
                     steps,
                     ToolExecutionResult.RequiresConnection("Google Calendar", "Connect Google Calendar to inspect meetings.")
                 )
             }
 
-            val token = prefRepository?.userSessionToken?.value
-            if (token.isNullOrBlank()) {
-                return Pair(steps, ToolExecutionResult.Failure("Session expired. Please re-authenticate."))
-            }
-
-            steps.add(ExecutionStep("t2", "Queried upcoming schedule", "complete"))
-            val result = backendClient.fetchCalendarEvents(token)
+            steps.add(ExecutionStep("c2", "Queried upcoming schedule", "complete"))
+            val result = calendarRepository?.refreshCalendar() ?: ApiResult.Success(emptyList())
             return when (result) {
-                is ApiResult.Success -> {
+                is ApiResult.Success<List<MeetingItem>> -> {
                     val count = result.data.size
                     val summary = if (count == 0) {
                         "Your calendar is clear for today."
                     } else {
-                        "You have $count upcoming events scheduled."
+                        "You have $count upcoming events scheduled:\n" +
+                                result.data.take(5).joinToString("\n") { "• \"${it.title}\" at ${it.timeRange}" }
                     }
                     Pair(steps, ToolExecutionResult.Success(summary, rawData = result.data))
                 }
@@ -207,15 +250,11 @@ class ToolRouter(
             }
         }
 
-        // 3. Explicit Local Task Creation & Inspection
-        val isExplicitTaskAction = lower.startsWith("create task") || lower.startsWith("add task") ||
-                lower.startsWith("new task") || lower.startsWith("remind me to") ||
-                lower == "my tasks" || lower == "list tasks" || lower == "check tasks"
-
-        if (isExplicitTaskAction) {
+        // 6. Task Management Intent
+        if (decision.category == IntentCategory.TASK_MANAGEMENT) {
             steps.add(ExecutionStep("t1", "Routed to Native Task Manager", "complete"))
-            if (lower.startsWith("create task") || lower.startsWith("add task") || lower.startsWith("new task") || lower.startsWith("remind me to")) {
-                val taskTitle = prompt.replace(Regex("(?i)^(create task|add task|new task|remind me to|task:)\\s*"), "").trim().ifBlank { prompt }
+            if (decision.proposedAction == "CREATE_TASK" || prompt.startsWith("create", ignoreCase = true) || prompt.startsWith("add", ignoreCase = true) || prompt.startsWith("remind", ignoreCase = true)) {
+                val taskTitle = decision.cleanedSearchTerm.ifBlank { prompt }
                 taskRepository?.addTask(title = taskTitle, category = "AI Action", serviceSource = "Contril")
                 steps.add(ExecutionStep("t2", "Persisted task to local workspace", "complete"))
                 return Pair(

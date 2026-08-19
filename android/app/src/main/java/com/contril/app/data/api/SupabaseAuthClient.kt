@@ -124,17 +124,7 @@ object SupabaseAuthClient {
             val json = JSONObject(resBody)
             val accessToken = json.getString("access_token")
             val userObj = json.getJSONObject("user")
-            val userId = userObj.getString("id")
-            val metadata = userObj.optJSONObject("user_metadata")
-            val fullName = metadata?.optString("full_name", metadata.optString("name", "")) ?: ""
-            val avatarUrl = metadata?.optString("avatar_url", metadata.optString("picture", ""))
-
-            val profile = UserProfile(
-                id = userId,
-                email = email.trim(),
-                name = fullName.ifBlank { email.substringBefore("@") },
-                avatarUrl = avatarUrl?.takeIf { it.isNotBlank() }
-            )
+            val profile = parseUserProfileFromUserJson(userObj)
 
             AuthResult(success = true, token = accessToken, user = profile)
         } catch (e: Exception) {
@@ -260,12 +250,7 @@ object SupabaseAuthClient {
             val metadata = userObj.optJSONObject("user_metadata")
             val fullName = metadata?.optString("full_name", metadata.optString("name", "")) ?: ""
 
-            val profile = UserProfile(
-                id = userId,
-                email = email.trim(),
-                name = fullName.ifBlank { email.substringBefore("@") }
-            )
-
+            val profile = parseUserProfileFromUserJson(userObj)
             AuthResult(success = true, token = accessToken, user = profile)
         } catch (e: Exception) {
             Log.e("SupabaseAuth", "verifyEmailOtp error", e)
@@ -325,16 +310,8 @@ object SupabaseAuthClient {
 
             val json = JSONObject(resBody)
             val token = json.optString("session_token", json.optString("access_token", ""))
-            val userObj = json.optJSONObject("user")
-            val userId = userObj?.optString("id", "usr_${System.currentTimeMillis()}") ?: "usr_${System.currentTimeMillis()}"
-            val userEmail = userObj?.optString("email", email) ?: email
-            val userName = userObj?.optString("name", email.substringBefore("@")) ?: email.substringBefore("@")
-
-            val profile = UserProfile(
-                id = userId,
-                email = userEmail,
-                name = userName
-            )
+            val userObj = json.optJSONObject("user") ?: JSONObject()
+            val profile = parseUserProfileFromUserJson(userObj)
 
             AuthResult(success = true, token = token, user = profile)
         } catch (e: Exception) {
@@ -390,22 +367,92 @@ object SupabaseAuthClient {
 
             val resBody = response.body?.string() ?: return@withContext null
             val userObj = JSONObject(resBody)
-            val userId = userObj.getString("id")
-            val email = userObj.optString("email", "")
-            val metadata = userObj.optJSONObject("user_metadata")
-            val fullName = metadata?.optString("full_name", metadata.optString("name", "")) ?: ""
-            val avatarUrl = metadata?.optString("avatar_url", metadata.optString("picture", ""))
-
-            UserProfile(
-                id = userId,
-                email = email,
-                name = fullName.ifBlank { email.substringBefore("@") },
-                avatarUrl = avatarUrl?.takeIf { it.isNotBlank() }
-            )
+            parseUserProfileFromUserJson(userObj)
         } catch (e: Exception) {
             Log.e("SupabaseAuth", "Failed to fetch user profile", e)
             null
         }
+    }
+
+    /**
+     * Persist onboarding completion, role, and goals directly to Supabase User Metadata
+     */
+    suspend fun updateUserMetadata(
+        accessToken: String,
+        completed: Boolean,
+        role: String = "Executive",
+        goals: List<String> = emptyList(),
+        fullName: String? = null
+    ): Boolean = withContext(Dispatchers.IO) {
+        if (accessToken.isBlank()) return@withContext false
+        try {
+            val dataObj = JSONObject().apply {
+                put("has_completed_onboarding", completed)
+                put("onboarding_completed", completed)
+                put("user_role", role)
+                put("role", role)
+                val goalsArray = org.json.JSONArray()
+                goals.forEach { goalsArray.put(it) }
+                put("user_goals", goalsArray)
+                if (!fullName.isNullOrBlank()) {
+                    put("full_name", fullName)
+                }
+            }
+
+            val jsonBody = JSONObject().apply {
+                put("data", dataObj)
+            }
+
+            val request = Request.Builder()
+                .url("$SUPABASE_URL/auth/v1/user")
+                .header("apikey", SUPABASE_ANON_KEY)
+                .header("Authorization", "Bearer $accessToken")
+                .header("Content-Type", "application/json")
+                .put(jsonBody.toString().toRequestBody(jsonMediaType))
+                .build()
+
+            val response = httpClient.newCall(request).execute()
+            val success = response.isSuccessful
+            Log.i("SupabaseAuth", "updateUserMetadata response: ${response.code}, success=$success")
+            success
+        } catch (e: Exception) {
+            Log.e("SupabaseAuth", "Failed to update user metadata on Supabase", e)
+            false
+        }
+    }
+
+    private fun parseUserProfileFromUserJson(userObj: JSONObject): UserProfile {
+        val userId = userObj.optString("id", "")
+        val email = userObj.optString("email", "")
+        val metadata = userObj.optJSONObject("user_metadata")
+        val fullName = metadata?.optString("full_name", metadata.optString("name", "")) ?: ""
+        val avatarUrl = metadata?.optString("avatar_url", metadata.optString("picture", ""))
+        val hasCompleted = metadata?.optBoolean("has_completed_onboarding", false)
+            ?: (metadata?.optBoolean("onboarding_completed", false) ?: false)
+        val role = metadata?.optString("user_role", metadata.optString("role", "Executive")).takeIf { !it.isNullOrBlank() } ?: "Executive"
+        
+        val goals = mutableListOf<String>()
+        val goalsArr = metadata?.optJSONArray("user_goals")
+        if (goalsArr != null) {
+            for (i in 0 until goalsArr.length()) {
+                goals.add(goalsArr.getString(i))
+            }
+        } else {
+            val goalsStr = metadata?.optString("user_goals", "")
+            if (!goalsStr.isNullOrBlank()) {
+                goals.addAll(goalsStr.split(",").map { it.trim() }.filter { it.isNotBlank() })
+            }
+        }
+
+        return UserProfile(
+            id = userId,
+            email = email,
+            name = fullName.ifBlank { email.substringBefore("@") },
+            avatarUrl = avatarUrl?.takeIf { it.isNotBlank() },
+            hasCompletedOnboarding = hasCompleted,
+            role = role,
+            goals = goals
+        )
     }
 
     /**

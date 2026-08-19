@@ -489,6 +489,22 @@ class ContrilBackendClient(
             }
             trashedCount
         }
+
+        suspend fun trashSingleEmail(token: String, messageId: String): Boolean = withContext(Dispatchers.IO) {
+            try {
+                val client = OkHttpClient.Builder().connectTimeout(15, TimeUnit.SECONDS).build()
+                val trashReq = Request.Builder()
+                    .url("https://gmail.googleapis.com/gmail/v1/users/me/messages/$messageId/trash")
+                    .header("Authorization", "Bearer $token")
+                    .post("{}".toRequestBody("application/json".toMediaType()))
+                    .build()
+                val trashRes = client.newCall(trashReq).execute()
+                trashRes.isSuccessful
+            } catch (e: Exception) {
+                Log.e("ContrilBackend", "Error moving message to trash", e)
+                false
+            }
+        }
     }
 
     private fun parseGmailMessages(jsonBody: String, authToken: String): List<EmailSummary> {

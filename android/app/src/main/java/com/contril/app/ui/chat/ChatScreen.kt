@@ -256,6 +256,25 @@ fun ChatScreen(
                                                 accentColor = ContrilBlue
                                             )
 
+                                             // Ray-Style Agentic Plan Card
+                                            if (message.proposedPlan != null) {
+                                                AgenticPlanCard(
+                                                    plan = message.proposedPlan,
+                                                    onToggleItem = { itemId ->
+                                                        viewModel.togglePlanItemSelection(message.id, itemId)
+                                                    },
+                                                    onApprove = {
+                                                        viewModel.approveAndExecutePlan(message.id, context)
+                                                    },
+                                                    onCancel = {
+                                                        viewModel.cancelPlan(message.id)
+                                                    },
+                                                    onUndo = {
+                                                        viewModel.undoPlanAction(message.id)
+                                                    }
+                                                )
+                                            }
+
                                             // Comparison Card
                                             if (message.comparisonResult != null) {
                                                 ComparisonResultsView(

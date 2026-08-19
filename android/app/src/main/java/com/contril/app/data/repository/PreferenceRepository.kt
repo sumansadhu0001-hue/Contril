@@ -9,9 +9,13 @@ import com.contril.app.data.model.EmailSummary
 import com.contril.app.data.model.ExtractedEvent
 import com.contril.app.data.model.OvernightActivityLog
 import com.contril.app.data.model.OvernightServiceState
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.concurrent.TimeUnit
@@ -121,12 +125,19 @@ class PreferenceRepository(context: Context? = null) {
             val name = prefs?.getString("user_name", "") ?: ""
             val avatar = prefs?.getString("user_avatar", null)
             val createdAt = prefs?.getString("user_created_at", null)
+            val hasCompleted = prefs?.getBoolean("has_completed_onboarding", false) ?: false
+            val role = prefs?.getString("user_role", "Executive") ?: "Executive"
+            val goalsStr = prefs?.getString("user_goals", "") ?: ""
+            val goals = if (goalsStr.isNotBlank()) goalsStr.split(",").map { it.trim() } else emptyList()
             com.contril.app.data.model.UserProfile(
                 id = id,
                 email = email,
                 name = name,
                 avatarUrl = avatar,
-                createdAt = createdAt
+                createdAt = createdAt,
+                hasCompletedOnboarding = hasCompleted,
+                role = role,
+                goals = goals
             )
         } catch (_: Throwable) {
             null
@@ -152,6 +163,13 @@ class PreferenceRepository(context: Context? = null) {
                 }
                 if (user.createdAt != null) {
                     editor?.putString("user_created_at", user.createdAt)
+                }
+                if (user.hasCompletedOnboarding) {
+                    editor?.putBoolean("has_completed_onboarding", true)
+                    editor?.putString("user_role", user.role)
+                    editor?.putString("user_goals", user.goals.joinToString(","))
+                    _hasCompletedOnboarding.value = true
+                    _userRole.value = user.role
                 }
             } else {
                 editor?.remove("user_id")
@@ -315,6 +333,40 @@ class PreferenceRepository(context: Context? = null) {
         }
         _hasCompletedOnboarding.value = completed
         _userRole.value = role
+
+        val token = _userSessionToken.value
+        if (!token.isNullOrBlank()) {
+            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                try {
+                    com.contril.app.data.api.SupabaseAuthClient.updateUserMetadata(
+                        accessToken = token,
+                        completed = completed,
+                        role = role,
+                        goals = goals,
+                        fullName = _currentUser.value?.name
+                    )
+                } catch (e: Throwable) {
+                    Log.w("ContrilPref", "Background onboarding metadata sync failed: ${e.message}")
+                }
+            }
+        }
+    }
+
+    suspend fun syncOnboardingStatusFromCloud(): Boolean = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        val token = _userSessionToken.value ?: return@withContext false
+        try {
+            val user = com.contril.app.data.api.SupabaseAuthClient.getUserProfile(token)
+            if (user != null) {
+                if (user.hasCompletedOnboarding) {
+                    setOnboardingCompleted(true, user.role, user.goals)
+                    saveUserSession(token, user)
+                    return@withContext true
+                }
+            }
+        } catch (e: Throwable) {
+            Log.w("ContrilPref", "syncOnboardingStatusFromCloud error: ${e.message}")
+        }
+        false
     }
 
     fun updateUserRole(role: String) {

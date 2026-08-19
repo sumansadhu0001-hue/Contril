@@ -56,6 +56,14 @@ class ContrilRepository(
                 )
             }
             is com.contril.app.data.api.ToolExecutionResult.Success -> {
+                if (toolResult.proposedPlan != null) {
+                    return CommandResponse(
+                        conversationId = "plan_${java.util.UUID.randomUUID().toString().take(6)}",
+                        responseText = toolResult.summary,
+                        steps = steps,
+                        proposedPlan = toolResult.proposedPlan
+                    )
+                }
                 if (toolResult.pendingAction != null) {
                     return CommandResponse(
                         conversationId = "tool_act_${java.util.UUID.randomUUID().toString().take(6)}",

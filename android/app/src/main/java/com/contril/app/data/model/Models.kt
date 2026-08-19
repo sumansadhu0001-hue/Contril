@@ -44,7 +44,48 @@ data class CommandResponse(
     val conversationId: String,
     val responseText: String,
     val steps: List<ExecutionStep> = emptyList(),
-    val pendingAction: PendingAction? = null
+    val pendingAction: PendingAction? = null,
+    val proposedPlan: AgenticExecutionPlan? = null
+)
+
+enum class PlanActionType {
+    PRICE_COMPARISON,
+    EMAIL_BULK_ACTION,
+    EMAIL_DRAFT_REPLY,
+    CALENDAR_SCHEDULE,
+    TASK_ACTION,
+    GENERAL_PROPOSAL
+}
+
+enum class PlanStatus {
+    PROPOSED,
+    APPROVED,
+    EXECUTING,
+    COMPLETED,
+    CANCELLED
+}
+
+data class PlanItem(
+    val id: String,
+    val title: String,
+    val subtitle: String,
+    val sourceData: String? = null,
+    val isSelected: Boolean = true,
+    val isDestructive: Boolean = false
+)
+
+data class AgenticExecutionPlan(
+    val id: String = java.util.UUID.randomUUID().toString(),
+    val title: String,
+    val description: String,
+    val actionType: PlanActionType,
+    val items: List<PlanItem> = emptyList(),
+    val status: PlanStatus = PlanStatus.PROPOSED,
+    val executionSummary: String? = null,
+    val canUndo: Boolean = false,
+    val undoActionId: String? = null,
+    val requiresTypedConfirmation: Boolean = false,
+    val confirmationKeyword: String = "CONFIRM"
 )
 
 data class PendingAction(
@@ -174,7 +215,10 @@ data class UserProfile(
     val email: String = "",
     val name: String = "",
     val avatarUrl: String? = null,
-    val createdAt: String? = null
+    val createdAt: String? = null,
+    val hasCompletedOnboarding: Boolean = false,
+    val role: String = "Executive",
+    val goals: List<String> = emptyList()
 ) {
     val initials: String
         get() {

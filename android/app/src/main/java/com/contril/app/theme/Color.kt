@@ -50,6 +50,7 @@ val TextMutedDark = Color(0xFF9CA3AF)
 
 // Status Colors
 val StatusActive = Color(0xFF10B981)                   // Emerald Green
+val SuccessGreen = Color(0xFF10B981)
 val StatusWarning = Color(0xFFF59E0B)                  // Amber
 val StatusError = Color(0xFFEF4444)                    // Crimson Red
 val StatusInfo = Color(0xFF3B82F6)                     // Blue

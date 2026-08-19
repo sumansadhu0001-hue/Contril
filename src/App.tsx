@@ -182,10 +182,22 @@ export default function App() {
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
+        const meta = session.user.user_metadata;
+        const hasCompletedOnboarding = Boolean(
+          meta?.has_completed_onboarding || 
+          meta?.onboarding_completed || 
+          localStorage.getItem('contril_onboarding_completed') === 'true'
+        );
+
+        if (hasCompletedOnboarding) {
+          localStorage.setItem('contril_onboarding_completed', 'true');
+          setShowOnboarding(false);
+        }
+
         const mappedUser: AuthUser = {
           id: session.user.id,
           email: session.user.email || '',
-          name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0],
+          name: meta?.full_name || session.user.email?.split('@')[0],
           provider: session.user.app_metadata?.provider,
           createdAt: session.user.created_at
         };
@@ -197,10 +209,22 @@ export default function App() {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
+        const meta = session.user.user_metadata;
+        const hasCompletedOnboarding = Boolean(
+          meta?.has_completed_onboarding || 
+          meta?.onboarding_completed || 
+          localStorage.getItem('contril_onboarding_completed') === 'true'
+        );
+
+        if (hasCompletedOnboarding) {
+          localStorage.setItem('contril_onboarding_completed', 'true');
+          setShowOnboarding(false);
+        }
+
         const mappedUser: AuthUser = {
           id: session.user.id,
           email: session.user.email || '',
-          name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0],
+          name: meta?.full_name || session.user.email?.split('@')[0],
           provider: session.user.app_metadata?.provider,
           createdAt: session.user.created_at
         };
@@ -280,7 +304,7 @@ export default function App() {
     navigateTo('app');
   };
 
-  const handleOnboardingComplete = (data: any) => {
+  const handleOnboardingComplete = async (data: any) => {
     if (data) {
       setUserProfile(prev => ({
         ...prev,
@@ -291,6 +315,22 @@ export default function App() {
     }
     localStorage.setItem('contril_onboarding_completed', 'true');
     setShowOnboarding(false);
+
+    if (supabase) {
+      try {
+        await supabase.auth.updateUser({
+          data: {
+            has_completed_onboarding: true,
+            onboarding_completed: true,
+            user_role: data?.role || 'Executive',
+            full_name: data?.fullName,
+            company: data?.companyName
+          }
+        });
+      } catch (e) {
+        console.warn('[App] Failed to sync onboarding to Supabase:', e);
+      }
+    }
     navigateTo('app');
   };
 

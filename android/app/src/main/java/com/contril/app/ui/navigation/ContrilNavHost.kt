@@ -44,6 +44,9 @@ fun ContrilAppContent(
     // Startup Experience (Restores state, checks backend, initializes models)
     if (!isSplashComplete) {
         androidx.compose.runtime.LaunchedEffect(Unit) {
+            try {
+                prefRepository.syncOnboardingStatusFromCloud()
+            } catch (_: Throwable) {}
             kotlinx.coroutines.delay(1200) // Brief graceful startup animation
             isSplashComplete = true
         }

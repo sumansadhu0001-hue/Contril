@@ -268,7 +268,8 @@ class AuthViewModel(
                     val user = UserProfile(
                         id = "usr_${System.currentTimeMillis()}",
                         email = email,
-                        name = if (state.fullName.isNotBlank()) state.fullName else email.substringBefore("@")
+                        name = if (state.fullName.isNotBlank()) state.fullName else email.substringBefore("@"),
+                        hasCompletedOnboarding = false
                     )
                     val token = "token_${System.currentTimeMillis()}"
                     prefRepository.saveUserSession(token, user)
@@ -292,13 +293,18 @@ class AuthViewModel(
                 )
                 val token = resendResult.token ?: "session_${System.currentTimeMillis()}"
                 prefRepository.saveUserSession(token, user)
-                _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        authenticatedUser = user,
-                        authenticatedToken = token,
-                        mode = AuthMode.ONBOARDING_ROLE
-                    )
+                if (user.hasCompletedOnboarding) {
+                    _uiState.update { it.copy(isLoading = false) }
+                    onSuccess()
+                } else {
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            authenticatedUser = user,
+                            authenticatedToken = token,
+                            mode = AuthMode.ONBOARDING_ROLE
+                        )
+                    }
                 }
                 return@launch
             }
@@ -312,13 +318,18 @@ class AuthViewModel(
                 )
                 val token = customResult.token ?: "session_${System.currentTimeMillis()}"
                 prefRepository.saveUserSession(token, user)
-                _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        authenticatedUser = user,
-                        authenticatedToken = token,
-                        mode = AuthMode.ONBOARDING_ROLE
-                    )
+                if (user.hasCompletedOnboarding) {
+                    _uiState.update { it.copy(isLoading = false) }
+                    onSuccess()
+                } else {
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            authenticatedUser = user,
+                            authenticatedToken = token,
+                            mode = AuthMode.ONBOARDING_ROLE
+                        )
+                    }
                 }
             } else if (customResult.success && state.isPasswordResetMode) {
                 _uiState.update {
@@ -443,12 +454,22 @@ class AuthViewModel(
         )
 
         val updatedUser = user.copy(
-            name = if (state.fullName.isNotBlank()) state.fullName else user.name
+            name = if (state.fullName.isNotBlank()) state.fullName else user.name,
+            hasCompletedOnboarding = true,
+            role = state.selectedRole.ifBlank { "Executive" }
         )
 
+        val token = state.authenticatedToken ?: prefRepository.userSessionToken.value ?: "session_${System.currentTimeMillis()}"
+
         prefRepository.saveUserSession(
-            token = state.authenticatedToken ?: "session_${System.currentTimeMillis()}",
+            token = token,
             user = updatedUser
+        )
+
+        prefRepository.setOnboardingCompleted(
+            completed = true,
+            role = state.selectedRole.ifBlank { "Executive" },
+            goals = listOf("Email", "Calendar", "Tasks")
         )
 
         _uiState.update { it.copy(isLoading = false) }

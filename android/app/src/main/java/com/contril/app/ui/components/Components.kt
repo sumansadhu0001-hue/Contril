@@ -552,6 +552,215 @@ fun ActionApprovalCard(
 }
 
 @Composable
+fun AgenticPlanCard(
+    plan: com.contril.app.data.model.AgenticExecutionPlan,
+    onToggleItem: (String) -> Unit,
+    onApprove: () -> Unit,
+    onCancel: () -> Unit,
+    onUndo: (() -> Unit)? = null,
+    modifier: Modifier = Modifier
+) {
+    var typedConfirmationText by remember { mutableStateOf("") }
+    val selectedCount = plan.items.count { it.isSelected }
+    val isTypedValid = !plan.requiresTypedConfirmation || typedConfirmationText.trim().equals(plan.confirmationKeyword, ignoreCase = true)
+
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        color = ContrilLightSurface,
+        border = BorderStroke(
+            1.dp,
+            if (plan.status == com.contril.app.data.model.PlanStatus.COMPLETED) SuccessGreen.copy(alpha = 0.5f) else ContrilBlue.copy(alpha = 0.35f)
+        ),
+        shadowElevation = 4.dp
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // Header
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = when (plan.status) {
+                        com.contril.app.data.model.PlanStatus.COMPLETED -> SuccessGreen.copy(alpha = 0.12f)
+                        com.contril.app.data.model.PlanStatus.CANCELLED -> Color(0xFF9CA3AF).copy(alpha = 0.15f)
+                        else -> ContrilBlue.copy(alpha = 0.12f)
+                    }
+                ) {
+                    Text(
+                        text = when (plan.status) {
+                            com.contril.app.data.model.PlanStatus.COMPLETED -> "✓ PLAN EXECUTED"
+                            com.contril.app.data.model.PlanStatus.CANCELLED -> "PLAN CANCELLED"
+                            else -> "PROPOSED ACTION PLAN"
+                        },
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.5.sp
+                        ),
+                        color = when (plan.status) {
+                            com.contril.app.data.model.PlanStatus.COMPLETED -> SuccessGreen
+                            com.contril.app.data.model.PlanStatus.CANCELLED -> Color(0xFF6B7280)
+                            else -> ContrilBlue
+                        },
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                    )
+                }
+
+                if (plan.status == com.contril.app.data.model.PlanStatus.PROPOSED && plan.items.isNotEmpty()) {
+                    Text(
+                        text = "$selectedCount/${plan.items.size} selected",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = TextSecondaryLight
+                    )
+                }
+            }
+
+            // Title & Description
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    text = plan.title,
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = TextPrimaryLight
+                )
+                Text(
+                    text = plan.description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextSecondaryLight
+                )
+            }
+
+            // Items Checkbox List (Expandable / Selectable)
+            if (plan.items.isNotEmpty() && plan.status == com.contril.app.data.model.PlanStatus.PROPOSED) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Color(0xFFF9FAFB))
+                        .padding(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    plan.items.forEach { item ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { onToggleItem(item.id) }
+                                .padding(horizontal = 8.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Checkbox(
+                                checked = item.isSelected,
+                                onCheckedChange = { onToggleItem(item.id) },
+                                colors = CheckboxDefaults.colors(
+                                    checkedColor = if (item.isDestructive) Color(0xFFEF4444) else ContrilBlue,
+                                    uncheckedColor = Color(0xFF9CA3AF)
+                                ),
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = item.title,
+                                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
+                                    color = if (item.isSelected) TextPrimaryLight else Color(0xFF9CA3AF)
+                                )
+                                Text(
+                                    text = item.subtitle,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = if (item.isSelected) TextSecondaryLight else Color(0xFFD1D5DB),
+                                    maxLines = 1
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Typed Confirmation Field for destructive actions
+            if (plan.requiresTypedConfirmation && plan.status == com.contril.app.data.model.PlanStatus.PROPOSED) {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        text = "Type \"${plan.confirmationKeyword}\" to confirm destructive deletion:",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                        color = Color(0xFFDC2626)
+                    )
+                    OutlinedTextField(
+                        value = typedConfirmationText,
+                        onValueChange = { typedConfirmationText = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        placeholder = { Text(plan.confirmationKeyword, color = Color(0xFF9CA3AF)) },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color(0xFFDC2626),
+                            unfocusedBorderColor = Color(0xFFD1D5DB)
+                        )
+                    )
+                }
+            }
+
+            // Post-Execution Summary & Undo
+            if (plan.status == com.contril.app.data.model.PlanStatus.COMPLETED) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(SuccessGreen.copy(alpha = 0.10f))
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = plan.executionSummary ?: "Action completed successfully.",
+                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
+                        color = SuccessGreen,
+                        modifier = Modifier.weight(1f)
+                    )
+                    if (plan.canUndo && onUndo != null) {
+                        TextButton(onClick = onUndo) {
+                            Text("Undo", color = ContrilBlue, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+
+            // Action Buttons
+            if (plan.status == com.contril.app.data.model.PlanStatus.PROPOSED) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = onCancel,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text("Cancel", color = TextSecondaryLight)
+                    }
+
+                    Button(
+                        onClick = onApprove,
+                        enabled = selectedCount > 0 && isTypedValid,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (plan.items.any { it.isDestructive }) Color(0xFFEF4444) else ContrilBlue,
+                            contentColor = Color.White
+                        )
+                    ) {
+                        Text("Approve & Execute ($selectedCount)", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold))
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 fun ShimmerBox(
     modifier: Modifier = Modifier,
     shape: androidx.compose.ui.graphics.Shape = RoundedCornerShape(8.dp)
