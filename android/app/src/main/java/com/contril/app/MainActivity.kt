@@ -79,15 +79,19 @@ class MainActivity : ComponentActivity() {
                     val success = googleOAuthManager.handleAuthorizationResponse(intent)
                     if (success) {
                         val freshToken = googleOAuthManager.getFreshAccessToken()
+                        val refreshToken = googleOAuthManager.getRefreshToken()
                         if (!freshToken.isNullOrBlank()) {
-                            prefRepository.saveGoogleProviderTokens(providerToken = freshToken, refreshToken = null)
+                            prefRepository.saveGoogleProviderTokens(
+                                providerToken = freshToken,
+                                refreshToken = refreshToken
+                            )
                             val currentUser = prefRepository.currentUser.value
                             val email = currentUser?.email ?: "connected"
                             prefRepository.connectService("google_workspace", email)
                             prefRepository.connectService("gmail", email)
                             prefRepository.connectService("calendar", email)
                             prefRepository.connectService("drive", email)
-                            Log.i("ContrilMain", "AppAuth PKCE Google OAuth flow completed successfully and verified.")
+                            Log.i("ContrilMain", "AppAuth PKCE Google OAuth flow completed successfully with scopes: ${googleOAuthManager.getGrantedScopes()}")
                             return@launch
                         }
                     }

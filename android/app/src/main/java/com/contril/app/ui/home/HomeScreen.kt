@@ -74,12 +74,13 @@ fun HomeScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp),
         contentPadding = PaddingValues(top = 8.dp, bottom = 32.dp)
     ) {
-        // 0. App-Wide Real-Time Offline Banner
+        // 0. App-Wide Real-Time Offline Banner & Remote Update Banner
         item {
             OfflineBanner(
                 isOnline = uiState.isOnline,
                 hasCachedData = true
             )
+            DismissibleAppUpdateBanner()
         }
 
         // 1. Executive Greeting Section
@@ -91,9 +92,21 @@ fun HomeScreen(
                 else -> "Good evening"
             }
 
+            // Real-data driven secondary status line
+            val greetingSubtitle = when {
+                uiState.connectedServicesCount == 0 ->
+                    "Connect your executive tools to activate autonomous intelligence."
+                uiState.priorities.isNotEmpty() ->
+                    "${uiState.priorities.size} priority item${if (uiState.priorities.size > 1) "s" else ""} require your attention today."
+                else ->
+                    "You're all caught up across your ${uiState.connectedServicesCount} connected workspace tools."
+            }
+
             Column(
-                modifier = Modifier.padding(top = 4.dp, bottom = 4.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp, bottom = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -105,6 +118,7 @@ fun HomeScreen(
                         style = MaterialTheme.typography.labelSmall.copy(
                             fontFamily = FontFamily.Monospace,
                             fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp,
                             letterSpacing = 1.5.sp
                         ),
                         color = ContrilBlue
@@ -117,19 +131,19 @@ fun HomeScreen(
                         onClick = onNavigateToPermissions
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Outlined.Shield,
                                 contentDescription = "Permissions",
                                 tint = ContrilBlue,
-                                modifier = Modifier.size(13.dp)
+                                modifier = Modifier.size(16.dp)
                             )
                             Text(
                                 text = "Privacy & Permissions",
-                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 13.sp, fontWeight = FontWeight.Medium),
                                 color = TextSecondaryLight
                             )
                         }
@@ -140,19 +154,16 @@ fun HomeScreen(
                     text = "$timeGreeting,\n$firstName.",
                     style = MaterialTheme.typography.headlineLarge.copy(
                         fontWeight = FontWeight.Bold,
+                        fontSize = 28.sp,
                         letterSpacing = (-0.5).sp,
-                        lineHeight = 36.sp
+                        lineHeight = 34.sp
                     ),
                     color = TextPrimaryLight
                 )
 
                 Text(
-                    text = if (uiState.connectedServicesCount == 0) {
-                        "Connect your executive tools to activate autonomous intelligence."
-                    } else {
-                        "All caught up across your ${uiState.connectedServicesCount} connected tools."
-                    },
-                    style = MaterialTheme.typography.bodyMedium,
+                    text = greetingSubtitle,
+                    style = MaterialTheme.typography.bodyMedium.copy(fontSize = 15.sp),
                     color = TextSecondaryLight
                 )
             }
@@ -171,8 +182,8 @@ fun HomeScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(14.dp),
+                            .padding(20.dp),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
@@ -181,16 +192,16 @@ fun HomeScreen(
                         )
                         Column(
                             modifier = Modifier.weight(1f),
-                            verticalArrangement = Arrangement.spacedBy(2.dp)
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
                             Text(
                                 text = java.lang.String.format(festivalGreeting.greetingTemplate, firstName),
-                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold, fontSize = 17.sp),
                                 color = Color(0xFF92400E)
                             )
                             Text(
                                 text = festivalGreeting.subtitle,
-                                style = MaterialTheme.typography.bodySmall,
+                                style = MaterialTheme.typography.bodySmall.copy(fontSize = 13.sp),
                                 color = Color(0xFFB45309)
                             )
                         }
@@ -199,30 +210,30 @@ fun HomeScreen(
             }
         }
 
-        // 2. Today's Briefing Hero Card
+        // 2. Today's Briefing Hero Card (Minimum 20px padding, 24px icon, 17px/15px typography)
         item {
             Surface(
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(18.dp),
                 color = ContrilLightSurface,
-                shadowElevation = 6.dp,
+                shadowElevation = 4.dp,
                 modifier = Modifier.fillMaxWidth(),
                 onClick = onNavigateToBriefing
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(18.dp),
+                        .padding(20.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Row(
                         modifier = Modifier.weight(1f),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(14.dp)
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(42.dp)
+                                .size(48.dp)
                                 .clip(CircleShape)
                                 .background(ContrilBlue.copy(alpha = 0.10f)),
                             contentAlignment = Alignment.Center
@@ -231,19 +242,19 @@ fun HomeScreen(
                                 imageVector = Icons.AutoMirrored.Outlined.Article,
                                 contentDescription = null,
                                 tint = ContrilBlue,
-                                modifier = Modifier.size(22.dp)
+                                modifier = Modifier.size(24.dp)
                             )
                         }
 
-                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text(
                                 text = "Today's Briefing",
-                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold, fontSize = 17.sp),
                                 color = TextPrimaryLight
                             )
                             Text(
                                 text = "View schedule, meetings, and priority actions",
-                                style = MaterialTheme.typography.bodySmall,
+                                style = MaterialTheme.typography.bodySmall.copy(fontSize = 13.sp),
                                 color = TextSecondaryLight
                             )
                         }
@@ -253,7 +264,7 @@ fun HomeScreen(
                         imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                         contentDescription = "View Briefing",
                         tint = ContrilBlue,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(24.dp)
                     )
                 }
             }
@@ -443,46 +454,46 @@ fun HomeScreen(
 @Composable
 fun PriorityRowItem(item: PriorityItem) {
     Surface(
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(16.dp),
         color = ContrilLightSurface,
-        shadowElevation = 4.dp,
+        shadowElevation = 3.dp,
         modifier = Modifier.fillMaxWidth()
     ) {
         Row(
-            modifier = Modifier.padding(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.padding(20.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
                 modifier = Modifier
-                    .size(8.dp)
+                    .size(10.dp)
                     .clip(CircleShape)
                     .background(if (item.isUrgent) StatusError else ContrilBlue)
             )
 
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
                     text = item.title,
-                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold, fontSize = 17.sp),
                     color = TextPrimaryLight
                 )
                 Text(
                     text = item.description,
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.typography.bodyMedium.copy(fontSize = 15.sp),
                     color = TextSecondaryLight,
-                    maxLines = 1
+                    maxLines = 2
                 )
             }
 
             Surface(
-                shape = RoundedCornerShape(6.dp),
+                shape = RoundedCornerShape(8.dp),
                 color = ContrilLightBgBottom
             ) {
                 Text(
                     text = item.serviceTag.uppercase(),
-                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 13.sp, fontWeight = FontWeight.Medium),
                     color = TextSecondaryLight,
-                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                 )
             }
         }

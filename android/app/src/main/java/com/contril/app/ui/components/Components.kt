@@ -863,3 +863,118 @@ fun TaskRowSkeleton() {
         }
     }
 }
+
+@Composable
+fun PriceComparisonSkeleton() {
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                ShimmerBox(modifier = Modifier.size(width = 140.dp, height = 18.dp))
+                ShimmerBox(modifier = Modifier.size(width = 80.dp, height = 24.dp), shape = RoundedCornerShape(6.dp))
+            }
+            ShimmerBox(modifier = Modifier.fillMaxWidth(0.9f).height(14.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                ShimmerBox(modifier = Modifier.weight(1f).height(48.dp), shape = RoundedCornerShape(10.dp))
+                ShimmerBox(modifier = Modifier.weight(1f).height(48.dp), shape = RoundedCornerShape(10.dp))
+            }
+        }
+    }
+}
+
+@Composable
+fun ChatMessageSkeleton(isUser: Boolean = false) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp),
+        horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start
+    ) {
+        Surface(
+            shape = RoundedCornerShape(
+                topStart = 16.dp,
+                topEnd = 16.dp,
+                bottomStart = if (isUser) 16.dp else 4.dp,
+                bottomEnd = if (isUser) 4.dp else 16.dp
+            ),
+            color = MaterialTheme.colorScheme.surface,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
+            modifier = Modifier.fillMaxWidth(if (isUser) 0.65f else 0.85f)
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                ShimmerBox(modifier = Modifier.fillMaxWidth(0.9f).height(14.dp))
+                ShimmerBox(modifier = Modifier.fillMaxWidth(0.6f).height(14.dp))
+            }
+        }
+    }
+}
+
+@Composable
+fun PlanCardSkeleton() {
+    Surface(
+        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                ShimmerBox(modifier = Modifier.size(width = 120.dp, height = 22.dp))
+                ShimmerBox(modifier = Modifier.size(width = 70.dp, height = 20.dp), shape = RoundedCornerShape(8.dp))
+            }
+            ShimmerBox(modifier = Modifier.size(width = 100.dp, height = 26.dp))
+            ShimmerBox(modifier = Modifier.fillMaxWidth(0.85f).height(14.dp))
+            ShimmerBox(modifier = Modifier.fillMaxWidth().height(44.dp), shape = RoundedCornerShape(12.dp))
+        }
+    }
+}
+
+@Composable
+fun BriefingCardSkeleton() {
+    Surface(
+        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.surface,
+        shadowElevation = 3.dp,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                ShimmerBox(modifier = Modifier.size(width = 140.dp, height = 18.dp))
+                ShimmerBox(modifier = Modifier.size(width = 60.dp, height = 14.dp))
+            }
+            ShimmerBox(modifier = Modifier.fillMaxWidth().height(14.dp))
+            ShimmerBox(modifier = Modifier.fillMaxWidth(0.7f).height(14.dp))
+        }
+    }
+}

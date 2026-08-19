@@ -35,11 +35,13 @@ class GoogleOAuthManager(private val context: Context) {
         // Redirect URI registered identically in Google Cloud Console & AndroidManifest.xml
         val REDIRECT_URI: Uri = Uri.parse("com.contril.app.debug:/oauth2redirect")
 
-        // Scopes for Gmail Intelligence, Sending, and Trash Deletion
+        // Scopes for Gmail Intelligence, Sending, Trash Deletion, and Calendar
         val GMAIL_SCOPES = listOf(
             "https://www.googleapis.com/auth/gmail.readonly",
             "https://www.googleapis.com/auth/gmail.send",
             "https://www.googleapis.com/auth/gmail.modify",
+            "https://www.googleapis.com/auth/calendar.events",
+            "https://www.googleapis.com/auth/calendar.readonly",
             "https://www.googleapis.com/auth/userinfo.email",
             "https://www.googleapis.com/auth/userinfo.profile",
             "openid"
@@ -84,10 +86,40 @@ class GoogleOAuthManager(private val context: Context) {
             .apply()
     }
 
+    fun hasAllRequiredScopes(): Boolean {
+        val grantedScopeString = authState.scope ?: ""
+        val grantedList = grantedScopeString.split(" ").map { it.trim() }.filter { it.isNotEmpty() }
+        val requiredCore = listOf(
+            "https://www.googleapis.com/auth/gmail.readonly",
+            "https://www.googleapis.com/auth/gmail.send",
+            "https://www.googleapis.com/auth/gmail.modify"
+        )
+        return requiredCore.all { req ->
+            grantedList.contains(req) || grantedList.any { granted -> granted.contains(req.substringAfterLast("/")) }
+        }
+    }
+
+    fun getGrantedScopes(): List<String> {
+        val grantedScopeString = authState.scope ?: ""
+        return grantedScopeString.split(" ").map { it.trim() }.filter { it.isNotEmpty() }
+    }
+
+    fun getRefreshToken(): String? {
+        return authState.refreshToken
+    }
+
     /**
-     * Creates an RFC 7636 PKCE Authorization Request Intent
+     * Creates an RFC 7636 PKCE Authorization Request Intent.
+     * Only triggers prompt=consent if the account is missing required scopes or has never consented before.
      */
-    fun createAuthorizationIntent(clientId: String = "896172605886-contril-android.apps.googleusercontent.com"): Intent {
+    fun createAuthorizationIntent(
+        clientId: String = "896172605886-contril-android.apps.googleusercontent.com",
+        forceConsent: Boolean = false
+    ): Intent {
+        val missingScopes = !hasAllRequiredScopes()
+        val needsConsent = forceConsent || missingScopes || !authState.isAuthorized
+        Log.i(TAG, "Creating OAuth intent. isAuthorized=${authState.isAuthorized}, missingScopes=$missingScopes, promptConsent=$needsConsent")
+
         val authRequestBuilder = AuthorizationRequest.Builder(
             serviceConfig,
             clientId,
@@ -95,8 +127,10 @@ class GoogleOAuthManager(private val context: Context) {
             REDIRECT_URI
         ).apply {
             setScopes(GMAIL_SCOPES)
-            setPrompt("consent")
-            setAdditionalParameters(mapOf("access_type" to "offline"))
+            if (needsConsent) {
+                setPrompt("consent")
+            }
+            setAdditionalParameters(mapOf("access_type" to "offline", "include_granted_scopes" to "true"))
         }
 
         val authRequest = authRequestBuilder.build()

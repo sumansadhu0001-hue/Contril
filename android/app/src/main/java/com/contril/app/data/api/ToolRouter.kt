@@ -28,13 +28,16 @@ class ToolRouter(
 
     suspend fun evaluateAndExecute(prompt: String): Pair<List<ExecutionStep>, ToolExecutionResult?> {
         val steps = mutableListOf<ExecutionStep>()
+        val providerToken = ContrilBackendClient.getFreshGoogleToken(prefRepository)
         val connectedServices = prefRepository?.connectedServices?.value ?: emptyMap()
 
-        val isGmailConnected = connectedServices.containsKey("gmail") ||
+        val isGmailConnected = !providerToken.isNullOrBlank() ||
+                connectedServices.containsKey("gmail") ||
                 connectedServices.containsKey("google_workspace") ||
                 connectedServices.containsKey("google")
 
-        val isCalendarConnected = connectedServices.containsKey("calendar") ||
+        val isCalendarConnected = !providerToken.isNullOrBlank() ||
+                connectedServices.containsKey("calendar") ||
                 connectedServices.containsKey("google_workspace") ||
                 connectedServices.containsKey("google")
 
@@ -99,13 +102,16 @@ class ToolRouter(
                 )
             }
 
-            val token = prefRepository?.userSessionToken?.value
-            if (token.isNullOrBlank()) {
-                return Pair(steps, ToolExecutionResult.Failure("Session expired. Please re-authenticate Google Workspace in Profile Hub."))
+            steps.add(ExecutionStep("b2", "Fetching live inbox & calendar feeds", "complete"))
+            val emails = if (isGmailConnected && !providerToken.isNullOrBlank()) {
+                val (liveEmails, _) = ContrilBackendClient.fetchDirectGmailPage(providerToken, pageToken = null, maxResults = 10)
+                liveEmails
+            } else if (isGmailConnected && !prefRepository?.userSessionToken?.value.isNullOrBlank()) {
+                ContrilBackendClient.fetchDirectGmailMessages(prefRepository!!.userSessionToken.value!!)
+            } else {
+                emptyList()
             }
 
-            steps.add(ExecutionStep("b2", "Fetching live inbox & calendar feeds", "complete"))
-            val emails = if (isGmailConnected) ContrilBackendClient.fetchDirectGmailMessages(token) else emptyList()
             val calResult = if (isCalendarConnected) (calendarRepository?.refreshCalendar() ?: ApiResult.Success(emptyList())) else ApiResult.Success(emptyList())
             val tasks = taskRepository?.tasks?.value?.filter { !it.isCompleted } ?: emptyList()
 
@@ -136,7 +142,7 @@ class ToolRouter(
                 
                 STRICT GROUNDING DIRECTIVES:
                 1. Base your briefing EXCLUSIVELY and ENTIRELY on the real emails, calendar meetings, and tasks provided above.
-                2. CRITICAL SAFEGUARD: NEVER invent, assume, or hallucinate any person, company, meeting, or document not present in the data above. Specifically DO NOT mention Sarah Jenkins, Marcus Vance, Apex Holdings, or any fictional deliverables.
+                2. CRITICAL SAFEGUARD: NEVER invent, assume, or hallucinate any person, company, meeting, or document not present in the data above.
                 3. If there are real emails, summarize each real email by its actual sender and subject.
                 4. If there are no calendar meetings, explicitly state "No meetings scheduled today".
                 5. Output clean, elegant text with clean bullet points (•) and no markdown symbol clutter.
@@ -164,8 +170,16 @@ class ToolRouter(
             return Pair(steps, ToolExecutionResult.Success(GeminiClient.sanitizeCleanText(briefingText)))
         }
 
-        // 4. Email Communication Intent -> Structured Ray-Style Plan
-        if (decision.category == IntentCategory.EMAIL_COMMUNICATION) {
+        // 4. Email Communication Intent -> Live Inbox Fetch & Grounded Response / Execution Plan
+        val lowerPrompt = prompt.lowercase()
+        val isEmailQuery = decision.category == IntentCategory.EMAIL_COMMUNICATION ||
+                lowerPrompt.contains("email") ||
+                lowerPrompt.contains("inbox") ||
+                lowerPrompt.contains("unread") ||
+                lowerPrompt.contains("mail") ||
+                lowerPrompt.contains("message")
+
+        if (isEmailQuery) {
             steps.add(ExecutionStep("e1", "Routed to Gmail Engine", "complete"))
             if (!isGmailConnected) {
                 steps.add(ExecutionStep("e2", "Checked Gmail Connection: Disconnected", "complete"))
@@ -175,17 +189,50 @@ class ToolRouter(
                 )
             }
 
-            val token = prefRepository?.userSessionToken?.value
-            if (token.isNullOrBlank()) {
-                return Pair(steps, ToolExecutionResult.Failure("Session expired. Please re-authenticate in Profile Hub."))
+            steps.add(ExecutionStep("e2", "Fetching live inbox threads directly from Gmail", "complete"))
+            val emails = if (!providerToken.isNullOrBlank()) {
+                val (liveEmails, _) = ContrilBackendClient.fetchDirectGmailPage(providerToken, pageToken = null, maxResults = 10)
+                liveEmails
+            } else if (!prefRepository?.userSessionToken?.value.isNullOrBlank()) {
+                ContrilBackendClient.fetchDirectGmailMessages(prefRepository!!.userSessionToken.value!!)
+            } else {
+                emptyList()
             }
 
-            steps.add(ExecutionStep("e2", "Fetched live inbox threads", "complete"))
-            val emails = ContrilBackendClient.fetchDirectGmailMessages(token)
             if (emails.isEmpty()) {
-                return Pair(steps, ToolExecutionResult.Success("Your Gmail inbox is clear. No unread priority messages."))
+                return Pair(steps, ToolExecutionResult.Success("Your connected Gmail inbox is clear. No unread priority messages."))
+            }
+
+            // Check if user is asking for a summary / reading emails vs requesting an action (delete, clean, reply)
+            val isActionRequest = decision.proposedAction == "TRASH_EMAILS" ||
+                    decision.proposedAction == "SEND_DRAFT" ||
+                    lowerPrompt.contains("delete") ||
+                    lowerPrompt.contains("clean") ||
+                    lowerPrompt.contains("trash") ||
+                    lowerPrompt.contains("reply to") ||
+                    lowerPrompt.contains("send email")
+
+            if (!isActionRequest) {
+                // Return live truthful grounded summary
+                val emailItemsText = emails.take(5).mapIndexed { idx, em ->
+                    "${idx + 1}. From: ${em.sender}\n   Subject: \"${em.subject}\"\n   Snippet: \"${em.summarySnippet.take(150)}\""
+                }.joinToString("\n\n")
+
+                val summaryPrompt = """
+                    User asked: "$prompt"
+                    
+                    REAL UNREAD EMAILS FROM CONNECTED GMAIL INBOX:
+                    $emailItemsText
+                    
+                    Respond naturally and accurately summarizing the user's real unread emails above.
+                    DO NOT hallucinate any emails not in the list. Output clean, elegant text with bullet points (•).
+                """.trimIndent()
+
+                val summaryResult = GeminiClient.generateContent(summaryPrompt).getOrNull()
+                val finalSummary = summaryResult ?: ("Here is a summary of your unread emails:\n\n" + emails.take(5).joinToString("\n\n") { "• From ${it.sender}: \"${it.subject}\"\n  ${it.summarySnippet.take(120)}" })
+                return Pair(steps, ToolExecutionResult.Success(GeminiClient.sanitizeCleanText(finalSummary), rawData = emails))
             } else {
-                val isTrash = decision.proposedAction == "TRASH_EMAILS" || prompt.contains("delete", ignoreCase = true) || prompt.contains("clean", ignoreCase = true) || prompt.contains("trash", ignoreCase = true)
+                val isTrash = decision.proposedAction == "TRASH_EMAILS" || lowerPrompt.contains("delete") || lowerPrompt.contains("clean") || lowerPrompt.contains("trash")
                 val planItems = emails.take(10).map { em ->
                     PlanItem(
                         id = em.id,
@@ -212,7 +259,7 @@ class ToolRouter(
                 return Pair(
                     steps,
                     ToolExecutionResult.Success(
-                        summary = "Found ${emails.size} relevant email threads.",
+                        summary = "Found ${emails.size} relevant email threads in your connected Gmail.",
                         rawData = emails,
                         proposedPlan = plan
                     )

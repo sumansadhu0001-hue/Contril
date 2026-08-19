@@ -298,31 +298,13 @@ fun ChatScreen(
                             }
                         }
 
-                        // Active Loading / Comparing Indicator
+                        // Active Loading / Comparing Indicator with Skeleton Shimmer
                         if (uiState.isLoading || uiState.isComparingPrices) {
                             item {
-                                Surface(
-                                    shape = RoundedCornerShape(14.dp),
-                                    color = ContrilLightSurface,
-                                    shadowElevation = 3.dp,
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(14.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                                    ) {
-                                        CircularProgressIndicator(
-                                            modifier = Modifier.size(20.dp),
-                                            strokeWidth = 2.dp,
-                                            color = ContrilBlue
-                                        )
-                                        Text(
-                                            text = uiState.comparisonStatus ?: "Contril is reasoning...",
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = TextSecondaryLight
-                                        )
-                                    }
+                                if (uiState.isComparingPrices) {
+                                    PriceComparisonSkeleton()
+                                } else {
+                                    ChatMessageSkeleton(isUser = false)
                                 }
                             }
                         }
