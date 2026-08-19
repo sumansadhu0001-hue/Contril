@@ -21,18 +21,17 @@ class AIOrchestrator(
             )
         }
 
-        // 1. Quota & Freemium Governance Check
+        // 1. Quota & Token Governance Check
         if (!usageManager.canExecuteChat()) {
+            val used = prefRepository.getTodayDaytimeTokensUsed()
+            val limit = prefRepository.getPlanDailyTokenLimit()
             return CommandResponse(
                 conversationId = "paywall_limit",
-                responseText = "You have reached your daily Free tier limit (5 AI conversations). Upgrade to Contril Pro in Plans & Billing for unlimited access."
+                responseText = "You have reached your daily token budget (${String.format("%,d", used)} / ${String.format("%,d", limit)} tokens used today). Your balance will reset at midnight IST, or you can upgrade in Plans & Billing for a higher allocation."
             )
         }
 
-        // 2. Decrement/Record Usage
-        usageManager.recordChatExecution()
-
-        // 3. Autonomous Execution & Tool Routing
+        // 2. Autonomous Execution & Tool Routing (tokens deducted based on exact usageMetadata)
         val autonomy = prefRepository.autonomyMode.value
         val connectedServices = prefRepository.connectedServices.value
         return contrilRepository.executeCommand(cleanPrompt, autonomy, connectedServices)

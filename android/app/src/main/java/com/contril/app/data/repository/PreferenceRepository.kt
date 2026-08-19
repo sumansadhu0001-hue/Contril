@@ -18,6 +18,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody.Companion.toRequestBody
 import java.util.concurrent.TimeUnit
 
 class PreferenceRepository(context: Context? = null) {
@@ -442,36 +444,132 @@ class PreferenceRepository(context: Context? = null) {
         return status == com.contril.app.data.model.SubscriptionStatus.ACTIVE_PRO
     }
 
-    fun getTodayAiUsage(): Pair<Int, Int> {
-        val today = java.time.LocalDate.now().toString()
-        val savedDate = prefs?.getString("ai_usage_date", "") ?: ""
-        val count = if (savedDate == today) {
-            prefs?.getInt("ai_usage_count", 0) ?: 0
-        } else {
-            0
+    fun getTodayDateIST(): String {
+        return try {
+            val istZone = java.time.ZoneId.of("Asia/Kolkata")
+            java.time.LocalDate.now(istZone).toString()
+        } catch (_: Throwable) {
+            java.time.LocalDate.now().toString()
         }
-        val maxLimit = if (isProOrExecutive()) 1000 else 50
-        return Pair(count, maxLimit)
+    }
+
+    fun getPlanDailyTokenLimit(): Long {
+        return when {
+            isElitePlan() -> com.contril.app.data.config.PaymentConfig.ELITE_PLAN_DAYTIME_TOKENS
+            isProOrExecutive() -> com.contril.app.data.config.PaymentConfig.PRO_PLAN_DAILY_TOKENS
+            else -> com.contril.app.data.config.PaymentConfig.FREE_PLAN_DAILY_TOKENS
+        }
+    }
+
+    fun getOvernightTokenLimit(): Long {
+        return if (isElitePlan()) com.contril.app.data.config.PaymentConfig.ELITE_PLAN_OVERNIGHT_TOKENS else 0L
+    }
+
+    fun getTodayDaytimeTokensUsed(): Long {
+        val today = getTodayDateIST()
+        val savedDate = prefs?.getString("token_usage_date", "") ?: ""
+        return if (savedDate == today) {
+            prefs?.getLong("daytime_tokens_used", 0L) ?: 0L
+        } else {
+            0L
+        }
+    }
+
+    fun getTodayOvernightTokensUsed(): Long {
+        val today = getTodayDateIST()
+        val savedDate = prefs?.getString("token_usage_date", "") ?: ""
+        return if (savedDate == today) {
+            prefs?.getLong("overnight_tokens_used", 0L) ?: 0L
+        } else {
+            0L
+        }
+    }
+
+    private val _aiTokenUsageFlow = MutableStateFlow(getTodayDaytimeTokensUsed())
+    val aiTokenUsageFlow: StateFlow<Long> = _aiTokenUsageFlow.asStateFlow()
+
+    fun getTodayAiUsage(): Pair<Int, Int> {
+        val used = getTodayDaytimeTokensUsed().coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+        val limit = getPlanDailyTokenLimit().coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+        return Pair(used, limit)
+    }
+
+    fun canExecuteAiAction(isOvernight: Boolean = false, minRequired: Long = 500L): Boolean {
+        return if (isOvernight) {
+            if (!isElitePlan()) return false
+            val used = getTodayOvernightTokensUsed()
+            val limit = getOvernightTokenLimit()
+            (limit - used) >= minRequired
+        } else {
+            val used = getTodayDaytimeTokensUsed()
+            val limit = getPlanDailyTokenLimit()
+            (limit - used) >= minRequired
+        }
+    }
+
+    fun recordAiTokenUsage(tokensConsumed: Long, isOvernight: Boolean = false): Boolean {
+        val today = getTodayDateIST()
+        val savedDate = prefs?.getString("token_usage_date", "") ?: ""
+        
+        var daytimeUsed = if (savedDate == today) prefs?.getLong("daytime_tokens_used", 0L) ?: 0L else 0L
+        var overnightUsed = if (savedDate == today) prefs?.getLong("overnight_tokens_used", 0L) ?: 0L else 0L
+
+        if (isOvernight) {
+            overnightUsed += tokensConsumed
+        } else {
+            daytimeUsed += tokensConsumed
+        }
+
+        try {
+            prefs?.edit()
+                ?.putString("token_usage_date", today)
+                ?.putLong("daytime_tokens_used", daytimeUsed)
+                ?.putLong("overnight_tokens_used", overnightUsed)
+                ?.apply()
+        } catch (e: Throwable) {
+            Log.e("ContrilPref", "Failed to write token usage: ${e.message}")
+        }
+
+        _aiTokenUsageFlow.value = daytimeUsed
+
+        // Background server-side persistence to Supabase auth user metadata
+        val token = _userSessionToken.value
+        if (!token.isNullOrBlank()) {
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    val client = okhttp3.OkHttpClient()
+                    val jsonMediaType = "application/json; charset=utf-8".toMediaType()
+                    val body = org.json.JSONObject().apply {
+                        put("data", org.json.JSONObject().apply {
+                            put("daily_token_usage", org.json.JSONObject().apply {
+                                put("date", today)
+                                put("daytime_tokens_used", daytimeUsed)
+                                put("overnight_tokens_used", overnightUsed)
+                                put("plan", _currentPlan.value)
+                                put("updated_at", java.time.Instant.now().toString())
+                            })
+                        })
+                    }
+                    val req = okhttp3.Request.Builder()
+                        .url("https://qjyowojnvbfezznezxrr.supabase.co/auth/v1/user")
+                        .header("apikey", "sb_publishable_FPaC7OtL6iAsYiQ_JDS9IA_ZmTuYeyT")
+                        .header("Authorization", "Bearer $token")
+                        .header("Content-Type", "application/json")
+                        .put(body.toString().toRequestBody(jsonMediaType))
+                        .build()
+                    val res = client.newCall(req).execute()
+                    Log.i("ContrilPref", "Synced token usage to Supabase: code=${res.code}")
+                } catch (e: Throwable) {
+                    Log.w("ContrilPref", "Background Supabase token sync error: ${e.message}")
+                }
+            }
+        }
+
+        return true
     }
 
     fun incrementAiUsage(): Boolean {
-        if (isProOrExecutive()) return true
-        val today = java.time.LocalDate.now().toString()
-        val savedDate = prefs?.getString("ai_usage_date", "") ?: ""
-        var count = if (savedDate == today) prefs?.getInt("ai_usage_count", 0) ?: 0 else 0
-        if (count >= 50) {
-            return false // Free limit reached
-        }
-        count += 1
-        try {
-            prefs?.edit()
-                ?.putString("ai_usage_date", today)
-                ?.putInt("ai_usage_count", count)
-                ?.apply()
-        } catch (e: Throwable) {
-            Log.e("ContrilPref", "Failed to write AI usage: ${e.message}")
-        }
-        return true
+        return canExecuteAiAction()
     }
 
     // --- Google OAuth Provider Token Management ---

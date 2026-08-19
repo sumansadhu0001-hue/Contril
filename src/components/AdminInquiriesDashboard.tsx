@@ -688,6 +688,11 @@ export const AdminInquiriesDashboard: React.FC<{ onBackToApp: () => void }> = ({
                                 <td className="p-3">
                                   <div className="font-semibold text-white">{req.user_name || req.email?.split('@')[0] || 'User'}</div>
                                   <div className="text-[11px] text-neutral-400 font-mono">{req.email || 'No email'}</div>
+                                  {req.payment_link && req.payment_link.includes('REASON:') && (
+                                    <div className="mt-1 text-[10px] text-amber-200/90 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded max-w-xs">
+                                      💬 {req.payment_link.replace('CHAT_UPGRADE_REASON:', '').replace('MANUAL_ADMIN_VERIFICATION:', '').trim()}
+                                    </div>
+                                  )}
                                 </td>
                                 <td className="p-3">
                                   {req.phone_number ? (

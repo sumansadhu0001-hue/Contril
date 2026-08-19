@@ -14,6 +14,8 @@ import com.contril.app.data.repository.ContrilRepository
 import com.contril.app.data.repository.PreferenceRepository
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody.Companion.toRequestBody
 import java.util.UUID
 
 data class ChatMessage(
@@ -49,6 +51,13 @@ class ChatViewModel(
         ChatUiState(isOnline = networkMonitor?.isOnline?.value ?: true)
     )
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
+
+    private enum class UpgradeConversationStep {
+        AWAITING_PHONE,
+        AWAITING_REASON
+    }
+    private var currentUpgradeStep: UpgradeConversationStep? = null
+    private var collectedUpgradePhone: String = ""
 
     init {
         viewModelScope.launch {
@@ -121,6 +130,97 @@ class ChatViewModel(
             )
         }
 
+        // 0. Conversational Upgrade Request State Machine
+        if (currentUpgradeStep == UpgradeConversationStep.AWAITING_PHONE) {
+            val phone = prompt.trim()
+            collectedUpgradePhone = phone
+            currentUpgradeStep = UpgradeConversationStep.AWAITING_REASON
+            val reply = ChatMessage(
+                isUser = false,
+                text = "Got it. What is your primary use case or reason for wanting to upgrade?"
+            )
+            _uiState.update { it.copy(messages = it.messages + reply, isLoading = false) }
+            return
+        } else if (currentUpgradeStep == UpgradeConversationStep.AWAITING_REASON) {
+            val reason = prompt.trim()
+            currentUpgradeStep = null
+            viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                val user = prefRepository?.getUserProfile()
+                val userId = user?.id ?: "user_${java.util.UUID.randomUUID().toString().take(8)}"
+                val userEmail = user?.email ?: "user@contril.app"
+                val userName = user?.name ?: "Executive User"
+                val targetPlan = if (reason.contains("elite", ignoreCase = true)) "Autonomous Elite" else "Contril Pro"
+                val amount = if (targetPlan.contains("elite", ignoreCase = true)) 3999 else 899
+                val transactionRef = "CHAT_REQ_${java.util.UUID.randomUUID().toString().take(8).uppercase()}"
+                val requestTime = java.time.Instant.now().toString()
+
+                try {
+                    val bodyJson = org.json.JSONObject().apply {
+                        put("user_id", userId)
+                        put("email", userEmail)
+                        put("phone_number", collectedUpgradePhone)
+                        put("user_name", userName)
+                        put("plan", targetPlan)
+                        put("amount", amount)
+                        put("currency", "INR")
+                        put("status", "PENDING_APPROVAL")
+                        put("transaction_ref", transactionRef)
+                        put("payment_link", "CHAT_UPGRADE_REASON: $reason")
+                        put("requested_at", requestTime)
+                    }
+
+                    val token = prefRepository?.userSessionToken?.value
+                    val authHeader = if (!token.isNullOrBlank()) "Bearer $token" else "Bearer sb_publishable_FPaC7OtL6iAsYiQ_JDS9IA_ZmTuYeyT"
+                    val req = okhttp3.Request.Builder()
+                        .url("https://qjyowojnvbfezznezxrr.supabase.co/rest/v1/subscription_requests")
+                        .header("apikey", "sb_publishable_FPaC7OtL6iAsYiQ_JDS9IA_ZmTuYeyT")
+                        .header("Authorization", authHeader)
+                        .header("Content-Type", "application/json")
+                        .header("Prefer", "return=representation")
+                        .post(bodyJson.toString().toRequestBody("application/json; charset=utf-8".toMediaType()))
+                        .build()
+
+                    val client = okhttp3.OkHttpClient()
+                    val res = client.newCall(req).execute()
+                    android.util.Log.i("ChatViewModel", "Chat-based upgrade request submitted to Supabase (${res.code})")
+                } catch (e: Throwable) {
+                    android.util.Log.e("ChatViewModel", "Error submitting chat upgrade request: ${e.message}")
+                }
+            }
+
+            val reply = ChatMessage(
+                isUser = false,
+                text = "Thanks — I've sent your upgrade request to our team, you'll hear back within 24 hours."
+            )
+            _uiState.update { it.copy(messages = it.messages + reply, isLoading = false) }
+            return
+        }
+
+        // Check for new Upgrade Inquiry Intent
+        val lowerPrompt = prompt.lowercase()
+        val isUpgradeInquiry = lowerPrompt.contains("how do i get pro") ||
+            lowerPrompt.contains("how to get pro") ||
+            lowerPrompt.contains("want to upgrade") ||
+            lowerPrompt.contains("upgrade to pro") ||
+            lowerPrompt.contains("upgrade to elite") ||
+            lowerPrompt.contains("upgrade my account") ||
+            lowerPrompt.contains("what's the paid plan") ||
+            lowerPrompt.contains("what is the paid plan") ||
+            lowerPrompt.contains("how much is pro") ||
+            lowerPrompt.contains("buy pro") ||
+            lowerPrompt.contains("subscribe") ||
+            (lowerPrompt.contains("upgrade") && (lowerPrompt.contains("plan") || lowerPrompt.contains("pro") || lowerPrompt.contains("account") || lowerPrompt.contains("how") || lowerPrompt.contains("want")))
+
+        if (isUpgradeInquiry) {
+            currentUpgradeStep = UpgradeConversationStep.AWAITING_PHONE
+            val reply = ChatMessage(
+                isUser = false,
+                text = "I would be glad to help you upgrade your Contril plan. What phone number can our team reach you at?"
+            )
+            _uiState.update { it.copy(messages = it.messages + reply, isLoading = false) }
+            return
+        }
+
         // 1. Classification & Price Comparison Check
         val decision = QueryIntentClassifier.classifyAndRoute(prompt)
         if (decision.isComparisonSupported && context != null) {
@@ -145,18 +245,20 @@ class ChatViewModel(
             return
         }
 
-        // 3. AI Execution
-        val canExecute = prefRepository?.incrementAiUsage() ?: true
+        // 3. AI Execution & Server-Side Token Quota Pre-Check
+        val canExecute = prefRepository?.canExecuteAiAction() ?: true
         if (!canExecute) {
+            val used = prefRepository?.getTodayDaytimeTokensUsed() ?: 0L
+            val limit = prefRepository?.getPlanDailyTokenLimit() ?: 25_000L
             val limitMsg = ChatMessage(
                 isUser = false,
-                text = "You've reached today's Free plan limit of 5 AI conversations. Upgrade to Contril Pro in Plans & Billing for unlimited usage."
+                text = "You've reached your daily token budget (${String.format("%,d", used)} / ${String.format("%,d", limit)} tokens used today). Your balance will reset at midnight IST, or you can upgrade in Plans & Billing for a higher allocation."
             )
             _uiState.update {
                 it.copy(
                     messages = it.messages + limitMsg,
                     isLoading = false,
-                    aiUsage = prefRepository?.getTodayAiUsage() ?: Pair(5, 5)
+                    aiUsage = prefRepository?.getTodayAiUsage() ?: Pair(used.toInt(), limit.toInt())
                 )
             }
             return

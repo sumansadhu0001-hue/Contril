@@ -73,12 +73,16 @@ class ContrilRepository(
                     )
                 }
                 // Pass tool output context to Gemini for natural language synthesis
-                return com.contril.app.data.api.GeminiClient.generateAiResponse(
+                val response = com.contril.app.data.api.GeminiClient.generateAiResponse(
                     prompt = prompt,
                     autonomyMode = autonomyMode,
                     connectedServices = connectedServices,
                     userContext = "Tool Output: ${toolResult.summary}"
                 )
+                if (response.tokensUsed > 0 && prefRepository != null) {
+                    prefRepository.recordAiTokenUsage(response.tokensUsed.toLong(), isOvernight = false)
+                }
+                return response
             }
             is com.contril.app.data.api.ToolExecutionResult.Failure -> {
                 return CommandResponse(
@@ -88,11 +92,15 @@ class ContrilRepository(
                 )
             }
             null -> {
-                return com.contril.app.data.api.GeminiClient.generateAiResponse(
+                val response = com.contril.app.data.api.GeminiClient.generateAiResponse(
                     prompt = prompt,
                     autonomyMode = autonomyMode,
                     connectedServices = connectedServices
                 )
+                if (response.tokensUsed > 0 && prefRepository != null) {
+                    prefRepository.recordAiTokenUsage(response.tokensUsed.toLong(), isOvernight = false)
+                }
+                return response
             }
         }
     }

@@ -3,15 +3,19 @@ package com.contril.app.data.repository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import java.time.LocalDate
 
 data class UsageLedger(
-    val usedConversations: Int,
-    val maxDailyConversations: Int,
+    val usedTokens: Long,
+    val maxDailyTokens: Long,
+    val remainingTokens: Long,
     val isLimitReached: Boolean,
     val resetDate: String,
     val tierName: String
-)
+) {
+    // Backward compatibility helpers
+    val usedConversations: Int get() = usedTokens.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+    val maxDailyConversations: Int get() = maxDailyTokens.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+}
 
 class UsageEnforcementManager(
     private val prefRepository: PreferenceRepository
@@ -20,26 +24,27 @@ class UsageEnforcementManager(
     val usageLedger: StateFlow<UsageLedger> = _usageLedger.asStateFlow()
 
     fun calculateCurrentLedger(): UsageLedger {
-        val (used, max) = prefRepository.getTodayAiUsage()
+        val used = prefRepository.getTodayDaytimeTokensUsed()
+        val max = prefRepository.getPlanDailyTokenLimit()
+        val remaining = (max - used).coerceAtLeast(0L)
+        val isLimit = remaining < 500L
         val plan = prefRepository.currentPlan.value
-        val isLimit = !prefRepository.isProOrExecutive() && used >= max
         return UsageLedger(
-            usedConversations = used,
-            maxDailyConversations = max,
+            usedTokens = used,
+            maxDailyTokens = max,
+            remainingTokens = remaining,
             isLimitReached = isLimit,
-            resetDate = LocalDate.now().toString(),
+            resetDate = prefRepository.getTodayDateIST(),
             tierName = plan
         )
     }
 
     fun canExecuteChat(): Boolean {
-        if (prefRepository.isProOrExecutive()) return true
-        val (used, max) = prefRepository.getTodayAiUsage()
-        return used < max
+        return prefRepository.canExecuteAiAction()
     }
 
-    fun recordChatExecution(): Boolean {
-        val success = prefRepository.incrementAiUsage()
+    fun recordTokenConsumption(tokens: Long, isOvernight: Boolean = false): Boolean {
+        val success = prefRepository.recordAiTokenUsage(tokens, isOvernight)
         _usageLedger.value = calculateCurrentLedger()
         return success
     }

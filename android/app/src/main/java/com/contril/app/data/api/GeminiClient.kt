@@ -23,6 +23,13 @@ data class ChatMessageTurn(
     val text: String
 )
 
+data class GeminiDetailedResult(
+    val text: String,
+    val promptTokens: Int = 0,
+    val candidateTokens: Int = 0,
+    val totalTokens: Int = 0
+)
+
 object GeminiClient {
 
     private const val GEMINI_API_KEY = "AIzaSyDC72lXEVy-YnooYhSOiADOLiDFXkll6tg"
@@ -64,7 +71,7 @@ object GeminiClient {
         return "https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$GEMINI_API_KEY"
     }
 
-    suspend fun generateContent(prompt: String): Result<String> = withContext(Dispatchers.IO) {
+    suspend fun generateContentDetailed(prompt: String): Result<GeminiDetailedResult> = withContext(Dispatchers.IO) {
         val payload = JSONObject().apply {
             put("contents", JSONArray().put(JSONObject().apply {
                 put("parts", JSONArray().put(JSONObject().put("text", prompt)))
@@ -92,9 +99,16 @@ object GeminiClient {
                         ?.optJSONArray("parts")
                         ?.optJSONObject(0)
                         ?.optString("text") ?: ""
+
+                    val usageMetadata = json.optJSONObject("usageMetadata")
+                    val promptTokens = usageMetadata?.optInt("promptTokenCount", 0) ?: 0
+                    val candidateTokens = usageMetadata?.optInt("candidatesTokenCount", 0) ?: 0
+                    val totalTokens = usageMetadata?.optInt("totalTokenCount", promptTokens + candidateTokens) ?: (promptTokens + candidateTokens)
+
                     if (text.isNotBlank()) {
                         activeModelName = model
-                        return@withContext Result.success(text)
+                        Log.i("GeminiClient", "Gemini API usage: model=$model, prompt=$promptTokens, candidates=$candidateTokens, total=$totalTokens")
+                        return@withContext Result.success(GeminiDetailedResult(text, promptTokens, candidateTokens, totalTokens))
                     }
                 } else {
                     Log.w("GeminiClient", "Model $model returned HTTP ${res.code}, trying fallback...")
@@ -105,6 +119,10 @@ object GeminiClient {
         }
 
         Result.failure(Exception("All Gemini endpoints unreachable"))
+    }
+
+    suspend fun generateContent(prompt: String): Result<String> = withContext(Dispatchers.IO) {
+        generateContentDetailed(prompt).map { it.text }
     }
 
     suspend fun generateAiResponse(
@@ -182,9 +200,15 @@ object GeminiClient {
                     val parts = content?.optJSONArray("parts")
                     val text = parts?.optJSONObject(0)?.optString("text", "") ?: ""
 
+                    val usageMetadata = json.optJSONObject("usageMetadata")
+                    val promptTokens = usageMetadata?.optInt("promptTokenCount", 0) ?: 0
+                    val candidateTokens = usageMetadata?.optInt("candidatesTokenCount", 0) ?: 0
+                    val totalTokens = usageMetadata?.optInt("totalTokenCount", promptTokens + candidateTokens) ?: (promptTokens + candidateTokens)
+
                     if (text.isNotBlank()) {
                         activeModelName = model
                         val cleanResponse = sanitizeCleanText(text)
+                        Log.i("GeminiClient", "Chat call tokens: prompt=$promptTokens, candidates=$candidateTokens, total=$totalTokens")
 
                         // Save turns to conversation history
                         synchronized(conversationHistory) {
@@ -216,14 +240,15 @@ object GeminiClient {
 
                         val steps = listOf(
                             ExecutionStep("s1", "Processed prompt via Gemini 3.6 Flash (${latencyMs}ms)", "complete"),
-                            ExecutionStep("s2", "Synthesized contextual intelligence", "complete")
+                            ExecutionStep("s2", "Synthesized contextual intelligence • ${totalTokens} tokens", "complete")
                         )
 
                         return@withContext CommandResponse(
                             conversationId = "conv_${UUID.randomUUID().toString().take(8)}",
                             responseText = cleanResponse,
                             steps = steps,
-                            pendingAction = pendingAction
+                            pendingAction = pendingAction,
+                            tokensUsed = totalTokens
                         )
                     }
                 } else {

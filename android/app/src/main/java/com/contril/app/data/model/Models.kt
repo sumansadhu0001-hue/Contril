@@ -45,7 +45,8 @@ data class CommandResponse(
     val responseText: String,
     val steps: List<ExecutionStep> = emptyList(),
     val pendingAction: PendingAction? = null,
-    val proposedPlan: AgenticExecutionPlan? = null
+    val proposedPlan: AgenticExecutionPlan? = null,
+    val tokensUsed: Int = 0
 )
 
 enum class PlanActionType {
