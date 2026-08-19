@@ -47,15 +47,16 @@ class ContrilBackendClient(
         }
 
         try {
-            Log.i("ContrilBackend", "Silently refreshing Google OAuth token...")
-            val jsonBody = JSONObject().apply {
-                put("refresh_token", refreshToken)
-            }
+            Log.i("ContrilBackend", "Silently refreshing Google OAuth token via Google OAuth endpoint...")
+            val formBody = okhttp3.FormBody.Builder()
+                .add("client_id", "896172605886-contril-android.apps.googleusercontent.com")
+                .add("grant_type", "refresh_token")
+                .add("refresh_token", refreshToken)
+                .build()
+
             val req = Request.Builder()
-                .url("$baseUrl/auth/v1/token?grant_type=refresh_token")
-                .header("apikey", anonKey)
-                .header("Content-Type", "application/json")
-                .post(jsonBody.toString().toRequestBody(jsonMediaType))
+                .url("https://oauth2.googleapis.com/token")
+                .post(formBody)
                 .build()
 
             val res = httpClient.newCall(req).execute()
@@ -63,17 +64,19 @@ class ContrilBackendClient(
             if (res.isSuccessful) {
                 val json = JSONObject(body)
                 val newAccessToken = json.optString("access_token")
-                val newProviderToken = json.optString("provider_token", newAccessToken)
-                val newRefreshToken = json.optString("refresh_token", refreshToken)
                 val expiresIn = json.optLong("expires_in", 3600L)
 
-                prefRepository?.saveGoogleProviderTokens(
-                    providerToken = newProviderToken.ifBlank { newAccessToken },
-                    refreshToken = newRefreshToken,
-                    expiresInSeconds = expiresIn
-                )
-                Log.i("ContrilBackend", "Google OAuth token refreshed successfully.")
-                return@withContext newProviderToken.ifBlank { newAccessToken }
+                if (newAccessToken.isNotBlank()) {
+                    prefRepository?.saveGoogleProviderTokens(
+                        providerToken = newAccessToken,
+                        refreshToken = refreshToken,
+                        expiresInSeconds = expiresIn
+                    )
+                    Log.i("ContrilBackend", "Google OAuth token refreshed successfully.")
+                    return@withContext newAccessToken
+                }
+            } else {
+                Log.w("ContrilBackend", "Google token refresh failed: HTTP ${res.code} - $body")
             }
         } catch (e: Exception) {
             Log.w("ContrilBackend", "Silent token refresh exception: ${e.message}")

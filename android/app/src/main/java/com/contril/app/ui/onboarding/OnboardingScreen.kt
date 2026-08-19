@@ -36,6 +36,22 @@ fun OnboardingScreen(
     var selectedRole by remember { mutableStateOf("Founder") }
     val selectedGoals = remember { mutableStateListOf("Email", "Calendar", "Tasks") }
     var selectedPlan by remember { mutableStateOf("FREE") }
+    var showNotificationDialog by remember { mutableStateOf(false) }
+
+    fun completeOnboarding() {
+        prefRepository.setOnboardingCompleted(
+            completed = true,
+            role = selectedRole,
+            goals = selectedGoals.toList()
+        )
+        onFinish()
+    }
+
+    val permissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        completeOnboarding()
+    }
 
     val roles = listOf(
         "Founder", "CEO", "Business Owner", "Student",
@@ -430,12 +446,11 @@ fun OnboardingScreen(
                     if (step < 3) {
                         step += 1
                     } else {
-                        prefRepository.setOnboardingCompleted(
-                            completed = true,
-                            role = selectedRole,
-                            goals = selectedGoals.toList()
-                        )
-                        onFinish()
+                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                            showNotificationDialog = true
+                        } else {
+                            completeOnboarding()
+                        }
                     }
                 },
                 modifier = Modifier
@@ -463,5 +478,61 @@ fun OnboardingScreen(
                 }
             }
         }
+    }
+
+    if (showNotificationDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                showNotificationDialog = false
+                completeOnboarding()
+            },
+            icon = {
+                Icon(
+                    imageVector = Icons.Outlined.Notifications,
+                    contentDescription = null,
+                    tint = ContrilBlue,
+                    modifier = Modifier.size(32.dp)
+                )
+            },
+            title = {
+                Text(
+                    text = "Allow Notifications",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                )
+            },
+            text = {
+                Text(
+                    text = "Contril can notify you about urgent emails, schedule changes, and plan approvals in real-time. Would you like to enable executive notifications?",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    lineHeight = 20.sp
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showNotificationDialog = false
+                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                            permissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                        } else {
+                            completeOnboarding()
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = ContrilBlue)
+                ) {
+                    Text("Allow Notifications", color = Color.White)
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showNotificationDialog = false
+                        completeOnboarding()
+                    }
+                ) {
+                    Text("Maybe Later", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        )
     }
 }

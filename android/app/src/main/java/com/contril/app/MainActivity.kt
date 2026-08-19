@@ -95,6 +95,8 @@ class MainActivity : ComponentActivity() {
                             prefRepository.connectService("gmail", email)
                             prefRepository.connectService("calendar", email)
                             prefRepository.connectService("drive", email)
+                            val deviceToken = prefRepository.getOrCreateDeviceToken()
+                            com.contril.app.service.ContrilFirebaseMessagingService.registerDeviceTokenDirect(currentUser?.id ?: "user_$email", email, deviceToken)
                             Log.i("ContrilMain", "AppAuth PKCE Google OAuth flow completed successfully with scopes: ${googleOAuthManager.getGrantedScopes()}")
                             return@launch
                         }

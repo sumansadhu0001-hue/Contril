@@ -202,15 +202,36 @@ class PreferenceRepository(context: Context? = null) {
     val connectedServices: StateFlow<Map<String, String>> = _connectedServices.asStateFlow()
 
     private fun getSavedConnectedServices(): Map<String, String> {
-        val raw = prefs?.getString("connected_services_map", null) ?: return emptyMap()
-        return try {
-            raw.split(";").filter { it.contains(":") }.associate {
-                val p = it.split(":")
-                p[0] to p[1]
-            }
-        } catch (_: Exception) {
-            emptyMap()
+        val map = mutableMapOf<String, String>()
+        val raw = prefs?.getString("connected_services_map", null)
+        if (!raw.isNullOrBlank()) {
+            try {
+                raw.split(";").filter { it.contains(":") }.forEach {
+                    val p = it.split(":")
+                    if (p.size >= 2) map[p[0]] = p[1]
+                }
+            } catch (_: Exception) {}
         }
+        val token = getGoogleProviderToken()
+        val refreshToken = getGoogleRefreshToken()
+        if (!token.isNullOrBlank() || !refreshToken.isNullOrBlank()) {
+            val email = getUserProfile()?.email ?: "connected"
+            if (!map.containsKey("gmail")) map["gmail"] = email
+            if (!map.containsKey("google_workspace")) map["google_workspace"] = email
+            if (!map.containsKey("calendar")) map["calendar"] = email
+            if (!map.containsKey("drive")) map["drive"] = email
+        }
+        return map
+    }
+
+    fun isGmailConnected(): Boolean {
+        if (!getGoogleProviderToken().isNullOrBlank() || !getGoogleRefreshToken().isNullOrBlank()) return true
+        return _connectedServices.value.containsKey("gmail") || _connectedServices.value.containsKey("google_workspace") || _connectedServices.value.containsKey("google")
+    }
+
+    fun isCalendarConnected(): Boolean {
+        if (!getGoogleProviderToken().isNullOrBlank() || !getGoogleRefreshToken().isNullOrBlank()) return true
+        return _connectedServices.value.containsKey("calendar") || _connectedServices.value.containsKey("google_workspace") || _connectedServices.value.containsKey("google")
     }
 
     fun connectService(serviceId: String, account: String) {
@@ -222,6 +243,13 @@ class PreferenceRepository(context: Context? = null) {
     fun disconnectService(serviceId: String) {
         val current = _connectedServices.value.toMutableMap()
         current.remove(serviceId)
+        if (serviceId == "gmail" || serviceId == "google_workspace" || serviceId == "google") {
+            prefs?.edit()
+                ?.remove("google_provider_token")
+                ?.remove("google_refresh_token")
+                ?.remove("google_token_expiry_timestamp")
+                ?.apply()
+        }
         saveConnectedServices(current)
     }
 
