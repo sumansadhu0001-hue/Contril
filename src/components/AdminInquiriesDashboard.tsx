@@ -140,12 +140,29 @@ export const AdminInquiriesDashboard: React.FC<{ onBackToApp: () => void }> = ({
 
   const fetchSubscriptionRequests = async () => {
     try {
-      const { data, error } = await supabase
-        .from('subscription_requests')
-        .select('*')
-        .order('requested_at', { ascending: false });
-      if (data) {
-        setSubscriptionRequests(data);
+      // 1. Direct REST fetch to ensure requests load unconditionally in all network/session environments
+      const res = await fetch('https://qjyowojnvbfezznezxrr.supabase.co/rest/v1/subscription_requests?select=*&order=requested_at.desc', {
+        headers: {
+          'apikey': 'sb_publishable_FPaC7OtL6iAsYiQ_JDS9IA_ZmTuYeyT',
+          'Authorization': 'Bearer sb_publishable_FPaC7OtL6iAsYiQ_JDS9IA_ZmTuYeyT'
+        }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          setSubscriptionRequests(data);
+          return;
+        }
+      }
+      // 2. Fallback to Supabase JS Client
+      if (supabase) {
+        const { data } = await supabase
+          .from('subscription_requests')
+          .select('*')
+          .order('requested_at', { ascending: false });
+        if (data && Array.isArray(data)) {
+          setSubscriptionRequests(data);
+        }
       }
     } catch (err) {
       console.warn('Could not fetch subscription_requests directly:', err);
@@ -160,7 +177,7 @@ export const AdminInquiriesDashboard: React.FC<{ onBackToApp: () => void }> = ({
   }, [isAuthorized]);
 
   const checkAdminAccess = async () => {
-    const session = await supabase.auth.getSession();
+    const session = await supabase?.auth.getSession();
     if (session?.data?.session?.user) {
       const user = session.data.session.user;
       const role = user.user_metadata?.role || 'user';
@@ -199,34 +216,47 @@ export const AdminInquiriesDashboard: React.FC<{ onBackToApp: () => void }> = ({
   const handleApprovePlanRequest = async (req: any) => {
     setApprovalLoadingId(req.id || req.transaction_ref);
     try {
-      // 1. Update subscription_requests table in Supabase
+      const isElite = (req.plan || '').toLowerCase().includes('elite');
+      const now = new Date().toISOString();
+
+      // 1. Direct REST update to Supabase subscription_requests table
       if (req.id) {
-        await supabase
-          .from('subscription_requests')
-          .update({
+        await fetch(`https://qjyowojnvbfezznezxrr.supabase.co/rest/v1/subscription_requests?id=eq.${req.id}`, {
+          method: 'PATCH',
+          headers: {
+            'apikey': 'sb_publishable_FPaC7OtL6iAsYiQ_JDS9IA_ZmTuYeyT',
+            'Authorization': 'Bearer sb_publishable_FPaC7OtL6iAsYiQ_JDS9IA_ZmTuYeyT',
+            'Content-Type': 'application/json',
+            'Prefer': 'return=representation'
+          },
+          body: JSON.stringify({
             status: 'APPROVED',
-            approved_at: new Date().toISOString()
+            approved_at: now
           })
-          .eq('id', req.id);
+        });
       }
 
-      // 2. Update user profile
-      if (req.user_id) {
-        const isElite = (req.plan || '').toLowerCase().includes('elite');
-        await supabase
-          .from('profiles')
-          .update({
+      // 2. Direct REST update to user profiles table if user_id is a valid UUID
+      if (req.user_id && req.user_id.length > 10 && !req.user_id.startsWith('user_')) {
+        await fetch(`https://qjyowojnvbfezznezxrr.supabase.co/rest/v1/profiles?id=eq.${req.user_id}`, {
+          method: 'PATCH',
+          headers: {
+            'apikey': 'sb_publishable_FPaC7OtL6iAsYiQ_JDS9IA_ZmTuYeyT',
+            'Authorization': 'Bearer sb_publishable_FPaC7OtL6iAsYiQ_JDS9IA_ZmTuYeyT',
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
             is_paid: true,
             plan: req.plan,
             subscription_status: isElite ? 'ACTIVE_ELITE' : 'ACTIVE_PRO'
           })
-          .eq('id', req.user_id);
+        });
       }
 
-      // 3. Update local state
+      // 3. Update local state immediately
       setSubscriptionRequests(prev =>
         prev.map(item => (item.id === req.id || item.transaction_ref === req.transaction_ref)
-          ? { ...item, status: 'APPROVED' }
+          ? { ...item, status: 'APPROVED', approved_at: now }
           : item
         )
       );
@@ -241,10 +271,16 @@ export const AdminInquiriesDashboard: React.FC<{ onBackToApp: () => void }> = ({
     setApprovalLoadingId(req.id || req.transaction_ref);
     try {
       if (req.id) {
-        await supabase
-          .from('subscription_requests')
-          .update({ status: 'REJECTED' })
-          .eq('id', req.id);
+        await fetch(`https://qjyowojnvbfezznezxrr.supabase.co/rest/v1/subscription_requests?id=eq.${req.id}`, {
+          method: 'PATCH',
+          headers: {
+            'apikey': 'sb_publishable_FPaC7OtL6iAsYiQ_JDS9IA_ZmTuYeyT',
+            'Authorization': 'Bearer sb_publishable_FPaC7OtL6iAsYiQ_JDS9IA_ZmTuYeyT',
+            'Content-Type': 'application/json',
+            'Prefer': 'return=representation'
+          },
+          body: JSON.stringify({ status: 'REJECTED' })
+        });
       }
 
       setSubscriptionRequests(prev =>
@@ -469,6 +505,9 @@ export const AdminInquiriesDashboard: React.FC<{ onBackToApp: () => void }> = ({
                     .map((item) => {
                       const Icon = item.icon;
                       const isActive = activeTab === item.id;
+                      const pendingCount = subscriptionRequests.filter(r => (r.status || 'PENDING_APPROVAL').toUpperCase() === 'PENDING_APPROVAL').length;
+                      const showBadge = (item.id === 'subscriptions' || item.id === 'approval_queue' || item.id === 'crm') && pendingCount > 0;
+
                       return (
                         <button
                           key={item.id}
@@ -480,7 +519,16 @@ export const AdminInquiriesDashboard: React.FC<{ onBackToApp: () => void }> = ({
                           }`}
                         >
                           <Icon className="w-4 h-4 shrink-0" />
-                          {!isSidebarCollapsed && <span className="truncate">{item.label}</span>}
+                          {!isSidebarCollapsed && (
+                            <div className="flex items-center justify-between flex-1 truncate">
+                              <span className="truncate">{item.label}</span>
+                              {showBadge && (
+                                <span className="ml-2 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-amber-400 text-black animate-pulse">
+                                  {pendingCount}
+                                </span>
+                              )}
+                            </div>
+                          )}
                         </button>
                       );
                     })}
@@ -788,8 +836,194 @@ export const AdminInquiriesDashboard: React.FC<{ onBackToApp: () => void }> = ({
             <AdminAuditCenterView auditLogs={auditLogs} />
           )}
 
+          {/* SUBSCRIPTIONS / APPROVAL QUEUE / CRM / EARLY ACCESS TABS */}
+          {(activeTab === 'subscriptions' || activeTab === 'approval_queue' || activeTab === 'crm' || activeTab === 'early_access') && (
+            <div className="space-y-6">
+              <div className="p-6 rounded-2xl bg-[#0D0D11] border border-white/[0.08] space-y-5 font-mono shadow-xl">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2.5">
+                      <CreditCard className="w-5 h-5 text-[#00BFA6]" />
+                      <h3 className="text-sm font-bold text-white tracking-wide uppercase">
+                        {activeTab.replace(/_/g, ' ')} — Paid Plan Inquiries & Approval Queue
+                      </h3>
+                      {subscriptionRequests.filter(r => (r.status || 'PENDING_APPROVAL').toUpperCase() === 'PENDING_APPROVAL').length > 0 && (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse font-bold">
+                          {subscriptionRequests.filter(r => (r.status || 'PENDING_APPROVAL').toUpperCase() === 'PENDING_APPROVAL').length} PENDING
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-neutral-400 font-sans">
+                      Review user applications with contact phone number and email for manual approval.
+                    </p>
+                  </div>
+
+                  {/* Actions & Filter Pills */}
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={async () => {
+                        setIsRefreshingRequests(true);
+                        await fetchSubscriptionRequests();
+                        setTimeout(() => setIsRefreshingRequests(false), 500);
+                      }}
+                      className="px-2.5 py-1.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-neutral-400 hover:text-white border border-white/[0.06] text-[11px] font-mono flex items-center gap-1.5 transition-all cursor-pointer"
+                      title="Refresh Queue"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${isRefreshingRequests ? 'animate-spin text-[#00BFA6]' : ''}`} />
+                      <span>Refresh</span>
+                    </button>
+
+                    <div className="flex items-center gap-1.5 p-1 rounded-xl bg-white/[0.04] border border-white/[0.06] text-[11px]">
+                      {(['ALL', 'PENDING_APPROVAL', 'APPROVED', 'REJECTED'] as const).map((filterKey) => (
+                        <button
+                          key={filterKey}
+                          onClick={() => setPlanFilter(filterKey)}
+                          className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                            planFilter === filterKey
+                              ? 'bg-[#00BFA6] text-black font-bold shadow-xs'
+                              : 'text-neutral-400 hover:text-white'
+                          }`}
+                        >
+                          {filterKey.replace('_', ' ')}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {subscriptionRequests.length === 0 ? (
+                  <div className="p-8 rounded-xl bg-white/[0.02] border border-white/[0.04] text-center space-y-2">
+                    <CheckCircle2 className="w-6 h-6 text-neutral-500 mx-auto" />
+                    <div className="text-xs text-neutral-300 font-semibold">No Pending Plan Inquiries</div>
+                    <p className="text-[11px] text-neutral-500 max-w-sm mx-auto font-sans">
+                      When a user chooses a Pro or Elite plan in the app, their request will appear here for you to manually approve.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead className="text-neutral-400 border-b border-white/[0.06] text-[11px]">
+                        <tr>
+                          <th className="p-3">User & Contact</th>
+                          <th className="p-3">Phone Number</th>
+                          <th className="p-3">Plan Selected</th>
+                          <th className="p-3">Amount</th>
+                          <th className="p-3">Requested At</th>
+                          <th className="p-3">Status</th>
+                          <th className="p-3 text-right">Manual Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/[0.04]">
+                        {subscriptionRequests
+                          .filter(req => planFilter === 'ALL' || (req.status || 'PENDING_APPROVAL').toUpperCase() === planFilter)
+                          .map((req) => {
+                            const isPending = (req.status || 'PENDING_APPROVAL').toUpperCase() === 'PENDING_APPROVAL';
+                            const isApproved = (req.status || '').toUpperCase() === 'APPROVED';
+                            const isRejected = (req.status || '').toUpperCase() === 'REJECTED';
+                            const isElite = (req.plan || '').toLowerCase().includes('elite');
+                            const isLoadingThis = approvalLoadingId === (req.id || req.transaction_ref);
+
+                            return (
+                              <tr key={req.id || req.transaction_ref} className="hover:bg-white/[0.02] transition-colors">
+                                <td className="p-3">
+                                  <div className="font-semibold text-white">{req.user_name || req.email?.split('@')[0] || 'User'}</div>
+                                  <div className="text-[11px] text-neutral-400 font-mono">{req.email || 'No email'}</div>
+                                </td>
+                                <td className="p-3">
+                                  {req.phone_number ? (
+                                    <div className="space-y-0.5">
+                                      <a
+                                        href={`tel:${req.phone_number}`}
+                                        className="text-[#00BFA6] hover:underline font-mono font-bold text-xs flex items-center gap-1"
+                                      >
+                                        <span>📞</span>
+                                        <span>{req.phone_number}</span>
+                                      </a>
+                                      <a
+                                        href={`https://wa.me/${req.phone_number.replace(/[^0-9]/g, '')}`}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="text-[10px] text-emerald-400/80 hover:text-emerald-300 block"
+                                      >
+                                        Open WhatsApp →
+                                      </a>
+                                    </div>
+                                  ) : (
+                                    <span className="text-neutral-500 text-[11px] font-mono">Not provided</span>
+                                  )}
+                                </td>
+                                <td className="p-3">
+                                  <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold border ${
+                                    isElite 
+                                      ? 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30' 
+                                      : 'bg-blue-500/15 text-blue-300 border-blue-500/30'
+                                  }`}>
+                                    {req.plan || 'Pro Plan'}
+                                  </span>
+                                </td>
+                                <td className="p-3 font-semibold text-[#00BFA6]">
+                                  ₹{req.amount ? req.amount.toLocaleString() : (isElite ? '3,999' : '899')}/mo
+                                </td>
+                                <td className="p-3 text-neutral-400 text-[11px]">
+                                  {req.requested_at ? new Date(req.requested_at).toLocaleDateString() + ' ' + new Date(req.requested_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recent'}
+                                </td>
+                                <td className="p-3">
+                                  {isPending && (
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] bg-amber-500/15 text-amber-300 border border-amber-500/30 font-semibold flex items-center gap-1 w-fit">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
+                                      Pending Approval
+                                    </span>
+                                  )}
+                                  {isApproved && (
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 font-semibold flex items-center gap-1 w-fit">
+                                      <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                                      Approved
+                                    </span>
+                                  )}
+                                  {isRejected && (
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] bg-rose-500/15 text-rose-300 border border-rose-500/30 font-semibold w-fit">
+                                      Rejected
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="p-3 text-right">
+                                  {isPending ? (
+                                    <div className="flex items-center justify-end gap-2">
+                                      <button
+                                        disabled={isLoadingThis}
+                                        onClick={() => handleApprovePlanRequest(req)}
+                                        className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold shadow-xs hover:shadow-emerald-600/30 transition-all cursor-pointer flex items-center gap-1 disabled:opacity-50"
+                                      >
+                                        <CheckCircle2 className="w-3.5 h-3.5" />
+                                        <span>{isLoadingThis ? 'Approving...' : 'Approve Plan'}</span>
+                                      </button>
+                                      <button
+                                        disabled={isLoadingThis}
+                                        onClick={() => handleRejectPlanRequest(req)}
+                                        className="px-2.5 py-1.5 rounded-lg bg-white/[0.04] hover:bg-rose-950/40 text-neutral-400 hover:text-rose-400 border border-white/[0.08] hover:border-rose-500/30 text-[11px] transition-all cursor-pointer disabled:opacity-50"
+                                      >
+                                        Reject
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <span className="text-[11px] text-neutral-500">
+                                      {isApproved ? 'Access Granted' : 'Declined'}
+                                    </span>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* FALLBACK TABS */}
-          {activeTab !== 'dashboard' && activeTab !== 'health' && activeTab !== 'system_status' && activeTab !== 'analytics' && activeTab !== 'developer' && activeTab !== 'api_keys' && activeTab !== 'webhook_logs' && activeTab !== 'extension_registry' && activeTab !== 'audit_logs' && (
+          {activeTab !== 'dashboard' && activeTab !== 'subscriptions' && activeTab !== 'approval_queue' && activeTab !== 'crm' && activeTab !== 'early_access' && activeTab !== 'health' && activeTab !== 'system_status' && activeTab !== 'analytics' && activeTab !== 'developer' && activeTab !== 'api_keys' && activeTab !== 'webhook_logs' && activeTab !== 'extension_registry' && activeTab !== 'audit_logs' && (
             <div className="p-6 rounded-2xl bg-[#0D0D11] border border-white/[0.06] space-y-4 font-mono">
               <h3 className="text-sm font-semibold text-white capitalize">{activeTab.replace(/_/g, ' ')} Module</h3>
               <EmptyState icon={Activity} title={`Module Active: ${activeTab.replace(/_/g, ' ')}`} description={`Query returned 0 records for ${activeTab}. Real telemetry entries will display as platform activity is logged.`} />

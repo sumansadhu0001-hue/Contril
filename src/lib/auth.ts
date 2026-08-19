@@ -15,13 +15,13 @@ export const supabaseUrl =
   getEnvVar('NEXT_PUBLIC_SUPABASE_URL') || 
   getEnvVar('VITE_SUPABASE_URL') || 
   getEnvVar('SUPABASE_URL') || 
-  '';
+  'https://qjyowojnvbfezznezxrr.supabase.co';
 
 export const supabaseAnonKey = 
   getEnvVar('NEXT_PUBLIC_SUPABASE_ANON_KEY') || 
   getEnvVar('VITE_SUPABASE_ANON_KEY') || 
   getEnvVar('SUPABASE_ANON_KEY') || 
-  '';
+  'sb_publishable_FPaC7OtL6iAsYiQ_JDS9IA_ZmTuYeyT';
 
 export const isSupabaseConfigured = Boolean(
   supabaseUrl && 
