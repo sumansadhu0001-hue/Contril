@@ -109,8 +109,10 @@ fun PaywallModal(
                 colors = ButtonDefaults.buttonColors(containerColor = ContrilBlue)
             ) {
                 Text(
-                    text = "Unlock Pro (₹1,499/month)",
-                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
+                    text = "Unlock Pro (${com.contril.app.data.config.PaymentConfig.PRO_PLAN_PRICE_FORMATTED}${com.contril.app.data.config.PaymentConfig.PRO_PLAN_BILLING_CYCLE})",
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                    softWrap = false,
+                    maxLines = 1
                 )
             }
 

@@ -141,8 +141,8 @@ export class PlanService {
     PRO: {
       id: 'PRO',
       name: 'Pro',
-      priceMonthlyInr: 499,
-      priceLabel: '₹499',
+      priceMonthlyInr: 899,
+      priceLabel: '₹899',
       period: '/month',
       tagline: 'Best for freelancers and solo founders',
       badge: '⭐ Most Popular',
@@ -173,8 +173,8 @@ export class PlanService {
     BUSINESS: {
       id: 'BUSINESS',
       name: 'Business',
-      priceMonthlyInr: 2499,
-      priceLabel: '₹2,499',
+      priceMonthlyInr: 3999,
+      priceLabel: '₹3,999',
       period: '/month',
       tagline: 'Best for growing companies and teams',
       ctaLabel: 'Upgrade to Business',

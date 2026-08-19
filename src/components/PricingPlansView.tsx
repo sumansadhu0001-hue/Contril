@@ -74,8 +74,8 @@ export const PricingPlansView: React.FC<PricingPlansViewProps> = ({ onBack, onOp
     {
       id: 'pro',
       name: 'Pro',
-      baseINR: 499,
-      priceDisplay: currencyService.formatINR(499, activeCurrency.code),
+      baseINR: 899,
+      priceDisplay: currencyService.formatINR(899, activeCurrency.code),
       period: 'per month',
       description: 'Designed for students, creators, freelancers and professionals.',
       badge: currentPlan === 'Pro' ? 'Current Plan' : 'Popular',
@@ -101,8 +101,8 @@ export const PricingPlansView: React.FC<PricingPlansViewProps> = ({ onBack, onOp
     {
       id: 'business',
       name: 'Business',
-      baseINR: 1799,
-      priceDisplay: currencyService.formatINR(1799, activeCurrency.code),
+      baseINR: 3999,
+      priceDisplay: currencyService.formatINR(3999, activeCurrency.code),
       period: 'per month',
       description: 'Designed for startups, agencies, growing businesses and teams.',
       badge: currentPlan === 'Business' ? 'Current Plan' : 'Most Popular',

@@ -382,9 +382,11 @@ fun OnboardingScreen(
                                             )
                                         }
                                         Text(
-                                            text = "₹1,499/mo",
+                                            text = "${com.contril.app.data.config.PaymentConfig.PRO_PLAN_PRICE_FORMATTED}${com.contril.app.data.config.PaymentConfig.PRO_PLAN_BILLING_CYCLE}",
                                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                                            color = MaterialTheme.colorScheme.onSurface
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                            softWrap = false,
+                                            maxLines = 1
                                         )
                                     }
 

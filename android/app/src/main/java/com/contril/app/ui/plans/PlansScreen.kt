@@ -210,9 +210,11 @@ fun PlansScreen(
                         }
 
                         Text(
-                            text = "₹0",
+                            text = PaymentConfig.FREE_PLAN_PRICE_FORMATTED,
                             style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
-                            color = ContrilBlue
+                            color = ContrilBlue,
+                            softWrap = false,
+                            maxLines = 1
                         )
                     }
 
@@ -249,7 +251,7 @@ fun PlansScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column(modifier = Modifier.weight(1f)) {
+                        Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -280,17 +282,21 @@ fun PlansScreen(
                             )
                         }
 
-                        Row(verticalAlignment = Alignment.Bottom) {
+                        Row(verticalAlignment = Alignment.Bottom, modifier = Modifier.wrapContentWidth()) {
                             Text(
                                 text = PaymentConfig.PRO_PLAN_PRICE_FORMATTED,
                                 style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
-                                color = if (entitlementState.status == SubscriptionStatus.ACTIVE_PRO) StatusActive else ContrilBlue
+                                color = if (entitlementState.status == SubscriptionStatus.ACTIVE_PRO) StatusActive else ContrilBlue,
+                                softWrap = false,
+                                maxLines = 1
                             )
                             Text(
                                 text = PaymentConfig.PRO_PLAN_BILLING_CYCLE,
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(bottom = 4.dp, start = 2.dp)
+                                modifier = Modifier.padding(bottom = 4.dp, start = 2.dp),
+                                softWrap = false,
+                                maxLines = 1
                             )
                         }
                     }
@@ -377,17 +383,21 @@ fun PlansScreen(
                             )
                         }
 
-                        Row(verticalAlignment = Alignment.Bottom) {
+                        Row(verticalAlignment = Alignment.Bottom, modifier = Modifier.wrapContentWidth()) {
                             Text(
                                 text = PaymentConfig.ELITE_PLAN_PRICE_FORMATTED,
                                 style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
-                                color = Color(0xFF6366F1)
+                                color = Color(0xFF6366F1),
+                                softWrap = false,
+                                maxLines = 1
                             )
                             Text(
                                 text = PaymentConfig.ELITE_PLAN_BILLING_CYCLE,
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(bottom = 4.dp, start = 2.dp)
+                                modifier = Modifier.padding(bottom = 4.dp, start = 2.dp),
+                                softWrap = false,
+                                maxLines = 1
                             )
                         }
                     }
@@ -462,7 +472,7 @@ fun PlanUpgradeApplicationDialog(
     onSubmit: suspend (phone: String, email: String, name: String) -> Result<EntitlementState>
 ) {
     val isElite = planName.contains("Elite", ignoreCase = true)
-    val priceText = if (isElite) "₹3,999/month" else "₹899/month"
+    val priceText = if (isElite) "${PaymentConfig.ELITE_PLAN_PRICE_FORMATTED}${PaymentConfig.ELITE_PLAN_BILLING_CYCLE}" else "${PaymentConfig.PRO_PLAN_PRICE_FORMATTED}${PaymentConfig.PRO_PLAN_BILLING_CYCLE}"
     val accentColor = if (isElite) Color(0xFF6366F1) else ContrilBlue
 
     val dialogScope = rememberCoroutineScope()

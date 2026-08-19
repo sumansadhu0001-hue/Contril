@@ -46,7 +46,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, onO
     },
     {
       name: 'Pro',
-      price: '₹499',
+      price: '₹899',
       period: 'per month',
       description: 'Designed for students, creators, freelancers and professionals.',
       features: [
@@ -62,7 +62,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, onO
     },
     {
       name: 'Business',
-      price: '₹1,799',
+      price: '₹3,999',
       period: 'per month',
       description: 'Designed for startups, agencies, growing businesses and teams.',
       features: [
