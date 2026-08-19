@@ -35,6 +35,98 @@ class ToolRouter(
                 connectedServices.containsKey("google_workspace") ||
                 connectedServices.containsKey("google")
 
+        // 0. Explicit Daily Briefing / Agenda Synthesis
+        val isExplicitBriefing = lower.contains("briefing") || lower.contains("daily brief") ||
+                lower.contains("morning brief") || lower.contains("today's brief") ||
+                lower == "briefing" || lower == "what is my briefing" ||
+                lower.contains("summarize my day") || lower.contains("today's agenda") ||
+                lower.contains("what's on for today")
+
+        if (isExplicitBriefing) {
+            steps.add(ExecutionStep("b1", "Evaluating Executive Briefing Engine", "complete"))
+
+            if (!isGmailConnected && !isCalendarConnected) {
+                steps.add(ExecutionStep("b2", "Checked Workspace: Disconnected", "complete"))
+                return Pair(
+                    steps,
+                    ToolExecutionResult.RequiresConnection(
+                        "Google Workspace",
+                        "Gmail and Google Calendar are not connected. Connect them in Profile Hub to view your real-time daily briefing."
+                    )
+                )
+            }
+
+            val token = prefRepository?.userSessionToken?.value
+            if (token.isNullOrBlank()) {
+                return Pair(steps, ToolExecutionResult.Failure("Session expired. Please re-authenticate Google Workspace in Profile Hub."))
+            }
+
+            steps.add(ExecutionStep("b2", "Fetching live inbox & calendar feeds", "complete"))
+
+            val gmailResult = if (isGmailConnected) backendClient.fetchGmailInbox(token) else ApiResult.Success(emptyList())
+            val calResult = if (isCalendarConnected) backendClient.fetchCalendarEvents(token) else ApiResult.Success(emptyList())
+            val tasks = taskRepository?.tasks?.value?.filter { !it.isCompleted } ?: emptyList()
+
+            val emails = (gmailResult as? ApiResult.Success)?.data ?: emptyList()
+            val meetings = (calResult as? ApiResult.Success)?.data ?: emptyList()
+
+            if (gmailResult is ApiResult.Error && calResult is ApiResult.Error) {
+                return Pair(steps, ToolExecutionResult.Failure("Couldn't load briefing — check connection or re-authenticate in Profile Hub."))
+            }
+
+            if (emails.isEmpty() && meetings.isEmpty() && tasks.isEmpty()) {
+                val cleanEmptyBriefing = "Today's Executive Briefing:\n\n• Inbox: Your connected Gmail inbox is clear. No unread priority threads.\n• Schedule: No meetings scheduled on your Google Calendar today.\n• Tasks: All focus tasks are completed."
+                return Pair(steps, ToolExecutionResult.Success(cleanEmptyBriefing))
+            }
+
+            // Construct real grounded data
+            val emailSummaryList = emails.take(5).map { "• From: ${it.sender}, Subject: \"${it.subject}\"" }.joinToString("\n")
+            val meetingSummaryList = meetings.take(5).map { "• Meeting: \"${it.title}\" at ${it.timeRange}" }.joinToString("\n")
+            val taskSummaryList = tasks.take(5).map { "• Task: \"${it.title}\" (${it.category})" }.joinToString("\n")
+
+            val groundedPrompt = """
+                You are Contril AI Chief of Staff generating "Today's Briefing" for the user.
+                
+                REAL CONNECTED USER DATA:
+                Inbox Emails:
+                ${if (emails.isEmpty()) "• No unread emails in inbox." else emailSummaryList}
+                
+                Calendar Meetings:
+                ${if (meetings.isEmpty()) "• No upcoming meetings scheduled today." else meetingSummaryList}
+                
+                Active Tasks:
+                ${if (tasks.isEmpty()) "• No pending tasks." else taskSummaryList}
+                
+                STRICT GROUNDING DIRECTIVES:
+                1. Base your briefing EXCLUSIVELY and ENTIRELY on the real emails, calendar meetings, and tasks provided above.
+                2. CRITICAL SAFEGUARD: NEVER invent, assume, or hallucinate any person, company, meeting, or document not present in the data above. Specifically DO NOT mention Sarah Jenkins, Marcus Vance, Apex Holdings, or any fictional deliverables.
+                3. If there are real emails, summarize each real email by its actual sender and subject.
+                4. If there are no calendar meetings, explicitly state "No meetings scheduled today".
+                5. Output clean, elegant text with clean bullet points (•) and no markdown symbol clutter.
+            """.trimIndent()
+
+            val aiResult = GeminiClient.generateContent(groundedPrompt)
+            val briefingText = aiResult.getOrNull() ?: run {
+                val sb = StringBuilder("Today's Executive Briefing:\n\n")
+                if (emails.isNotEmpty()) {
+                    sb.append("Priority Emails (${emails.size}):\n")
+                    emails.take(3).forEach { sb.append("• From ${it.sender}: \"${it.subject}\"\n") }
+                    sb.append("\n")
+                } else {
+                    sb.append("• Inbox: No unread priority messages.\n")
+                }
+                if (meetings.isNotEmpty()) {
+                    sb.append("Today's Schedule (${meetings.size}):\n")
+                    meetings.take(3).forEach { sb.append("• \"${it.title}\" at ${it.timeRange}\n") }
+                } else {
+                    sb.append("• Schedule: No meetings scheduled today.\n")
+                }
+                sb.toString()
+            }
+
+            return Pair(steps, ToolExecutionResult.Success(GeminiClient.sanitizeCleanText(briefingText)))
+        }
+
         // 1. Explicit Gmail Inbox Inspection (Not drafting or creative writing)
         val isExplicitInboxCheck = (lower.contains("check email") || lower.contains("check my email") ||
                 lower.contains("read email") || lower.contains("unread email") ||

@@ -83,13 +83,13 @@ object FestivalCalendar {
             )
         ),
         FestivalDate(
-            Month.AUGUST, 19,
+            Month.OCTOBER, 2,
             FestivalGreeting(
-                festivalId = "raksha_bandhan",
-                name = "Raksha Bandhan",
-                greetingTemplate = "Happy Raksha Bandhan, %s!",
-                subtitle = "Celebrating cherished bonds of protection, love, and togetherness.",
-                iconEmoji = "🪢"
+                festivalId = "gandhi_jayanti",
+                name = "Gandhi Jayanti",
+                greetingTemplate = "Happy Gandhi Jayanti, %s!",
+                subtitle = "Remembering Mahatma Gandhi's timeless values of peace and truth.",
+                iconEmoji = "🕊️"
             )
         ),
         FestivalDate(
@@ -113,7 +113,11 @@ object FestivalCalendar {
     )
 
     private val dynamicFestivals = listOf(
-        // 2026 Observances
+        // 2026 Observances (Audited and verified according to 2026 lunisolar ephemeris)
+        YearFestival(
+            2026, Month.FEBRUARY, 15,
+            FestivalGreeting("maha_shivratri", "Maha Shivratri", "Happy Maha Shivratri, %s!", "May Lord Shiva bless you with strength, peace, and wisdom.", iconEmoji = "🕉️")
+        ),
         YearFestival(
             2026, Month.MARCH, 4,
             FestivalGreeting("holi", "Holi & Dol Jatra", "শুভ দোলযাত্রা ও Happy Holi, %s!", "May your day be filled with vibrant joy, laughter, and colors.", iconEmoji = "🎨")
@@ -127,33 +131,45 @@ object FestivalCalendar {
             FestivalGreeting("eid_al_adha", "Eid al-Adha", "Eid Mubarak, %s!", "Wishing you peace, happiness, and prosperity on Eid.", iconEmoji = "🌙")
         ),
         YearFestival(
+            2026, Month.AUGUST, 28,
+            FestivalGreeting("raksha_bandhan", "Raksha Bandhan", "Happy Raksha Bandhan, %s!", "Celebrating cherished bonds of protection, love, and togetherness.", iconEmoji = "🪢")
+        ),
+        YearFestival(
+            2026, Month.SEPTEMBER, 4,
+            FestivalGreeting("janmashtami", "Krishna Janmashtami", "Happy Janmashtami, %s!", "May Lord Krishna fill your life with happiness and divine guidance.", iconEmoji = "🦚")
+        ),
+        YearFestival(
             2026, Month.SEPTEMBER, 14,
             FestivalGreeting("ganesh_chaturthi", "Ganesh Chaturthi", "Happy Ganesh Chaturthi, %s!", "May Lord Ganesha remove obstacles and bring success to your endeavors.", iconEmoji = "🐘")
         ),
-        // Durga Puja 2026 (Oct 18-22)
+        // Durga Puja & Dussehra 2026 (Oct 17-21, 2026)
         YearFestival(
-            2026, Month.OCTOBER, 18,
+            2026, Month.OCTOBER, 17,
             FestivalGreeting("durga_puja_sasthi", "Maha Sasthi", "শুভ দুর্গাপূজা, %s!", "May Maa Durga bless your home with joy and prosperity.", iconEmoji = "🪔")
         ),
         YearFestival(
-            2026, Month.OCTOBER, 19,
+            2026, Month.OCTOBER, 18,
             FestivalGreeting("durga_puja_saptami", "Maha Saptami", "শুভ দুর্গাপূজা, %s!", "Warmest greetings of Maha Saptami to you and your loved ones.", iconEmoji = "🪔")
         ),
         YearFestival(
-            2026, Month.OCTOBER, 20,
+            2026, Month.OCTOBER, 19,
             FestivalGreeting("durga_puja_ashtami", "Maha Ashtami", "শুভ মহা অষ্টমী, %s!", "Wishing you divine blessings and joy on this auspicious Maha Ashtami.", iconEmoji = "🪔")
         ),
         YearFestival(
-            2026, Month.OCTOBER, 21,
+            2026, Month.OCTOBER, 20,
             FestivalGreeting("durga_puja_navami", "Maha Navami", "শুভ মহা নবমী, %s!", "May this festive season bring boundless joy and success.", iconEmoji = "🪔")
         ),
         YearFestival(
-            2026, Month.OCTOBER, 22,
-            FestivalGreeting("vijaya_dashami", "Shubho Bijoya", "শুভ বিজয়া দশমী, %s!", "শুভ বিজয়ার প্রীতি ও আন্তরিক শুভেচ্ছা। Wishing you peace and victory.", iconEmoji = "🪔")
+            2026, Month.OCTOBER, 21,
+            FestivalGreeting("vijaya_dashami", "Shubho Bijoya & Dussehra", "শুভ বিজয়া দশমী ও Happy Dussehra, %s!", "শুভ বিজয়ার প্রীতি ও আন্তরিক শুভেচ্ছা। Wishing you peace and victory.", iconEmoji = "🪔")
         ),
         YearFestival(
             2026, Month.NOVEMBER, 8,
             FestivalGreeting("diwali", "Diwali & Kali Puja", "শুভ দীপাবলি ও শ্যামাপূজা, %s!", "May the festival of lights illuminate your life with health and prosperity.", iconEmoji = "🪔")
+        ),
+        YearFestival(
+            2026, Month.NOVEMBER, 10,
+            FestivalGreeting("bhai_dooj", "Bhai Dooj & Bhai Phota", "শুভ ভাইফোঁটা ও Happy Bhai Dooj, %s!", "Wishing boundless joy and lifelong affection to you and your family.", iconEmoji = "🌸")
         )
     )
 

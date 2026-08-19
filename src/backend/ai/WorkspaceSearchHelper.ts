@@ -16,97 +16,12 @@ export interface SearchResponse {
   skippedSources: string[];
 }
 
-// 1. Mock Datasets for Demo/Offline Mode
-const MOCK_EMAILS = [
-  {
-    id: 'msg-1',
-    from: 'sarah.jenkins@sequoiacap.com',
-    to: 'alex.morgan@contril.ai',
-    subject: 'Series B Term Sheet Draft - Contril',
-    snippet: 'Hi Alex, attached is the revised draft of the Series B term sheet. Let us finalize the valuation cap before Monday.',
-    date: '2026-08-05'
-  },
-  {
-    id: 'msg-2',
-    from: 'elena.rostova@contril.ai',
-    to: 'alex.morgan@contril.ai',
-    subject: 'Operational SLA Agreement & Vendor Invoices',
-    snippet: 'Hi Alex, I have uploaded the Q2 vendor invoice (Q2_Vendor_Invoice.pdf) to our Google Drive. Let me know when you approve.',
-    date: '2026-08-04'
-  },
-  {
-    id: 'msg-3',
-    from: 'billing@airtel.com',
-    to: 'alex.morgan@contril.ai',
-    subject: 'Your Airtel Monthly Invoice Statement',
-    snippet: 'Dear Customer, your Airtel fiber bill is ready. Total due: Rs 1,199. Due date: August 15, 2026.',
-    date: '2026-08-01'
-  }
-];
-
-const MOCK_CALENDAR = [
-  {
-    id: 'event-1',
-    title: 'Series B Budget Alignment',
-    time: '2026-08-10T10:00:00Z',
-    platform: 'Google Meet',
-    attendees: 'Sarah Jenkins, Marcus Vance'
-  },
-  {
-    id: 'event-2',
-    title: 'Product Roadmap Sync',
-    time: '2026-08-12T14:30:00Z',
-    platform: 'Google Meet',
-    attendees: 'Elena Rostova'
-  }
-];
-
-const MOCK_DRIVE = [
-  {
-    id: 'file-1',
-    name: 'Q2_Vendor_Invoice.pdf',
-    type: 'pdf',
-    owner: 'Elena Rostova',
-    snippet: 'Invoice details for vendor payments, total amount Rs 4,50,000.',
-    link: '#docs'
-  },
-  {
-    id: 'file-2',
-    name: 'Contril_Product_Roadmap_2026.gdoc',
-    type: 'gdoc',
-    owner: 'Alex Morgan',
-    snippet: 'Product design, feature specification, and launch milestones for Contril AI OS.',
-    link: '#docs'
-  },
-  {
-    id: 'file-3',
-    name: 'Samsung_Partnership_Agreement.pdf',
-    type: 'pdf',
-    owner: 'Elena Rostova',
-    snippet: 'Co-development contract draft with Samsung Mobile division.',
-    link: '#docs'
-  }
-];
-
-const MOCK_SLACK = [
-  {
-    id: 'slack-1',
-    channel: '#engineering',
-    user: 'Elena Rostova',
-    snippet: 'Hey team, did anyone upload the latest invoice.pdf to the shared drive? Alex needs it.',
-    timestamp: '2026-08-04T09:00:00Z'
-  }
-];
-
-const MOCK_GITHUB = [
-  {
-    id: 'issue-1',
-    repo: 'contril-core',
-    title: 'Fix PKCE callback redirect loop bug',
-    snippet: 'Issue #412: Redirecting to landing page on successful Supabase exchange. Status: Open',
-    link: 'https://github.com/contril/contril-core/issues/412'
-  }
-];
+// Real data policy: No fabricated mock contacts or emails
+const MOCK_EMAILS: any[] = [];
+const MOCK_CALENDAR: any[] = [];
+const MOCK_DRIVE: any[] = [];
+const MOCK_SLACK: any[] = [];
+const MOCK_GITHUB: any[] = [];
 
 /**
  * Unified Workspace Search across Google, Slack, and GitHub
