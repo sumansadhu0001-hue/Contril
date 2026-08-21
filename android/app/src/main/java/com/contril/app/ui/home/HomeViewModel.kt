@@ -159,19 +159,7 @@ class HomeViewModel(
         // 1. Intelligent Query Intent Classification
         val decision = com.contril.app.data.automation.QueryIntentClassifier.classifyAndRoute(prompt)
 
-        // Case A: Food comparison query (Zomato/Swiggy)
-        if (decision.isComparisonSupported && context != null) {
-            if (!comparisonManager.isAccessibilityPermissionGranted(context)) {
-                pendingRoutingDecision = decision
-                _uiState.update { it.copy(showConsentModal = true) }
-                return
-            } else {
-                runPriceComparison(prompt, context, decision)
-                return
-            }
-        }
-
-        // Case B: Query requested an unsupported comparison category (e.g. Flipkart, Amazon, Blinkit, Flights)
+        // Case A: Query requested an unsupported service (e.g. Zomato, Swiggy, MakeMyTrip)
         if (decision.unsupportedMessage != null) {
             _uiState.update {
                 it.copy(
@@ -186,17 +174,19 @@ class HomeViewModel(
             return
         }
 
-        // Case C: Standard Daily AI Assistant Execution
-        val canExecute = prefRepository?.incrementAiUsage() ?: true
+        // Case B: Standard Daily AI Assistant Execution
+        val canExecute = prefRepository?.canExecuteAiAction() ?: true
         if (!canExecute) {
+            val used = prefRepository?.getTodayDaytimeTokensUsed() ?: 0L
+            val limit = prefRepository?.getPlanDailyTokenLimit() ?: 25_000L
             _uiState.update {
                 it.copy(
                     isLoading = false,
                     latestResponse = CommandResponse(
                         conversationId = "limit_notice",
-                        responseText = "You've reached today's Free plan limit of 5 AI conversations. Upgrade to Contril Pro in Settings for unlimited usage."
+                        responseText = "You've reached today's AI token limit (${String.format("%,d", used)} / ${String.format("%,d", limit)} tokens). Your quota resets at midnight IST."
                     ),
-                    aiUsage = prefRepository?.getTodayAiUsage() ?: Pair(5, 5)
+                    aiUsage = prefRepository?.getTodayAiUsage() ?: Pair(used.toInt(), limit.toInt())
                 )
             }
             return
@@ -206,7 +196,7 @@ class HomeViewModel(
             it.copy(
                 isLoading = true,
                 commandText = "",
-                aiUsage = prefRepository?.getTodayAiUsage() ?: Pair(1, 5)
+                aiUsage = prefRepository?.getTodayAiUsage() ?: Pair(0, 25_000)
             )
         }
 
@@ -220,13 +210,6 @@ class HomeViewModel(
                     latestResponse = response
                 )
             }
-        }
-    }
-
-    fun runPriceComparison(prompt: String, context: Context, decision: com.contril.app.data.automation.QueryRoutingDecision? = null) {
-        _uiState.update { it.copy(commandText = "", latestResponse = null) }
-        viewModelScope.launch {
-            comparisonManager.comparePricesAcrossPlatforms(context, prompt, decision)
         }
     }
 

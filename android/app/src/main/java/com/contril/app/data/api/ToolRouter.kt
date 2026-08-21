@@ -13,7 +13,8 @@ sealed class ToolExecutionResult {
         val summary: String,
         val rawData: Any? = null,
         val pendingAction: PendingAction? = null,
-        val proposedPlan: AgenticExecutionPlan? = null
+        val proposedPlan: AgenticExecutionPlan? = null,
+        val tokensUsed: Int = 0
     ) : ToolExecutionResult()
     data class RequiresConnection(val serviceName: String, val message: String) : ToolExecutionResult()
     data class Failure(val errorMessage: String) : ToolExecutionResult()
@@ -30,7 +31,7 @@ class ToolRouter(
         prompt: String,
         passedServices: Map<String, String> = emptyMap()
     ): Pair<List<ExecutionStep>, ToolExecutionResult?> {
-        val steps = mutableListOf<ExecutionStep>()
+        val steps = emptyList<ExecutionStep>()
         val providerToken = ContrilBackendClient.getFreshGoogleToken(prefRepository)
         val prefConnected = prefRepository?.connectedServices?.value ?: emptyMap()
         val connectedServices = if (prefConnected.isNotEmpty()) prefConnected else passedServices
@@ -47,68 +48,169 @@ class ToolRouter(
                 connectedServices.containsKey("google_workspace") ||
                 connectedServices.containsKey("google")
 
-        steps.add(ExecutionStep("nlu1", "Understanding request intent with Gemini", "complete"))
-        val decision = QueryIntentClassifier.classifyAndRouteWithAi(prompt)
+        val decision = QueryIntentClassifier.classifyAndRoute(prompt)
 
-        // 1. Ambiguous Input -> Transparent, Honest Clarification
-        if (decision.category == IntentCategory.AMBIGUOUS) {
-            val clarify = decision.clarificationMessage ?: "I'm not sure what you're asking — could you clarify whether you'd like to search prices, manage your emails, or check your schedule?"
-            steps.add(ExecutionStep("nlu2", "Requested intent clarification", "complete"))
-            return Pair(steps, ToolExecutionResult.Success(clarify))
-        }
+        // 0. Connection Management Commands (e.g. "connect gmail", "disconnect gmail")
+        if (decision.category == IntentCategory.CONNECT_SERVICE) {
+            val isTargetGmail = decision.targetService == "Gmail"
+            val isConnected = if (isTargetGmail) isGmailConnected else isCalendarConnected
+            val serviceName = decision.targetService ?: "Google Workspace"
 
-        // 2. Price Comparison Intent -> Create Ray-style Execution Plan
-        if (decision.category in listOf(IntentCategory.ECOMMERCE, IntentCategory.FOOD_DELIVERY, IntentCategory.FASHION_BEAUTY, IntentCategory.GROCERY_QUICK_COMMERCE)) {
-            steps.add(ExecutionStep("shop1", "Identified ${decision.category.name.lowercase().replace('_', ' ')} query", "complete"))
-            if (!decision.isComparisonSupported) {
-                return Pair(steps, ToolExecutionResult.Success(decision.unsupportedMessage ?: "Comparison not supported for this category."))
-            }
-
-            val targetPlatforms = decision.targetScraperIds
-            val planItems = targetPlatforms.map { platform ->
-                PlanItem(
-                    id = "scrape_$platform",
-                    title = "Search on ${platform.replaceFirstChar { it.uppercase() }}",
-                    subtitle = "Query: \"${decision.cleanedSearchTerm}\"${decision.budget?.let { " (Budget: ≤ ₹${it.toInt()})" } ?: ""}",
-                    sourceData = platform,
-                    isSelected = true
+            if (isConnected) {
+                return Pair(steps, ToolExecutionResult.Success("$serviceName is already connected to your Contril account."))
+            } else {
+                return Pair(
+                    steps,
+                    ToolExecutionResult.RequiresConnection(
+                        serviceName,
+                        "Connect your Google account to let Contril securely search, summarize, and manage your $serviceName."
+                    )
                 )
             }
+        }
 
-            val plan = AgenticExecutionPlan(
-                title = "Price Comparison Plan: ${decision.cleanedSearchTerm}",
-                description = "Contril will search and rank deals across ${targetPlatforms.joinToString(", ") { it.replaceFirstChar { c -> c.uppercase() } }}.",
-                actionType = PlanActionType.PRICE_COMPARISON,
-                items = planItems,
-                status = PlanStatus.PROPOSED
+        if (decision.category == IntentCategory.DISCONNECT_SERVICE) {
+            prefRepository?.disconnectGoogleWorkspace()
+            return Pair(
+                steps,
+                ToolExecutionResult.Success("Google Workspace has been disconnected. Contril will no longer access your Gmail or Google Calendar.")
+            )
+        }
+
+        // 1. Explicitly Unsupported Service (YouTube, Spotify, WhatsApp, Zomato, Swiggy, MakeMyTrip)
+        if (decision.category == IntentCategory.UNSUPPORTED_SERVICE) {
+            val msg = decision.unsupportedMessage ?: "This service is not connected to Contril. Contril supports Gmail, Google Calendar, and Task management."
+            return Pair(steps, ToolExecutionResult.Success(msg))
+        }
+
+        // 2. Email Drafting / Composition Request (Explicitly DO NOT search inbox)
+        if (decision.category == IntentCategory.EMAIL_COMMUNICATION && decision.isDraftRequest) {
+            val emailRegex = Regex("[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}")
+            val targetEmail = emailRegex.find(prompt)?.value ?: "Recipient"
+
+            val draftPrompt = """
+                User wants to draft an email: "$prompt"
+                
+                Generate a polite, crisp, executive email draft with:
+                Subject: <Clear Subject>
+                
+                Hi <Name/Recipient>,
+                
+                <Message Body>
+                
+                Best,
+                Suman
+            """.trimIndent()
+
+            val aiResponse = ContrilAiGatewayClient.generateAiResponse(
+                prompt = draftPrompt,
+                connectedServices = connectedServices,
+                prefRepository = prefRepository
             )
 
-            steps.add(ExecutionStep("shop2", "Prepared comparison plan across ${targetPlatforms.size} platforms", "complete"))
+            val pendingAction = PendingAction(
+                id = "act_send_${UUID.randomUUID().toString().take(6)}",
+                title = "Send Email to $targetEmail",
+                description = aiResponse.responseText.take(300),
+                targetService = "Gmail",
+                consequenceLevel = "high",
+                status = ActionStatus.PENDING_APPROVAL
+            )
+
             return Pair(
                 steps,
                 ToolExecutionResult.Success(
-                    summary = "Proposed plan to compare prices for \"${decision.cleanedSearchTerm}\".",
-                    proposedPlan = plan
+                    summary = aiResponse.responseText,
+                    pendingAction = pendingAction,
+                    tokensUsed = aiResponse.tokensUsed
                 )
             )
         }
 
-        // 3. Daily Briefing / Agenda Synthesis
-        if (decision.category == IntentCategory.BRIEFING) {
-            steps.add(ExecutionStep("b1", "Evaluating Executive Briefing Engine", "complete"))
+        // 3. Email Inbox Search / Read Request
+        if (decision.category == IntentCategory.EMAIL_COMMUNICATION) {
+            if (!isGmailConnected) {
+                return Pair(
+                    steps,
+                    ToolExecutionResult.RequiresConnection("Gmail", "Your Gmail isn't connected yet. Connect it from Profile to let me check your emails.")
+                )
+            }
 
+            val emails = if (!providerToken.isNullOrBlank()) {
+                val (liveEmails, _) = ContrilBackendClient.fetchDirectGmailPage(providerToken, pageToken = null, maxResults = 15)
+                liveEmails
+            } else if (!prefRepository?.userSessionToken?.value.isNullOrBlank()) {
+                ContrilBackendClient.fetchDirectGmailMessages(prefRepository!!.userSessionToken.value!!)
+            } else {
+                emptyList()
+            }
+
+            val emailRegex = Regex("[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}")
+            val queriedAddress = emailRegex.find(prompt)?.value
+
+            // Filter if user searched for a specific sender
+            val filteredEmails = if (queriedAddress != null) {
+                emails.filter { it.sender.contains(queriedAddress, ignoreCase = true) || it.subject.contains(queriedAddress, ignoreCase = true) || it.summarySnippet.contains(queriedAddress, ignoreCase = true) }
+            } else {
+                emails
+            }
+
+            if (filteredEmails.isEmpty()) {
+                val notFoundMsg = if (queriedAddress != null) {
+                    "No emails found from $queriedAddress in your connected Gmail inbox."
+                } else {
+                    "Your connected Gmail inbox is clear. No unread priority messages."
+                }
+                return Pair(steps, ToolExecutionResult.Success(notFoundMsg))
+            }
+
+            val emailItemsText = filteredEmails.take(5).mapIndexed { idx, em ->
+                "${idx + 1}. From: ${em.sender}\n   Subject: \"${em.subject}\"\n   Snippet: \"${em.summarySnippet.take(150)}\""
+            }.joinToString("\n\n")
+
+            val summaryPrompt = """
+                User asked: "$prompt"
+                
+                REAL EMAILS FROM GMAIL:
+                $emailItemsText
+                
+                Respond concisely and accurately summarizing these emails. DO NOT hallucinate any details.
+            """.trimIndent()
+
+            val summaryResult = ContrilAiGatewayClient.generateAiResponse(
+                prompt = summaryPrompt,
+                connectedServices = connectedServices,
+                prefRepository = prefRepository
+            )
+
+            val finalSummary = if (summaryResult.responseText.isNotBlank() && !summaryResult.responseText.contains("couldn't reach")) {
+                summaryResult.responseText
+            } else {
+                "Here is what I found in your connected Gmail:\n\n" + filteredEmails.take(5).joinToString("\n\n") { "• From ${it.sender}: \"${it.subject}\"\n  ${it.summarySnippet.take(120)}" }
+            }
+
+            return Pair(
+                steps,
+                ToolExecutionResult.Success(
+                    summary = ContrilAiGatewayClient.sanitizeCleanText(finalSummary),
+                    rawData = filteredEmails,
+                    tokensUsed = summaryResult.tokensUsed
+                )
+            )
+        }
+
+        // 4. Daily Briefing / Agenda Synthesis
+        if (decision.category == IntentCategory.BRIEFING) {
             if (!isGmailConnected && !isCalendarConnected) {
-                steps.add(ExecutionStep("b2", "Checked Workspace: Disconnected", "complete"))
                 return Pair(
                     steps,
                     ToolExecutionResult.RequiresConnection(
                         "Google Workspace",
-                        "Gmail and Google Calendar are not connected. Connect them in Profile Hub to view your real-time daily briefing."
+                        "Gmail and Google Calendar are not connected. Connect them in Profile to let me check your schedule and emails."
                     )
                 )
             }
 
-            steps.add(ExecutionStep("b2", "Fetching live inbox & calendar feeds", "complete"))
             val emails = if (isGmailConnected && !providerToken.isNullOrBlank()) {
                 val (liveEmails, _) = ContrilBackendClient.fetchDirectGmailPage(providerToken, pageToken = null, maxResults = 10)
                 liveEmails
@@ -119,43 +221,47 @@ class ToolRouter(
             }
 
             val calResult = if (isCalendarConnected) (calendarRepository?.refreshCalendar() ?: ApiResult.Success(emptyList())) else ApiResult.Success(emptyList())
-            val tasks = taskRepository?.tasks?.value?.filter { !it.isCompleted } ?: emptyList()
+            val meetings = if (calResult is ApiResult.Success) calResult.data else emptyList()
 
-            val meetings = (calResult as? ApiResult.Success)?.data ?: emptyList()
-
-            if (emails.isEmpty() && meetings.isEmpty() && tasks.isEmpty()) {
-                val cleanEmptyBriefing = "Today's Executive Briefing:\n\n• Inbox: Your connected Gmail inbox is clear. No unread priority threads.\n• Schedule: No meetings scheduled on your Google Calendar today.\n• Tasks: All focus tasks are completed."
-                return Pair(steps, ToolExecutionResult.Success(cleanEmptyBriefing))
+            val emailSummary = if (emails.isNotEmpty()) {
+                emails.take(5).mapIndexed { idx, em ->
+                    "${idx + 1}. From: ${em.sender} | Subject: \"${em.subject}\" | Snippet: \"${em.summarySnippet.take(120)}\""
+                }.joinToString("\n")
+            } else {
+                "No unread priority emails in connected Gmail."
             }
 
-            // Construct real grounded data
-            val emailSummaryList = emails.take(5).map { "• From: ${it.sender}, Subject: \"${it.subject}\"" }.joinToString("\n")
-            val meetingSummaryList = meetings.take(5).map { "• Meeting: \"${it.title}\" at ${it.timeRange}" }.joinToString("\n")
-            val taskSummaryList = tasks.take(5).map { "• Task: \"${it.title}\" (${it.category})" }.joinToString("\n")
+            val scheduleSummary = if (meetings.isNotEmpty()) {
+                meetings.take(5).mapIndexed { idx, m ->
+                    "${idx + 1}. \"${m.title}\" at ${m.timeRange} (Attendees: ${m.attendees.size})"
+                }.joinToString("\n")
+            } else {
+                "No meetings scheduled on your Google Calendar today."
+            }
 
             val groundedPrompt = """
-                You are Contril AI Chief of Staff generating "Today's Briefing" for the user.
+                User asked for today's briefing.
                 
-                REAL CONNECTED USER DATA:
-                Inbox Emails:
-                ${if (emails.isEmpty()) "• No unread emails in inbox." else emailSummaryList}
+                REAL LIVE WORKSPACE DATA:
+                EMAILS:
+                $emailSummary
                 
-                Calendar Meetings:
-                ${if (meetings.isEmpty()) "• No upcoming meetings scheduled today." else meetingSummaryList}
+                SCHEDULE:
+                $scheduleSummary
                 
-                Active Tasks:
-                ${if (tasks.isEmpty()) "• No pending tasks." else taskSummaryList}
-                
-                STRICT GROUNDING DIRECTIVES:
-                1. Base your briefing EXCLUSIVELY and ENTIRELY on the real emails, calendar meetings, and tasks provided above.
-                2. CRITICAL SAFEGUARD: NEVER invent, assume, or hallucinate any person, company, meeting, or document not present in the data above.
-                3. If there are real emails, summarize each real email by its actual sender and subject.
-                4. If there are no calendar meetings, explicitly state "No meetings scheduled today".
-                5. Output clean, elegant text with clean bullet points (•) and no markdown symbol clutter.
+                Synthesize a crisp, elegant executive briefing using ONLY the real data above.
+                Output clean bullet points (•) without markdown asterisks clutter.
             """.trimIndent()
 
-            val aiResult = GeminiClient.generateContent(groundedPrompt)
-            val briefingText = aiResult.getOrNull() ?: run {
+            val aiResult = ContrilAiGatewayClient.generateAiResponse(
+                prompt = groundedPrompt,
+                connectedServices = connectedServices,
+                prefRepository = prefRepository
+            )
+
+            val briefingText = if (aiResult.responseText.isNotBlank() && !aiResult.responseText.contains("couldn't reach")) {
+                aiResult.responseText
+            } else {
                 val sb = StringBuilder("Today's Executive Briefing:\n\n")
                 if (emails.isNotEmpty()) {
                     sb.append("Priority Emails (${emails.size}):\n")
@@ -173,156 +279,85 @@ class ToolRouter(
                 sb.toString()
             }
 
-            return Pair(steps, ToolExecutionResult.Success(GeminiClient.sanitizeCleanText(briefingText)))
+            return Pair(
+                steps,
+                ToolExecutionResult.Success(
+                    summary = ContrilAiGatewayClient.sanitizeCleanText(briefingText),
+                    tokensUsed = aiResult.tokensUsed
+                )
+            )
         }
 
-        // 4. Email Communication Intent -> Live Inbox Fetch & Grounded Response / Execution Plan
-        val lowerPrompt = prompt.lowercase()
-        val isEmailQuery = decision.category == IntentCategory.EMAIL_COMMUNICATION ||
-                lowerPrompt.contains("email") ||
-                lowerPrompt.contains("inbox") ||
-                lowerPrompt.contains("unread") ||
-                lowerPrompt.contains("mail") ||
-                lowerPrompt.contains("message")
-
-        if (isEmailQuery) {
-            steps.add(ExecutionStep("e1", "Routed to Gmail Engine", "complete"))
-            if (!isGmailConnected) {
-                steps.add(ExecutionStep("e2", "Checked Gmail Connection: Disconnected", "complete"))
+        // 5. Calendar Schedule (Query or Schedule)
+        if (decision.category == IntentCategory.CALENDAR_SCHEDULE) {
+            if (!isCalendarConnected) {
                 return Pair(
                     steps,
-                    ToolExecutionResult.RequiresConnection("Gmail", "Connect Gmail in your Profile Hub to inspect and manage emails.")
+                    ToolExecutionResult.RequiresConnection("Google Calendar", "Your Google Calendar isn't connected yet. Connect it from Profile to let me check your schedule.")
                 )
             }
 
-            steps.add(ExecutionStep("e2", "Fetching live inbox threads directly from Gmail", "complete"))
-            val emails = if (!providerToken.isNullOrBlank()) {
-                val (liveEmails, _) = ContrilBackendClient.fetchDirectGmailPage(providerToken, pageToken = null, maxResults = 10)
-                liveEmails
-            } else if (!prefRepository?.userSessionToken?.value.isNullOrBlank()) {
-                ContrilBackendClient.fetchDirectGmailMessages(prefRepository!!.userSessionToken.value!!)
-            } else {
-                emptyList()
-            }
+            val calResult = calendarRepository?.refreshCalendar() ?: ApiResult.Success(emptyList())
+            val meetings = if (calResult is ApiResult.Success) calResult.data else emptyList()
 
-            if (emails.isEmpty()) {
-                return Pair(steps, ToolExecutionResult.Success("Your connected Gmail inbox is clear. No unread priority messages."))
-            }
-
-            // Check if user is asking for a summary / reading emails vs requesting an action (delete, clean, reply)
-            val isActionRequest = decision.proposedAction == "TRASH_EMAILS" ||
-                    decision.proposedAction == "SEND_DRAFT" ||
-                    lowerPrompt.contains("delete") ||
-                    lowerPrompt.contains("clean") ||
-                    lowerPrompt.contains("trash") ||
-                    lowerPrompt.contains("reply to") ||
-                    lowerPrompt.contains("send email")
-
-            if (!isActionRequest) {
-                // Return live truthful grounded summary
-                val emailItemsText = emails.take(5).mapIndexed { idx, em ->
-                    "${idx + 1}. From: ${em.sender}\n   Subject: \"${em.subject}\"\n   Snippet: \"${em.summarySnippet.take(150)}\""
-                }.joinToString("\n\n")
-
-                val summaryPrompt = """
-                    User asked: "$prompt"
-                    
-                    REAL UNREAD EMAILS FROM CONNECTED GMAIL INBOX:
-                    $emailItemsText
-                    
-                    Respond naturally and accurately summarizing the user's real unread emails above.
-                    DO NOT hallucinate any emails not in the list. Output clean, elegant text with bullet points (•).
-                """.trimIndent()
-
-                val summaryResult = GeminiClient.generateContent(summaryPrompt).getOrNull()
-                val finalSummary = summaryResult ?: ("Here is a summary of your unread emails:\n\n" + emails.take(5).joinToString("\n\n") { "• From ${it.sender}: \"${it.subject}\"\n  ${it.summarySnippet.take(120)}" })
-                return Pair(steps, ToolExecutionResult.Success(GeminiClient.sanitizeCleanText(finalSummary), rawData = emails))
-            } else {
-                val isTrash = decision.proposedAction == "TRASH_EMAILS" || lowerPrompt.contains("delete") || lowerPrompt.contains("clean") || lowerPrompt.contains("trash")
-                val planItems = emails.take(10).map { em ->
-                    PlanItem(
-                        id = em.id,
-                        title = em.sender,
-                        subtitle = em.subject,
-                        sourceData = em.summarySnippet,
-                        isSelected = true,
-                        isDestructive = isTrash
-                    )
+            if (!decision.isActionRequest) {
+                if (meetings.isEmpty()) {
+                    return Pair(steps, ToolExecutionResult.Success("You have no meetings scheduled on your Google Calendar today."))
                 }
 
-                val actionType = if (isTrash) PlanActionType.EMAIL_BULK_ACTION else PlanActionType.EMAIL_DRAFT_REPLY
-                val plan = AgenticExecutionPlan(
-                    title = if (isTrash) "Email Cleanup Plan (${planItems.size} threads)" else "Email Follow-up Plan (${planItems.size} threads)",
-                    description = if (isTrash) "Review and select messages to move to Trash (30-day recovery)." else "Review and select incoming messages for AI draft replies.",
-                    actionType = actionType,
-                    items = planItems,
-                    status = PlanStatus.PROPOSED,
-                    canUndo = isTrash,
-                    requiresTypedConfirmation = isTrash && planItems.size > 5
+                val eventsText = meetings.take(5).mapIndexed { idx, m ->
+                    "${idx + 1}. \"${m.title}\" at ${m.timeRange}"
+                }.joinToString("\n")
+
+                val calPrompt = """
+                    User asked: "$prompt"
+                    
+                    REAL CALENDAR EVENTS TODAY:
+                    $eventsText
+                    
+                    Provide a clean, concise schedule summary.
+                """.trimIndent()
+
+                val summaryResult = ContrilAiGatewayClient.generateAiResponse(
+                    prompt = calPrompt,
+                    connectedServices = connectedServices,
+                    prefRepository = prefRepository
                 )
 
-                steps.add(ExecutionStep("e3", "Constructed interactive plan with ${planItems.size} items", "complete"))
+                val finalSummary = if (summaryResult.responseText.isNotBlank() && !summaryResult.responseText.contains("couldn't reach")) {
+                    summaryResult.responseText
+                } else {
+                    "Here is your schedule for today:\n\n" + meetings.take(5).joinToString("\n") { "• \"${it.title}\" at ${it.timeRange}" }
+                }
+
                 return Pair(
                     steps,
                     ToolExecutionResult.Success(
-                        summary = "Found ${emails.size} relevant email threads in your connected Gmail.",
-                        rawData = emails,
-                        proposedPlan = plan
+                        summary = ContrilAiGatewayClient.sanitizeCleanText(finalSummary),
+                        rawData = meetings,
+                        tokensUsed = summaryResult.tokensUsed
                     )
                 )
             }
         }
 
-        // 5. Calendar Schedule Intent
-        if (decision.category == IntentCategory.CALENDAR_SCHEDULE) {
-            steps.add(ExecutionStep("c1", "Routed to Google Calendar Engine", "complete"))
-            if (!isCalendarConnected) {
-                steps.add(ExecutionStep("c2", "Checked Calendar Connection: Disconnected", "complete"))
-                return Pair(
-                    steps,
-                    ToolExecutionResult.RequiresConnection("Google Calendar", "Connect Google Calendar to inspect meetings.")
-                )
-            }
-
-            steps.add(ExecutionStep("c2", "Queried upcoming schedule", "complete"))
-            val result = calendarRepository?.refreshCalendar() ?: ApiResult.Success(emptyList())
-            return when (result) {
-                is ApiResult.Success<List<MeetingItem>> -> {
-                    val count = result.data.size
-                    val summary = if (count == 0) {
-                        "Your calendar is clear for today."
-                    } else {
-                        "You have $count upcoming events scheduled:\n" +
-                                result.data.take(5).joinToString("\n") { "• \"${it.title}\" at ${it.timeRange}" }
-                    }
-                    Pair(steps, ToolExecutionResult.Success(summary, rawData = result.data))
-                }
-                is ApiResult.Error -> {
-                    Pair(steps, ToolExecutionResult.Failure(result.message))
-                }
-            }
-        }
-
-        // 6. Task Management Intent
+        // 6. Tasks Management
         if (decision.category == IntentCategory.TASK_MANAGEMENT) {
-            steps.add(ExecutionStep("t1", "Routed to Native Task Manager", "complete"))
-            if (decision.proposedAction == "CREATE_TASK" || prompt.startsWith("create", ignoreCase = true) || prompt.startsWith("add", ignoreCase = true) || prompt.startsWith("remind", ignoreCase = true)) {
-                val taskTitle = decision.cleanedSearchTerm.ifBlank { prompt }
-                taskRepository?.addTask(title = taskTitle, category = "AI Action", serviceSource = "Contril")
-                steps.add(ExecutionStep("t2", "Persisted task to local workspace", "complete"))
-                return Pair(
-                    steps,
-                    ToolExecutionResult.Success("Task created: \"$taskTitle\"")
-                )
+            val lower = prompt.lowercase()
+            if (lower.startsWith("add task") || lower.startsWith("create task") || lower.startsWith("new task")) {
+                val taskTitle = prompt.replace(Regex("^(add task|create task|new task):?\\s*", RegexOption.IGNORE_CASE), "").trim()
+                if (taskTitle.isNotBlank()) {
+                    taskRepository?.addTask(title = taskTitle, category = "Focus", serviceSource = "Contril", dueDate = "Today")
+                    return Pair(steps, ToolExecutionResult.Success("Task added: \"$taskTitle\"."))
+                }
             } else {
                 val count = taskRepository?.getPendingTaskCount() ?: 0
-                steps.add(ExecutionStep("t2", "Queried pending tasks ($count active)", "complete"))
                 val summary = if (count == 0) "You have no pending tasks." else "You have $count active tasks."
                 return Pair(steps, ToolExecutionResult.Success(summary))
             }
         }
 
-        // Default: Pure Universal Conversational AI via Gemini
+        // Default: Pure Universal Conversational AI via Contril AI Gateway
         return Pair(emptyList(), null)
     }
 }

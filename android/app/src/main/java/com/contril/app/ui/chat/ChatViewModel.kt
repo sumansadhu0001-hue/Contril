@@ -26,7 +26,8 @@ data class ChatMessage(
     val responsePayload: CommandResponse? = null,
     val comparisonResult: ComparisonResult? = null,
     val pendingAction: PendingAction? = null,
-    val proposedPlan: com.contril.app.data.model.AgenticExecutionPlan? = null
+    val proposedPlan: com.contril.app.data.model.AgenticExecutionPlan? = null,
+    val requiresConnectionService: String? = null
 )
 
 data class ChatUiState(
@@ -92,8 +93,28 @@ class ChatViewModel(
                 }
             }
         }
+        viewModelScope.launch {
+            prefRepository?.googleConnectEvent?.collect {
+                val confirmMessage = ChatMessage(
+                    isUser = false,
+                    text = "✓ **Google Workspace successfully connected!**\n\nI have authorized your Gmail and Google Calendar access. Autonomous priority synthesis, agenda conflict scanning, and draft preparation are now active."
+                )
+                _uiState.update {
+                    it.copy(
+                        messages = it.messages + confirmMessage,
+                        isLoading = false
+                    )
+                }
+            }
+        }
+        viewModelScope.launch {
+            prefRepository?.aiTokenUsageFlow?.collect {
+                val usage = prefRepository.getTodayAiUsage()
+                _uiState.update { it.copy(aiUsage = usage) }
+            }
+        }
         _uiState.update {
-            it.copy(aiUsage = prefRepository?.getTodayAiUsage() ?: Pair(0, 5))
+            it.copy(aiUsage = prefRepository?.getTodayAiUsage() ?: Pair(0, 25000))
         }
     }
 
@@ -221,21 +242,8 @@ class ChatViewModel(
             return
         }
 
-        // 1. Classification & Price Comparison Check
+        // 1. Classification & Unsupported Service Check
         val decision = QueryIntentClassifier.classifyAndRoute(prompt)
-        if (decision.isComparisonSupported && context != null) {
-            if (!comparisonManager.isAccessibilityPermissionGranted(context)) {
-                _uiState.update { it.copy(showConsentModal = true, isLoading = false) }
-                return
-            } else {
-                viewModelScope.launch {
-                    comparisonManager.comparePricesAcrossPlatforms(context, prompt, decision)
-                }
-                return
-            }
-        }
-
-        // 2. Unsupported notice
         if (decision.unsupportedMessage != null) {
             val responseMsg = ChatMessage(
                 isUser = false,
@@ -245,7 +253,7 @@ class ChatViewModel(
             return
         }
 
-        // 3. AI Execution & Server-Side Token Quota Pre-Check
+        // 2. AI Execution & Server-Side Token Quota Pre-Check
         val canExecute = prefRepository?.canExecuteAiAction() ?: true
         if (!canExecute) {
             val used = prefRepository?.getTodayDaytimeTokensUsed() ?: 0L
@@ -275,14 +283,15 @@ class ChatViewModel(
                     text = response.responseText,
                     responsePayload = response,
                     pendingAction = response.pendingAction,
-                    proposedPlan = response.proposedPlan
+                    proposedPlan = response.proposedPlan,
+                    requiresConnectionService = response.requiresConnectionService
                 )
 
                 _uiState.update {
                     it.copy(
                         messages = it.messages + aiMessage,
                         isLoading = false,
-                        aiUsage = prefRepository?.getTodayAiUsage() ?: Pair(1, 5)
+                        aiUsage = prefRepository?.getTodayAiUsage() ?: Pair(0, 25_000)
                     )
                 }
             } catch (e: Exception) {

@@ -97,6 +97,7 @@ class MainActivity : ComponentActivity() {
                             prefRepository.connectService("gmail", email)
                             prefRepository.connectService("calendar", email)
                             prefRepository.connectService("drive", email)
+                            prefRepository.notifyGoogleConnected()
                             val deviceToken = prefRepository.getOrCreateDeviceToken()
                             com.contril.app.service.ContrilFirebaseMessagingService.registerDeviceTokenDirect(currentUser?.id ?: "user_$email", email, deviceToken)
                             Log.i("ContrilMain", "AppAuth PKCE Google OAuth flow completed successfully with scopes: ${googleOAuthManager.getGrantedScopes()}")
@@ -180,6 +181,7 @@ class MainActivity : ComponentActivity() {
                                 prefRepository.connectService("gmail", user.email)
                                 prefRepository.connectService("calendar", user.email)
                                 prefRepository.connectService("drive", user.email)
+                                prefRepository.notifyGoogleConnected()
                                 Log.i("ContrilMain", "Google Workspace integration validated and marked CONNECTED.")
                             } else {
                                 Log.w("ContrilMain", "Google provider token verification failed; not marking connected.")
@@ -207,6 +209,7 @@ class MainActivity : ComponentActivity() {
                         prefRepository.connectService("gmail", email)
                         prefRepository.connectService("calendar", email)
                         prefRepository.connectService("drive", email)
+                        prefRepository.notifyGoogleConnected()
                         Log.i("ContrilMain", "Google Workspace integration validated and marked CONNECTED.")
                     } else {
                         Log.w("ContrilMain", "Google provider token verification failed; not marking connected.")

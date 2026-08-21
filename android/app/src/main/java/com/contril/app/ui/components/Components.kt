@@ -26,6 +26,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -85,6 +86,410 @@ fun GoogleLogo(
     )
 }
 
+/**
+ * Standard Reusable Surface Card per Design System (Claude + Super.money Spec: 20dp rounded, razor border, subtle elevation)
+ */
+@Composable
+fun ContrilSurfaceCard(
+    modifier: Modifier = Modifier,
+    shape: androidx.compose.ui.graphics.Shape = RoundedCornerShape(20.dp),
+    backgroundColor: Color = ContrilLightSurface,
+    elevation: androidx.compose.ui.unit.Dp = 2.dp,
+    border: BorderStroke? = BorderStroke(1.dp, Color(0xFFF1F5F9)),
+    contentPadding: PaddingValues = PaddingValues(18.dp),
+    onClick: (() -> Unit)? = null,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Surface(
+        shape = shape,
+        color = backgroundColor,
+        shadowElevation = elevation,
+        border = border,
+        modifier = if (onClick != null) modifier.clickable { onClick() } else modifier
+    ) {
+        Column(
+            modifier = Modifier.padding(contentPadding),
+            content = content
+        )
+    }
+}
+
+@Composable
+fun SuperQuickActionCard(
+    title: String,
+    subtitle: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    accentGradient: Brush,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier
+            .clip(RoundedCornerShape(20.dp))
+            .clickable { onClick() },
+        shape = RoundedCornerShape(20.dp),
+        color = ContrilLightSurface,
+        shadowElevation = 2.dp,
+        border = BorderStroke(1.dp, Color(0xFFF1F5F9))
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(accentGradient),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, fontSize = 15.sp),
+                    color = TextPrimaryLight
+                )
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
+                    color = TextSecondaryLight
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun FloatingCommandCapsule(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    onExecute: () -> Unit,
+    onVoiceClick: () -> Unit,
+    isListening: Boolean,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        color = ContrilLightSurface,
+        shadowElevation = 4.dp,
+        border = BorderStroke(1.5.dp, if (isListening) SuperElectricIndigo else Brush.linearGradient(listOf(Color(0xFFE2E8F0), Color(0xFFF1F5F9))))
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(SuperElectricIndigo),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Icons.Filled.AutoAwesome, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+            }
+
+            Text(
+                text = if (isListening) "Listening to your voice..." else "Ask Contril anything...",
+                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
+                color = if (isListening) ContrilBlue else TextMutedLight,
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable { onExecute() }
+            )
+
+            if (isListening) {
+                VoiceWaveVisualizer(isListening = true)
+            }
+
+            IconButton(
+                onClick = onVoiceClick,
+                modifier = Modifier.size(36.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Mic,
+                    contentDescription = "Voice Input",
+                    tint = if (isListening) StatusActive else ContrilBlue,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
+
+            IconButton(
+                onClick = onExecute,
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(SuperElectricIndigo)
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                    contentDescription = "Submit",
+                    tint = Color.White,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Standard Section Header (Monospace Eyebrow + Bold Title + Optional Action)
+ */
+@Composable
+fun ContrilSectionHeader(
+    title: String,
+    eyebrow: String? = null,
+    actionText: String? = null,
+    onActionClick: (() -> Unit)? = null,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(2.dp)
+    ) {
+        if (!eyebrow.isNullOrBlank()) {
+            Text(
+                text = eyebrow.uppercase(),
+                style = MaterialTheme.typography.labelSmall.copy(
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.2.sp
+                ),
+                color = ContrilBlue
+            )
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                color = TextPrimaryLight
+            )
+            if (!actionText.isNullOrBlank() && onActionClick != null) {
+                Text(
+                    text = actionText,
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                    color = ContrilBlue,
+                    modifier = Modifier.clickable { onActionClick() }
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Standard Connection Status Badge (Connected as email, Needs Reconnect, Not Connected)
+ */
+@Composable
+fun ContrilStatusBadge(
+    statusText: String,
+    isSuccess: Boolean = false,
+    isWarning: Boolean = false,
+    modifier: Modifier = Modifier
+) {
+    val bgColor = when {
+        isSuccess -> StatusActive.copy(alpha = 0.12f)
+        isWarning -> StatusWarning.copy(alpha = 0.12f)
+        else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+    }
+    val fgColor = when {
+        isSuccess -> StatusActive
+        isWarning -> StatusWarning
+        else -> TextSecondaryLight
+    }
+
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = bgColor,
+        modifier = modifier
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(5.dp)
+                    .clip(CircleShape)
+                    .background(fgColor)
+            )
+            Text(
+                text = statusText,
+                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 10.sp),
+                color = fgColor
+            )
+        }
+    }
+}
+
+/**
+ * Pre-Consent Explainer Bottom Sheet (Notion / Superhuman standard)
+ * Plainly explains permissions before launching the Google OAuth consent screen.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun GooglePreConsentSheet(
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(horizontal = 24.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    GoogleLogo(modifier = Modifier.size(28.dp))
+                    Column {
+                        Text(
+                            text = "Connect Google Workspace",
+                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                            color = TextPrimaryLight
+                        )
+                        Text(
+                            text = "Single-pass authorization for your AI Chief of Staff",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = TextSecondaryLight
+                        )
+                    }
+                }
+                IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
+                    Icon(Icons.Filled.Close, contentDescription = "Close", tint = TextSecondaryLight)
+                }
+            }
+
+            Text(
+                text = "Contril requests the following Google Workspace permissions to automate your executive workflow. All data is processed with on-device hardware encryption:",
+                style = MaterialTheme.typography.bodyMedium,
+                color = TextSecondaryLight,
+                lineHeight = 20.sp
+            )
+
+            // Explainer Cards
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                ConsentPermissionRow(
+                    icon = Icons.Outlined.Email,
+                    title = "Read Email Inbox",
+                    description = "Summarizes unread emails, extracts urgent priorities, and synthesizes your daily executive briefing."
+                )
+                ConsentPermissionRow(
+                    icon = Icons.Outlined.EditNote,
+                    title = "Prepare & Send Drafts",
+                    description = "Drafts responses for your review. Emails are NEVER sent without your manual approval unless Auto-Send mode is explicitly enabled."
+                )
+                ConsentPermissionRow(
+                    icon = Icons.Outlined.CalendarToday,
+                    title = "Read Google Calendar",
+                    description = "Detects upcoming meetings, warns of scheduling conflicts, and tracks daily agenda milestones."
+                )
+            }
+
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = ContrilBlue.copy(alpha = 0.08f),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier.padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(Icons.Filled.Shield, contentDescription = null, tint = ContrilBlue, modifier = Modifier.size(18.dp))
+                    Text(
+                        text = "You can individually disconnect Gmail or Calendar anytime with one tap from the Connections screen.",
+                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                        color = TextPrimaryLight
+                    )
+                }
+            }
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                OutlinedButton(
+                    onClick = onDismiss,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("Cancel", color = TextSecondaryLight)
+                }
+
+                Button(
+                    onClick = {
+                        onDismiss()
+                        onConfirm()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = ContrilBlue),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.weight(1.5f)
+                ) {
+                    Text("Continue to Google", fontWeight = FontWeight.Bold, color = Color.White)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ConsentPermissionRow(
+    icon: ImageVector,
+    title: String,
+    description: String
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.Top
+    ) {
+        Surface(
+            shape = RoundedCornerShape(8.dp),
+            color = ContrilBlue.copy(alpha = 0.1f),
+            modifier = Modifier.size(32.dp)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(icon, contentDescription = null, tint = ContrilBlue, modifier = Modifier.size(18.dp))
+            }
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                color = TextPrimaryLight
+            )
+            Text(
+                text = description,
+                style = MaterialTheme.typography.bodySmall,
+                color = TextSecondaryLight,
+                lineHeight = 16.sp
+            )
+        }
+    }
+}
+
 @Composable
 fun ContrilTopBar(
     title: String = "CONTRIL",
@@ -106,18 +511,18 @@ fun ContrilTopBar(
             modifier = Modifier
                 .statusBarsPadding()
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 8.dp),
+                .padding(horizontal = 20.dp, vertical = 10.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // LEFT: Brand Geometric Logo + Eyebrow Typography
+            // LEFT: Clean Brand Typography
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 ContrilLogoMark(
-                    modifier = Modifier.size(26.dp),
-                    color = ContrilBlue
+                    modifier = Modifier.size(24.dp),
+                    color = ContrilCharcoal
                 )
                 Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
                     Text(
@@ -125,7 +530,8 @@ fun ContrilTopBar(
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontFamily = FontFamily.Monospace,
                             fontWeight = FontWeight.Bold,
-                            letterSpacing = 2.sp
+                            letterSpacing = 2.sp,
+                            fontSize = 15.sp
                         ),
                         color = TextPrimaryLight
                     )
@@ -133,23 +539,24 @@ fun ContrilTopBar(
                         text = subtitle,
                         style = MaterialTheme.typography.labelSmall.copy(
                             fontWeight = FontWeight.Normal,
-                            letterSpacing = 0.2.sp
+                            letterSpacing = 0.2.sp,
+                            fontSize = 11.sp
                         ),
                         color = TextSecondaryLight
                     )
                 }
             }
 
-            // RIGHT: Active Status Capsule + Notification Bell + Real Profile Avatar
+            // RIGHT: Minimal Status Pill + Notification Bell + Profile Avatar
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // Live Status Pill (Soft shadow on light background)
+                // Minimal Status Pill
                 Surface(
                     shape = RoundedCornerShape(16.dp),
                     color = ContrilLightSurface,
-                    shadowElevation = 4.dp
+                    border = BorderStroke(1.dp, Color(0xFFE4E4E7))
                 ) {
                     Row(
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
@@ -164,47 +571,47 @@ fun ContrilTopBar(
                         )
                         Text(
                             text = if (isOnline) "Active" else "Offline",
-                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold, fontSize = 11.sp),
                             color = TextPrimaryLight
                         )
                     }
                 }
 
-                // Unified Notification & Activity Bell Icon with Unread Badge
+                // Minimal Notification Bell
                 Surface(
                     onClick = { showNotificationSheet = true },
                     shape = CircleShape,
                     color = ContrilLightSurface,
-                    shadowElevation = 4.dp,
+                    border = BorderStroke(1.dp, Color(0xFFE4E4E7)),
                     modifier = Modifier.size(34.dp)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
                             Icons.Outlined.Notifications,
-                            contentDescription = "Unified Activity & Notifications",
+                            contentDescription = "Notifications",
                             tint = TextPrimaryLight,
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(17.dp)
                         )
                         if (hasUnreadAlerts || overnightLogs.isNotEmpty()) {
                             Box(
                                 modifier = Modifier
                                     .align(Alignment.TopEnd)
                                     .padding(top = 5.dp, end = 5.dp)
-                                    .size(7.dp)
+                                    .size(6.dp)
                                     .clip(CircleShape)
-                                    .background(ContrilBlue)
+                                    .background(ContrilCharcoal)
                             )
                         }
                     }
                 }
 
-                // Dynamic Profile Avatar with Two-tone Gradient
+                // Minimal Solid Profile Avatar
                 if (userProfile != null) {
                     Box(
                         modifier = Modifier
                             .size(34.dp)
                             .clip(CircleShape)
-                            .background(ContrilAccentGradient)
+                            .background(ContrilCharcoal)
                             .clickable {
                                 if (onAvatarClick != null) onAvatarClick() else showProfileSheet = true
                             },
@@ -213,7 +620,7 @@ fun ContrilTopBar(
                         Text(
                             text = userProfile.initials,
                             color = Color.White,
-                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 12.sp)
                         )
                     }
                 }
@@ -243,21 +650,27 @@ fun ProfileModalDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
+        containerColor = ContrilLightSurface,
+        shape = RoundedCornerShape(20.dp),
         confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Close", color = ContrilBlue, fontWeight = FontWeight.SemiBold)
+            Button(
+                onClick = onDismiss,
+                colors = ButtonDefaults.buttonColors(containerColor = ContrilCharcoal),
+                shape = RoundedCornerShape(10.dp)
+            ) {
+                Text("Close", color = Color.White, fontWeight = FontWeight.SemiBold)
             }
         },
         title = {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Box(
                     modifier = Modifier
-                        .size(38.dp)
+                        .size(44.dp)
                         .clip(CircleShape)
-                        .background(ContrilAccentGradient),
+                        .background(ContrilCharcoal),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
@@ -266,9 +679,9 @@ fun ProfileModalDialog(
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                     )
                 }
-                Column {
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(
-                        text = userProfile.name.ifBlank { "Contril User" },
+                        text = userProfile.name.ifBlank { "Executive User" },
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                         color = TextPrimaryLight
                     )
@@ -281,21 +694,21 @@ fun ProfileModalDialog(
             }
         },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = ContrilLightBgBottom,
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xFFF4F4F5),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(
-                            text = "ACCOUNT ID",
-                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                            text = "ACCOUNT IDENTIFIER",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 10.sp, letterSpacing = 1.sp),
                             color = TextSecondaryLight
                         )
                         Text(
                             text = userProfile.id,
-                            style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                            style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace, fontSize = 12.sp),
                             color = TextPrimaryLight
                         )
                     }
@@ -304,7 +717,6 @@ fun ProfileModalDialog(
         }
     )
 }
-
 
 @Composable
 fun ContrilBottomNav(
@@ -315,8 +727,7 @@ fun ContrilBottomNav(
 
     Surface(
         color = ContrilLightSurface,
-        shadowElevation = 10.dp,
-        shape = RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp),
+        border = BorderStroke(1.dp, Color(0xFFE4E4E7)),
         modifier = Modifier.fillMaxWidth()
     ) {
         NavigationBar(
@@ -333,23 +744,22 @@ fun ContrilBottomNav(
                         Icon(
                             imageVector = if (isSelected) screen.selectedIcon else screen.unselectedIcon,
                             contentDescription = screen.title,
-                            modifier = Modifier.size(22.dp)
+                            modifier = Modifier.size(20.dp),
+                            tint = if (isSelected) TextPrimaryLight else TextMutedLight
                         )
                     },
                     label = {
                         Text(
                             text = screen.title,
                             style = MaterialTheme.typography.labelSmall.copy(
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
-                            )
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                fontSize = 11.sp
+                            ),
+                            color = if (isSelected) TextPrimaryLight else TextMutedLight
                         )
                     },
                     colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = ContrilBlue,
-                        selectedTextColor = ContrilBlue,
-                        unselectedIconColor = TextSecondaryLight,
-                        unselectedTextColor = TextSecondaryLight,
-                        indicatorColor = ContrilBlue.copy(alpha = 0.12f)
+                        indicatorColor = Color(0xFFF4F4F5)
                     )
                 )
             }
@@ -1013,6 +1423,389 @@ fun BriefingCardSkeleton() {
             }
             ShimmerBox(modifier = Modifier.fillMaxWidth().height(14.dp))
             ShimmerBox(modifier = Modifier.fillMaxWidth(0.7f).height(14.dp))
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Advanced Executive UI Components & Workflow Modals
+// ---------------------------------------------------------------------------
+
+@Composable
+fun VoiceWaveVisualizer(
+    isListening: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val infiniteTransition = androidx.compose.animation.core.rememberInfiniteTransition(label = "wave")
+    val heights = (0..5).map { i ->
+        infiniteTransition.animateFloat(
+            initialValue = 8f,
+            targetValue = if (isListening) (16f + (i * 7f) % 24f) else 8f,
+            animationSpec = androidx.compose.animation.core.infiniteRepeatable(
+                animation = androidx.compose.animation.core.tween(
+                    durationMillis = 350 + i * 80,
+                    easing = androidx.compose.animation.core.FastOutSlowInEasing
+                ),
+                repeatMode = androidx.compose.animation.core.RepeatMode.Reverse
+            ),
+            label = "wave_$i"
+        )
+    }
+
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        heights.forEachIndexed { _, animHeight ->
+            Box(
+                modifier = Modifier
+                    .width(4.dp)
+                    .height(animHeight.value.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(if (isListening) ContrilBlue else TextMutedLight)
+            )
+        }
+    }
+}
+
+@Composable
+fun ProductivityScoreRing(
+    resolvedCount: Int,
+    totalCount: Int,
+    modifier: Modifier = Modifier
+) {
+    val score = if (totalCount > 0) ((resolvedCount.toFloat() / totalCount.toFloat()) * 100).toInt() else 100
+
+    ContrilSurfaceCard(
+        modifier = modifier,
+        elevation = 2.dp
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Box(
+                    modifier = Modifier.size(54.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(
+                        progress = { score / 100f },
+                        modifier = Modifier.fillMaxSize(),
+                        color = ContrilBlue,
+                        trackColor = ContrilBlue.copy(alpha = 0.15f),
+                        strokeWidth = 5.dp
+                    )
+                    Text(
+                        text = "$score%",
+                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                        color = TextPrimaryLight
+                    )
+                }
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(
+                        text = "Executive Daily Velocity",
+                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                        color = TextPrimaryLight
+                    )
+                    Text(
+                        text = "$resolvedCount of $totalCount priorities actioned",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextSecondaryLight
+                    )
+                }
+            }
+
+            ContrilStatusBadge(
+                statusText = if (score >= 80) "Optimal" else "In Progress",
+                isSuccess = score >= 80,
+                isWarning = score < 80
+            )
+        }
+    }
+}
+
+@Composable
+fun LiveTelemetryStatusCard(
+    connectedServicesCount: Int,
+    isOnline: Boolean,
+    modifier: Modifier = Modifier
+) {
+    ContrilSurfaceCard(
+        modifier = modifier,
+        elevation = 2.dp
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .clip(CircleShape)
+                            .background(if (isOnline) StatusActive else StatusError)
+                    )
+                    Text(
+                        text = "WORKSPACE TELEMETRY",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.2.sp
+                        ),
+                        color = ContrilBlue
+                    )
+                }
+                Text(
+                    text = if (isOnline) "Real-time Sync Active" else "Offline Enclave",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = TextSecondaryLight
+                )
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                ServiceTelemetryPill(name = "Gmail", isConnected = connectedServicesCount > 0, modifier = Modifier.weight(1f))
+                ServiceTelemetryPill(name = "Calendar", isConnected = connectedServicesCount > 0, modifier = Modifier.weight(1f))
+                ServiceTelemetryPill(name = "AI Engine", isConnected = isOnline, modifier = Modifier.weight(1f))
+            }
+        }
+    }
+}
+
+@Composable
+fun ServiceTelemetryPill(
+    name: String,
+    isConnected: Boolean,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(8.dp),
+        color = if (isConnected) ContrilBlue.copy(alpha = 0.08f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        border = BorderStroke(1.dp, if (isConnected) ContrilBlue.copy(alpha = 0.2f) else Color.Transparent)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(6.dp)
+                    .clip(CircleShape)
+                    .background(if (isConnected) StatusActive else TextMutedLight)
+            )
+            Text(
+                text = name,
+                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold, fontSize = 11.sp),
+                color = if (isConnected) TextPrimaryLight else TextMutedLight
+            )
+        }
+    }
+}
+
+@Composable
+fun ToolExecutionReceiptCard(
+    toolName: String,
+    details: String,
+    executionTimeMs: Long = 120,
+    modifier: Modifier = Modifier
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable { expanded = !expanded },
+        shape = RoundedCornerShape(10.dp),
+        color = Color(0xFFF8FAFC),
+        border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+    ) {
+        Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(
+                        Icons.Outlined.CheckCircle,
+                        contentDescription = null,
+                        tint = StatusActive,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Text(
+                        text = "Executed: $toolName",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                        color = TextPrimaryLight
+                    )
+                }
+                Text(
+                    text = "${executionTimeMs}ms",
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                    color = TextSecondaryLight
+                )
+            }
+            if (expanded) {
+                HorizontalDivider(color = Color(0xFFE2E8F0), modifier = Modifier.padding(vertical = 4.dp))
+                Text(
+                    text = details,
+                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp, fontFamily = FontFamily.Monospace),
+                    color = TextSecondaryLight
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun QuickScheduleSheet(
+    onDismiss: () -> Unit,
+    onSchedule: (String, String, String) -> Unit
+) {
+    var title by remember { mutableStateOf("") }
+    var time by remember { mutableStateOf("10:00 AM") }
+    var duration by remember { mutableStateOf("30 min") }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = ContrilLightSurface,
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text(
+                text = "Quick Schedule Assistant",
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                color = TextPrimaryLight
+            )
+            Text(
+                text = "AI will coordinate calendar invites, check conflicts, and attach Google Meet links.",
+                style = MaterialTheme.typography.bodySmall,
+                color = TextSecondaryLight
+            )
+
+            OutlinedTextField(
+                value = title,
+                onValueChange = { title = it },
+                label = { Text("Meeting Title") },
+                placeholder = { Text("e.g. Strategic Alignment Sync") },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp)
+            )
+
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedTextField(
+                    value = time,
+                    onValueChange = { time = it },
+                    label = { Text("Start Time") },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp)
+                )
+                OutlinedTextField(
+                    value = duration,
+                    onValueChange = { duration = it },
+                    label = { Text("Duration") },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp)
+                )
+            }
+
+            Button(
+                onClick = {
+                    if (title.isNotBlank()) {
+                        onSchedule(title, time, duration)
+                        onDismiss()
+                    }
+                },
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = ContrilBlue),
+                enabled = title.isNotBlank()
+            ) {
+                Text("Schedule & Generate Meet Link", fontWeight = FontWeight.Bold, color = Color.White)
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DocumentSummarizerSheet(
+    onDismiss: () -> Unit,
+    onAnalyze: (String) -> Unit
+) {
+    var docText by remember { mutableStateOf("") }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = ContrilLightSurface,
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text(
+                text = "Document & Agreement Analyzer",
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                color = TextPrimaryLight
+            )
+            Text(
+                text = "Extract key obligations, high-risk clauses, deadlines, and financial milestones.",
+                style = MaterialTheme.typography.bodySmall,
+                color = TextSecondaryLight
+            )
+
+            OutlinedTextField(
+                value = docText,
+                onValueChange = { docText = it },
+                label = { Text("Document Text / Agreement Excerpt") },
+                placeholder = { Text("Paste agreement clauses or contract text...") },
+                modifier = Modifier.fillMaxWidth().height(140.dp),
+                shape = RoundedCornerShape(12.dp),
+                maxLines = 8
+            )
+
+            Button(
+                onClick = {
+                    if (docText.isNotBlank()) {
+                        onAnalyze(docText)
+                        onDismiss()
+                    }
+                },
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = ContrilBlue),
+                enabled = docText.isNotBlank()
+            ) {
+                Text("Analyze Document Intelligence", fontWeight = FontWeight.Bold, color = Color.White)
+            }
+            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }

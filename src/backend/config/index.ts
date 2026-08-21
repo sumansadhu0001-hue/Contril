@@ -24,15 +24,15 @@ export const config = {
     password: process.env.REDIS_PASSWORD || undefined,
   },
 
-  // AI Models Routing Config
+  // AI Models Routing Config (Server-Authoritative NVIDIA Cloud Inference)
   ai: {
-    geminiApiKey: process.env.GEMINI_API_KEY || '',
-    openaiApiKey: process.env.OPENAI_API_KEY || '',
-    anthropicApiKey: process.env.ANTHROPIC_API_KEY || '',
-    defaultModel: process.env.GEMINI_MODEL || 'gemini-3.6-flash',
-    fallbackModel: process.env.GEMINI_FALLBACK_MODEL || 'gemini-3.5-flash',
-    reasoningModel: process.env.GEMINI_REASONING_MODEL || 'gemini-3.1-pro-preview',
-    embeddingModel: 'text-embedding-004',
+    provider: process.env.AI_PROVIDER || 'nvidia',
+    nvidiaApiKey: process.env.NVIDIA_API_KEY || '',
+    nvidiaBaseUrl: process.env.NVIDIA_BASE_URL || 'https://integrate.api.nvidia.com/v1',
+    defaultModel: process.env.AI_MODEL || 'meta/llama-3.1-8b-instruct',
+    fallbackModel: process.env.AI_FALLBACK_MODEL || 'meta/llama-3.2-3b-instruct',
+    temperature: 0.6,
+    maxTokens: 1024,
     vectorDimensions: 768,
   },
 

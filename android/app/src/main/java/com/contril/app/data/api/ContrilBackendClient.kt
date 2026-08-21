@@ -653,4 +653,42 @@ class ContrilBackendClient(
             ApiResult.Success(emptyList())
         }
     }
+
+    /**
+     * Authoritative Subscription & Entitlement Sync from Supabase
+     */
+    suspend fun fetchUserEffectiveSubscription(userId: String): JSONObject? = withContext(Dispatchers.IO) {
+        try {
+            val reqBody = JSONObject().apply {
+                put("p_user_id", userId)
+            }
+            val token = prefRepository?.userSessionToken?.value
+            val authHeader = if (!token.isNullOrBlank()) "Bearer $token" else "Bearer $anonKey"
+
+            val req = Request.Builder()
+                .url("$baseUrl/rest/v1/rpc/get_user_effective_plan")
+                .header("apikey", anonKey)
+                .header("Authorization", authHeader)
+                .header("Content-Type", "application/json")
+                .post(reqBody.toString().toRequestBody(jsonMediaType))
+                .build()
+
+            val res = httpClient.newCall(req).execute()
+            val body = res.body?.string() ?: ""
+            if (res.isSuccessful && body.isNotBlank()) {
+                val json = JSONObject(body)
+                val effectivePlan = json.optString("effective_plan", "Free")
+                val status = json.optString("status", "active")
+                val expiresAt = json.optString("expires_at", "")
+                val remainingFormatted = json.optString("remaining_formatted", "")
+
+                prefRepository?.setPlan(if (effectivePlan.equals("elite", true)) "Autonomous Elite" else if (effectivePlan.equals("pro", true)) "Contril Pro" else "Free")
+                prefRepository?.saveSubscriptionMetadata(status = status, expiresAt = expiresAt, remainingFormatted = remainingFormatted)
+                return@withContext json
+            }
+        } catch (e: Exception) {
+            Log.w("ContrilBackend", "Subscription sync error: ${e.message}")
+        }
+        null
+    }
 }

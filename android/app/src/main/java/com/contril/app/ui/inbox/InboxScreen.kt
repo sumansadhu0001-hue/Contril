@@ -809,7 +809,7 @@ fun InboxScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             CircularProgressIndicator(modifier = Modifier.size(18.dp), color = ContrilBlue, strokeWidth = 2.dp)
-                            Text("Gemini is drafting an executive reply...", style = MaterialTheme.typography.bodySmall)
+                            Text("Contril AI is drafting an executive reply...", style = MaterialTheme.typography.bodySmall)
                         }
                     } else {
                         OutlinedTextField(

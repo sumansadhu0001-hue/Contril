@@ -48,7 +48,17 @@ export const ExecutiveDashboardView: React.FC<{
   const [selectedExplainability, setSelectedExplainability] = useState<any | null>(null);
 
   const connectedToolsCount = userProfile?.connectedTools?.length || 0;
-  const morningBrief = ExecutiveBriefEngine.generateMorningBrief(3, 4, connectedToolsCount);
+  // TODO: This view does not yet fetch real Gmail/Calendar data. Until real
+  // fetching is wired in here (e.g. via a useEffect calling the backend's
+  // real Gmail/Calendar endpoints), we pass empty arrays so the briefing
+  // shows an honest "nothing found" state rather than inventing fake
+  // meetings/emails. Do NOT restore hardcoded placeholder numbers here.
+  const morningBrief = ExecutiveBriefEngine.generateMorningBrief({
+    realMeetings: [],
+    realUnansweredEmails: [],
+    realPendingApprovals: 0,
+    connectedToolsCount
+  });
   const proactiveNudges = ProactiveIntelligenceEngine.getProactiveNudges(permissionMode, connectedToolsCount);
   const automations = AutomationRecommendationEngine.getRecommendations();
 

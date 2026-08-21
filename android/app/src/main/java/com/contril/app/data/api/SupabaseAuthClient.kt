@@ -15,7 +15,7 @@ object SupabaseAuthClient {
 
     private const val SUPABASE_URL = "https://qjyowojnvbfezznezxrr.supabase.co"
     private const val SUPABASE_ANON_KEY = "sb_publishable_FPaC7OtL6iAsYiQ_JDS9IA_ZmTuYeyT"
-    private const val OAUTH_REDIRECT_URI = "contril://auth/callback"
+    private const val OAUTH_REDIRECT_URI = "https://contril.netlify.app/auth/callback"
 
     private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
 
@@ -32,7 +32,7 @@ object SupabaseAuthClient {
      * Flow A: Contril User Authentication (Clean standard Supabase Google OAuth)
      */
     fun getGoogleOAuthUrl(): String {
-        return "$SUPABASE_URL/auth/v1/authorize?provider=google&redirect_to=$encodedRedirectUri&queryParams[access_type]=offline&queryParams[prompt]=consent"
+        return "$SUPABASE_URL/auth/v1/authorize?provider=google&redirect_to=$encodedRedirectUri"
     }
 
     fun getGoogleLoginOAuthUrl(): String = getGoogleOAuthUrl()
@@ -43,25 +43,25 @@ object SupabaseAuthClient {
     fun getGoogleWorkspaceOAuthUrl(): String {
         val rawScopes = "https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile"
         val scopes = java.net.URLEncoder.encode(rawScopes, "UTF-8")
-        return "$SUPABASE_URL/auth/v1/authorize?provider=google&scopes=$scopes&redirect_to=$encodedRedirectUri&queryParams[access_type]=offline&queryParams[prompt]=consent"
+        return "$SUPABASE_URL/auth/v1/authorize?provider=google&scopes=$scopes&redirect_to=$encodedRedirectUri"
     }
 
     fun getGmailOAuthUrl(): String {
         val rawScopes = "https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile"
         val scopes = java.net.URLEncoder.encode(rawScopes, "UTF-8")
-        return "$SUPABASE_URL/auth/v1/authorize?provider=google&scopes=$scopes&redirect_to=$encodedRedirectUri&queryParams[access_type]=offline&queryParams[prompt]=consent"
+        return "$SUPABASE_URL/auth/v1/authorize?provider=google&scopes=$scopes&redirect_to=$encodedRedirectUri"
     }
 
     fun getGoogleCalendarOAuthUrl(): String {
         val rawScopes = "https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile"
         val scopes = java.net.URLEncoder.encode(rawScopes, "UTF-8")
-        return "$SUPABASE_URL/auth/v1/authorize?provider=google&scopes=$scopes&redirect_to=$encodedRedirectUri&queryParams[access_type]=offline&queryParams[prompt]=consent"
+        return "$SUPABASE_URL/auth/v1/authorize?provider=google&scopes=$scopes&redirect_to=$encodedRedirectUri"
     }
 
     fun getGoogleDriveOAuthUrl(): String {
         val rawScopes = "https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile"
         val scopes = java.net.URLEncoder.encode(rawScopes, "UTF-8")
-        return "$SUPABASE_URL/auth/v1/authorize?provider=google&scopes=$scopes&redirect_to=$encodedRedirectUri&queryParams[access_type]=offline&queryParams[prompt]=consent"
+        return "$SUPABASE_URL/auth/v1/authorize?provider=google&scopes=$scopes&redirect_to=$encodedRedirectUri"
     }
 
     fun getMicrosoftOAuthUrl(): String {

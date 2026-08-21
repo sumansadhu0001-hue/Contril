@@ -411,7 +411,7 @@ fun OnboardingScreen(
                                     listOf(
                                         "Unlimited AI commands & reasoning",
                                         "Multi-agent autonomous tool execution",
-                                        "Priority Gemini 1.5 Pro processing",
+                                        "Priority NVIDIA Cloud AI processing",
                                         "Early access to universal integrations"
                                     ).forEach { benefit ->
                                         Row(

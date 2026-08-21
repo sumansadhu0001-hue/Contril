@@ -25,13 +25,15 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
 import com.contril.app.data.api.SupabaseAuthClient
 import com.contril.app.data.model.IntegrationCategory
 import com.contril.app.data.model.IntegrationStatus
-import com.contril.app.data.model.IntegrationType
-import com.contril.app.data.model.ServiceConnectionState
 import com.contril.app.theme.*
+import com.contril.app.ui.components.ContrilSectionHeader
+import com.contril.app.ui.components.ContrilStatusBadge
+import com.contril.app.ui.components.ContrilSurfaceCard
+import com.contril.app.ui.components.GoogleLogo
+import com.contril.app.ui.components.GooglePreConsentSheet
 
 @Composable
 fun IntegrationsScreen(viewModel: IntegrationsViewModel) {
@@ -39,17 +41,18 @@ fun IntegrationsScreen(viewModel: IntegrationsViewModel) {
     val uiState by viewModel.uiState.collectAsState()
 
     var selectedCategoryTab by remember { mutableStateOf("All") }
+    var showGooglePreConsent by remember { mutableStateOf(false) }
+    var serviceToDisconnect by remember { mutableStateOf<IntegrationStatus?>(null) }
     var manageServiceItem by remember { mutableStateOf<IntegrationStatus?>(null) }
 
-    val categoryTabs = listOf("All", "Work", "Productivity", "Travel & Stay", "Transport & Food", "Shopping")
+    val categoryTabs = listOf("All", "Work", "Productivity", "Travel & Stay", "Food & Transport")
 
     val filteredIntegrations = remember(uiState.integrations, selectedCategoryTab) {
         when (selectedCategoryTab) {
             "Work" -> uiState.integrations.filter { it.category == IntegrationCategory.WORK }
             "Productivity" -> uiState.integrations.filter { it.category == IntegrationCategory.PRODUCTIVITY }
             "Travel & Stay" -> uiState.integrations.filter { it.category == IntegrationCategory.TRAVEL || it.category == IntegrationCategory.HOTELS }
-            "Transport & Food" -> uiState.integrations.filter { it.category == IntegrationCategory.TRANSPORT || it.category == IntegrationCategory.FOOD }
-            "Shopping" -> uiState.integrations.filter { it.category == IntegrationCategory.SHOPPING }
+            "Food & Transport" -> uiState.integrations.filter { it.category == IntegrationCategory.TRANSPORT || it.category == IntegrationCategory.FOOD }
             else -> uiState.integrations
         }
     }
@@ -59,12 +62,12 @@ fun IntegrationsScreen(viewModel: IntegrationsViewModel) {
             .fillMaxSize()
             .padding(horizontal = 20.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
-        contentPadding = PaddingValues(top = 4.dp, bottom = 24.dp)
+        contentPadding = PaddingValues(top = 4.dp, bottom = 32.dp)
     ) {
         // 1. Screen Header
         item {
             Column(
-                modifier = Modifier.padding(top = 4.dp, bottom = 2.dp),
+                modifier = Modifier.padding(top = 4.dp, bottom = 4.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 Text(
@@ -85,7 +88,7 @@ fun IntegrationsScreen(viewModel: IntegrationsViewModel) {
                     color = MaterialTheme.colorScheme.onBackground
                 )
                 Text(
-                    text = "Manage the work, productivity, travel, transport, and commerce tools Contril interacts with.",
+                    text = "Single authoritative management for your connected email, calendar, files, and executive tools. Real-time data is encrypted on-device.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -170,7 +173,7 @@ fun IntegrationsScreen(viewModel: IntegrationsViewModel) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "${selectedCategoryTab.uppercase()} INTEGRATIONS (${filteredIntegrations.size})",
+                    text = "${selectedCategoryTab.uppercase()} SERVICES (${filteredIntegrations.size})",
                     style = MaterialTheme.typography.labelSmall.copy(
                         fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.Bold,
@@ -179,7 +182,7 @@ fun IntegrationsScreen(viewModel: IntegrationsViewModel) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
-                    text = "${uiState.connectedCount} Connected",
+                    text = "${uiState.connectedCount} Active",
                     style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                     color = if (uiState.connectedCount > 0) StatusActive else MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -187,17 +190,24 @@ fun IntegrationsScreen(viewModel: IntegrationsViewModel) {
         }
 
         // 5. Service Cards List
-        items(filteredIntegrations) { integration ->
-            ServiceCard(
+        items(filteredIntegrations, key = { it.id }) { integration ->
+            ServiceConnectionCard(
                 integration = integration,
                 onConnect = {
-                    try {
-                        val oauthUrl = SupabaseAuthClient.getOAuthUrlForService(integration.id)
-                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(oauthUrl))
-                        context.startActivity(intent)
-                    } catch (e: Exception) {
-                        viewModel.setErrorMessage("Unable to launch authorization: ${e.message}")
+                    if (integration.id == "gmail" || integration.id == "calendar" || integration.id == "drive") {
+                        showGooglePreConsent = true
+                    } else {
+                        try {
+                            val oauthUrl = SupabaseAuthClient.getOAuthUrlForService(integration.id)
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(oauthUrl))
+                            context.startActivity(intent)
+                        } catch (e: Exception) {
+                            viewModel.setErrorMessage("Unable to launch authorization: ${e.message}")
+                        }
                     }
+                },
+                onDisconnect = {
+                    serviceToDisconnect = integration
                 },
                 onManage = {
                     manageServiceItem = integration
@@ -206,7 +216,54 @@ fun IntegrationsScreen(viewModel: IntegrationsViewModel) {
         }
     }
 
-    // Manage Service Dialog
+    // Google Pre-Consent Explainer Bottom Sheet
+    if (showGooglePreConsent) {
+        GooglePreConsentSheet(
+            onConfirm = {
+                showGooglePreConsent = false
+                viewModel.launchGoogleOAuth(context)
+            },
+            onDismiss = {
+                showGooglePreConsent = false
+            }
+        )
+    }
+
+    // Per-Service Disconnect Confirmation Dialog
+    if (serviceToDisconnect != null) {
+        val target = serviceToDisconnect!!
+        AlertDialog(
+            onDismissRequest = { serviceToDisconnect = null },
+            title = {
+                Text("Disconnect ${target.name}?", fontWeight = FontWeight.Bold)
+            },
+            text = {
+                Text(
+                    "Contril will stop syncing with ${target.name}. Other connected services will remain unaffected. You can reconnect anytime.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.disconnectService(target.id)
+                        serviceToDisconnect = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = StatusError)
+                ) {
+                    Text("Disconnect", fontWeight = FontWeight.Bold, color = Color.White)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { serviceToDisconnect = null }) {
+                    Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        )
+    }
+
+    // Manage Service Details Dialog
     if (manageServiceItem != null) {
         ManageServiceDialog(
             integration = manageServiceItem!!,
@@ -220,40 +277,35 @@ fun IntegrationsScreen(viewModel: IntegrationsViewModel) {
 }
 
 @Composable
-fun ServiceCard(
+fun ServiceConnectionCard(
     integration: IntegrationStatus,
     onConnect: () -> Unit,
+    onDisconnect: () -> Unit,
     onManage: () -> Unit
 ) {
     val serviceIcon: ImageVector = when (integration.id) {
         "gmail" -> Icons.Outlined.Email
         "calendar" -> Icons.Outlined.CalendarMonth
         "drive" -> Icons.Outlined.Folder
-        "outlook" -> Icons.Outlined.Business
         "github" -> Icons.Outlined.Code
-        "notion" -> Icons.Outlined.Description
         "makemytrip" -> Icons.Outlined.Flight
-        "airbnb" -> Icons.Outlined.Hotel
-        "uber", "ola" -> Icons.Outlined.DirectionsCar
-        "swiggy", "zomato" -> Icons.Outlined.Restaurant
-        "amazon", "flipkart" -> Icons.Outlined.ShoppingCart
+        "swiggy" -> Icons.Outlined.Restaurant
         else -> Icons.Outlined.Public
     }
 
-    Surface(
-        shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surface,
+    val isNeedsReconnect = integration.lastSyncTime.contains("Reconnect", ignoreCase = true)
+
+    ContrilSurfaceCard(
+        elevation = if (integration.isConnected) 3.dp else 1.dp,
         border = BorderStroke(
             1.dp,
-            if (integration.isConnected) ContrilBlue.copy(alpha = 0.25f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-        ),
-        modifier = Modifier.fillMaxWidth()
+            if (isNeedsReconnect) StatusWarning.copy(alpha = 0.5f)
+            else if (integration.isConnected) ContrilBlue.copy(alpha = 0.25f)
+            else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+        )
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            // Header Row: Icon + Title + Status Pill
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            // Header Row: Icon + Title + Status Badge
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -261,30 +313,36 @@ fun ServiceCard(
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(36.dp)
+                            .size(40.dp)
                             .clip(CircleShape)
                             .background(
-                                if (integration.isConnected) ContrilBlue.copy(alpha = 0.1f) else MaterialTheme.colorScheme.surfaceVariant
+                                if (isNeedsReconnect) StatusWarning.copy(alpha = 0.12f)
+                                else if (integration.isConnected) ContrilBlue.copy(alpha = 0.12f)
+                                else MaterialTheme.colorScheme.surfaceVariant
                             ),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(
-                            imageVector = serviceIcon,
-                            contentDescription = integration.name,
-                            tint = if (integration.isConnected) ContrilBlue else MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(20.dp)
-                        )
+                        if (integration.id == "gmail" || integration.id == "calendar" || integration.id == "drive") {
+                            GoogleLogo(modifier = Modifier.size(22.dp))
+                        } else {
+                            Icon(
+                                imageVector = serviceIcon,
+                                contentDescription = integration.name,
+                                tint = if (integration.isConnected) ContrilBlue else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
                     }
 
-                    Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         Text(
                             text = integration.name,
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.onSurface
+                            color = TextPrimaryLight
                         )
                         if (integration.isConnected && !integration.connectedAccount.isNullOrBlank()) {
                             Text(
@@ -296,17 +354,16 @@ fun ServiceCard(
                     }
                 }
 
-                // Integration Type Badge
-                Surface(
-                    shape = RoundedCornerShape(10.dp),
-                    color = if (integration.integrationType == IntegrationType.API_INTEGRATION) ContrilBlue.copy(alpha = 0.08f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
-                ) {
-                    Text(
-                        text = if (integration.integrationType == IntegrationType.API_INTEGRATION) "API OAuth" else "Device/Web",
-                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
-                        color = if (integration.integrationType == IntegrationType.API_INTEGRATION) ContrilBlue else MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
+                // Status Badge Pill
+                if (isNeedsReconnect) {
+                    ContrilStatusBadge(statusText = "Needs Reconnect", isWarning = true)
+                } else if (integration.isConnected) {
+                    ContrilStatusBadge(
+                        statusText = if (integration.isAlwaysAvailable) "Always Active" else "Connected",
+                        isSuccess = true
                     )
+                } else {
+                    ContrilStatusBadge(statusText = "Not Connected")
                 }
             }
 
@@ -314,100 +371,90 @@ fun ServiceCard(
             Text(
                 text = integration.description,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = TextSecondaryLight,
                 lineHeight = 18.sp
             )
 
-            // Capabilities Preview
-            if (integration.capabilities.isNotEmpty()) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+            // Real Live Inline Value Delivered
+            if (integration.isConnected && !integration.lastSyncTime.isNullOrBlank()) {
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = if (isNeedsReconnect) StatusWarning.copy(alpha = 0.08f) else ContrilBlue.copy(alpha = 0.06f),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    integration.capabilities.take(3).forEach { cap ->
-                        Surface(
-                            shape = RoundedCornerShape(6.dp),
-                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
-                        ) {
-                            Text(
-                                text = cap,
-                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontFamily = FontFamily.Monospace),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
-                            )
-                        }
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (isNeedsReconnect) Icons.Filled.Warning else Icons.Filled.CheckCircle,
+                            contentDescription = null,
+                            tint = if (isNeedsReconnect) StatusWarning else StatusActive,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Text(
+                            text = integration.lastSyncTime,
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
+                            color = if (isNeedsReconnect) StatusWarning else TextPrimaryLight
+                        )
                     }
                 }
             }
 
-            // Action Button Row
+            // Action Buttons Row
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // Connection State Pill
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = when {
-                        integration.isConnected -> StatusActive.copy(alpha = 0.12f)
-                        integration.connectionState == ServiceConnectionState.REQUIRES_PERMISSION -> StatusWarning.copy(alpha = 0.12f)
-                        else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
-                    }
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                if (isNeedsReconnect) {
+                    Button(
+                        onClick = onConnect,
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(containerColor = StatusWarning),
+                        shape = RoundedCornerShape(10.dp)
                     ) {
-                        if (integration.isConnected) {
-                            Box(modifier = Modifier.size(5.dp).clip(CircleShape).background(StatusActive))
-                        }
-                        Text(
-                            text = when {
-                                integration.isConnected -> "Connected"
-                                integration.connectionState == ServiceConnectionState.REQUIRES_PERMISSION -> "Requires Permission"
-                                else -> "Available"
-                            },
-                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
-                            color = when {
-                                integration.isConnected -> StatusActive
-                                integration.connectionState == ServiceConnectionState.REQUIRES_PERMISSION -> StatusWarning
-                                else -> MaterialTheme.colorScheme.onSurfaceVariant
-                            }
-                        )
+                        Icon(Icons.Filled.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Reconnect", fontWeight = FontWeight.Bold)
                     }
-                }
-
-                if (integration.isConnected) {
+                } else if (integration.isAlwaysAvailable) {
                     OutlinedButton(
                         onClick = onManage,
-                        shape = RoundedCornerShape(8.dp),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.8f)),
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp),
-                        modifier = Modifier.height(34.dp)
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(10.dp)
                     ) {
-                        Text(
-                            text = "Manage",
-                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
+                        Text("View Capabilities", color = ContrilBlue, fontWeight = FontWeight.SemiBold)
+                    }
+                } else if (integration.isConnected) {
+                    OutlinedButton(
+                        onClick = onDisconnect,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = StatusError)
+                    ) {
+                        Text("Disconnect", fontWeight = FontWeight.Medium)
+                    }
+
+                    OutlinedButton(
+                        onClick = onManage,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text("Permissions", color = ContrilBlue, fontWeight = FontWeight.SemiBold)
                     }
                 } else {
                     Button(
                         onClick = onConnect,
-                        shape = RoundedCornerShape(8.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = ContrilBlue,
-                            contentColor = Color.White
-                        ),
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp),
-                        modifier = Modifier.height(34.dp)
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = ContrilBlue)
                     ) {
-                        Text(
-                            text = if (integration.integrationType == IntegrationType.API_INTEGRATION) "Connect" else "Link Action",
-                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold)
-                        )
+                        Icon(Icons.Filled.Link, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Connect ${integration.name}", fontWeight = FontWeight.Bold, color = Color.White)
                     }
                 }
             }
@@ -421,59 +468,51 @@ fun ManageServiceDialog(
     onDismiss: () -> Unit,
     onDisconnect: () -> Unit
 ) {
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            shape = RoundedCornerShape(20.dp),
-            color = MaterialTheme.colorScheme.surface,
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(
-                modifier = Modifier.padding(22.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
-                    text = "Manage ${integration.name}",
-                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.onSurface
+                    text = "${integration.name} Permissions",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = TextPrimaryLight
                 )
-
-                if (!integration.connectedAccount.isNullOrBlank()) {
-                    Text(
-                        text = "Linked Account: ${integration.connectedAccount}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-
+            }
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(
-                    text = "Status: Connected and syncing live intelligence with Contril AI.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = StatusActive
+                    text = "Granted Scopes & Intelligence Access:",
+                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                    color = TextSecondaryLight
                 )
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    OutlinedButton(
-                        onClick = onDismiss,
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(10.dp)
+                integration.scopes.forEach { scope ->
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Text("Close")
-                    }
-
-                    Button(
-                        onClick = onDisconnect,
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                    ) {
-                        Text("Disconnect", color = Color.White)
+                        Icon(
+                            imageVector = Icons.Filled.Check,
+                            contentDescription = null,
+                            tint = StatusActive,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Text(
+                            text = scope,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = TextPrimaryLight
+                        )
                     }
                 }
             }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close", color = ContrilBlue, fontWeight = FontWeight.SemiBold)
+            }
         }
-    }
+    )
 }

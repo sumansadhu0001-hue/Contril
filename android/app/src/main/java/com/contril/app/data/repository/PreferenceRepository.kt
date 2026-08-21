@@ -14,6 +14,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -54,6 +55,13 @@ class PreferenceRepository(context: Context? = null) {
 
     private val _userSessionToken = MutableStateFlow(getSavedAuthToken())
     val userSessionToken: StateFlow<String?> = _userSessionToken.asStateFlow()
+
+    private val _googleConnectEvent = kotlinx.coroutines.flow.MutableSharedFlow<Boolean>(replay = 1, extraBufferCapacity = 1)
+    val googleConnectEvent: kotlinx.coroutines.flow.SharedFlow<Boolean> = _googleConnectEvent.asSharedFlow()
+
+    fun notifyGoogleConnected() {
+        _googleConnectEvent.tryEmit(true)
+    }
 
     private fun getSavedAutonomyMode(): AutonomyMode {
         return try {
@@ -203,35 +211,49 @@ class PreferenceRepository(context: Context? = null) {
 
     private fun getSavedConnectedServices(): Map<String, String> {
         val map = mutableMapOf<String, String>()
+        val token = getGoogleProviderToken()
+        val refreshToken = getGoogleRefreshToken()
+        val hasValidGoogleToken = (!token.isNullOrBlank() && !token.startsWith("demo_")) || 
+                                  (!refreshToken.isNullOrBlank() && !refreshToken.startsWith("demo_"))
+
+        if (hasValidGoogleToken) {
+            val email = getUserProfile()?.email ?: "connected"
+            map["gmail"] = email
+            map["google_workspace"] = email
+            map["calendar"] = email
+            map["drive"] = email
+        }
+
         val raw = prefs?.getString("connected_services_map", null)
         if (!raw.isNullOrBlank()) {
             try {
                 raw.split(";").filter { it.contains(":") }.forEach {
                     val p = it.split(":")
-                    if (p.size >= 2) map[p[0]] = p[1]
+                    if (p.size >= 2) {
+                        if (p[0] == "gmail" || p[0] == "google_workspace" || p[0] == "calendar" || p[0] == "drive") {
+                            if (hasValidGoogleToken) map[p[0]] = p[1]
+                        } else {
+                            map[p[0]] = p[1]
+                        }
+                    }
                 }
             } catch (_: Exception) {}
-        }
-        val token = getGoogleProviderToken()
-        val refreshToken = getGoogleRefreshToken()
-        if (!token.isNullOrBlank() || !refreshToken.isNullOrBlank()) {
-            val email = getUserProfile()?.email ?: "connected"
-            if (!map.containsKey("gmail")) map["gmail"] = email
-            if (!map.containsKey("google_workspace")) map["google_workspace"] = email
-            if (!map.containsKey("calendar")) map["calendar"] = email
-            if (!map.containsKey("drive")) map["drive"] = email
         }
         return map
     }
 
     fun isGmailConnected(): Boolean {
-        if (!getGoogleProviderToken().isNullOrBlank() || !getGoogleRefreshToken().isNullOrBlank()) return true
-        return _connectedServices.value.containsKey("gmail") || _connectedServices.value.containsKey("google_workspace") || _connectedServices.value.containsKey("google")
+        val token = getGoogleProviderToken()
+        val refreshToken = getGoogleRefreshToken()
+        return (!token.isNullOrBlank() && !token.startsWith("demo_")) || 
+               (!refreshToken.isNullOrBlank() && !refreshToken.startsWith("demo_"))
     }
 
     fun isCalendarConnected(): Boolean {
-        if (!getGoogleProviderToken().isNullOrBlank() || !getGoogleRefreshToken().isNullOrBlank()) return true
-        return _connectedServices.value.containsKey("calendar") || _connectedServices.value.containsKey("google_workspace") || _connectedServices.value.containsKey("google")
+        val token = getGoogleProviderToken()
+        val refreshToken = getGoogleRefreshToken()
+        return (!token.isNullOrBlank() && !token.startsWith("demo_")) || 
+               (!refreshToken.isNullOrBlank() && !refreshToken.startsWith("demo_"))
     }
 
     fun connectService(serviceId: String, account: String) {
@@ -243,7 +265,11 @@ class PreferenceRepository(context: Context? = null) {
     fun disconnectService(serviceId: String) {
         val current = _connectedServices.value.toMutableMap()
         current.remove(serviceId)
-        if (serviceId == "gmail" || serviceId == "google_workspace" || serviceId == "google") {
+        if (serviceId == "gmail" || serviceId == "calendar" || serviceId == "google_workspace" || serviceId == "google") {
+            current.remove("gmail")
+            current.remove("calendar")
+            current.remove("google_workspace")
+            current.remove("google")
             prefs?.edit()
                 ?.remove("google_provider_token")
                 ?.remove("google_refresh_token")
@@ -251,6 +277,10 @@ class PreferenceRepository(context: Context? = null) {
                 ?.apply()
         }
         saveConnectedServices(current)
+    }
+
+    fun disconnectGoogleWorkspace() {
+        disconnectService("google_workspace")
     }
 
     private fun saveConnectedServices(map: Map<String, String>) {
@@ -483,10 +513,34 @@ class PreferenceRepository(context: Context? = null) {
 
     fun getPlanDailyTokenLimit(): Long {
         return when {
-            isElitePlan() -> com.contril.app.data.config.PaymentConfig.ELITE_PLAN_DAYTIME_TOKENS
+            isElitePlan() -> com.contril.app.data.config.PaymentConfig.ELITE_PLAN_TOTAL_TOKENS
             isProOrExecutive() -> com.contril.app.data.config.PaymentConfig.PRO_PLAN_DAILY_TOKENS
             else -> com.contril.app.data.config.PaymentConfig.FREE_PLAN_DAILY_TOKENS
         }
+    }
+
+    fun saveSubscriptionMetadata(status: String, expiresAt: String, remainingFormatted: String) {
+        try {
+            prefs?.edit()
+                ?.putString("subscription_server_status", status)
+                ?.putString("subscription_expires_at", expiresAt)
+                ?.putString("subscription_remaining_formatted", remainingFormatted)
+                ?.apply()
+        } catch (e: Throwable) {
+            Log.e("ContrilPref", "Failed to save subscription metadata: ${e.message}")
+        }
+    }
+
+    fun getSubscriptionRemainingFormatted(): String {
+        return prefs?.getString("subscription_remaining_formatted", "") ?: ""
+    }
+
+    fun getSubscriptionExpiresAt(): String {
+        return prefs?.getString("subscription_expires_at", "") ?: ""
+    }
+
+    fun getSubscriptionServerStatus(): String {
+        return prefs?.getString("subscription_server_status", "active") ?: "active"
     }
 
     fun getOvernightTokenLimit(): Long {

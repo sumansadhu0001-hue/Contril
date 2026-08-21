@@ -4,7 +4,9 @@ dotenv.config();
 import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
-import { GoogleGenAI, Type } from "@google/genai";
+import { NvidiaAiService } from "./src/backend/ai/NvidiaAiService";
+import { EntitlementService } from "./src/backend/ai/EntitlementService";
+import { PLAN_CONFIGURATIONS, getPlanConfig } from "./src/backend/ai/PlanConfiguration";
 import apiV1Router from "./src/backend/api/router";
 import { AgentSystem } from "./src/backend/agents/AgentSystem";
 import { CHIEF_AI_OFFICER_PROMPT } from "./src/backend/agents/systemPrompts";
@@ -70,21 +72,131 @@ function setCachedResponse(prompt: string, text: string) {
 // Mount Enterprise Backend V1 Architecture API Router
 app.use("/api/v1", apiV1Router);
 
-// Helper to initialize Gemini client lazy
-function getGeminiClient(): GoogleGenAI | null {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey || apiKey === "MY_GEMINI_API_KEY") {
-    return null;
+// ---------------------------------------------------------------------------
+// Production Contril AI Gateway (Server-Authoritative NVIDIA Cloud Inference)
+// ---------------------------------------------------------------------------
+
+// 1. Synchronous AI Chat Endpoint
+app.post("/api/ai/chat", async (req, res) => {
+  try {
+    const {
+      prompt,
+      userId = "usr_contril_prod",
+      userName,
+      userRole,
+      timezone,
+      conversationHistory,
+      connectedServices,
+      conversationId,
+      temperature,
+      maxTokens,
+      modelOverride
+    } = req.body;
+
+    if (!prompt || typeof prompt !== "string" || !prompt.trim()) {
+      return res.status(400).json({ error: "Prompt is required" });
+    }
+
+    const response = await NvidiaAiService.generateChatResponse({
+      userId,
+      userName,
+      userRole,
+      timezone,
+      prompt: prompt.trim(),
+      conversationHistory,
+      connectedServices,
+      conversationId,
+      temperature,
+      maxTokens,
+      modelOverride
+    });
+
+    return res.status(200).json(response);
+  } catch (error: any) {
+    if (error.type === "usage_limit") {
+      return res.status(429).json(error);
+    }
+    console.error("[Contril AI Gateway Error]", error.message || error);
+    return res.status(500).json({
+      error: "Contril couldn't reach its AI service right now. Check your connection and try again.",
+      detail: error.message
+    });
   }
-  return new GoogleGenAI({
-    apiKey,
-    httpOptions: {
-      headers: {
-        "User-Agent": "contril-enterprise-engine",
-      },
-    },
+});
+
+// 2. Server-Sent Events (SSE) AI Streaming Endpoint
+app.post("/api/ai/stream", async (req, res) => {
+  try {
+    const {
+      prompt,
+      userId = "usr_contril_prod",
+      userName,
+      userRole,
+      timezone,
+      conversationHistory,
+      connectedServices,
+      conversationId,
+      temperature,
+      maxTokens,
+      modelOverride
+    } = req.body;
+
+    if (!prompt || typeof prompt !== "string" || !prompt.trim()) {
+      return res.status(400).json({ error: "Prompt is required" });
+    }
+
+    await NvidiaAiService.streamChatResponse({
+      userId,
+      userName,
+      userRole,
+      timezone,
+      prompt: prompt.trim(),
+      conversationHistory,
+      connectedServices,
+      conversationId,
+      temperature,
+      maxTokens,
+      modelOverride
+    }, res);
+  } catch (error: any) {
+    console.error("[Contril AI Stream Error]", error.message || error);
+    if (!res.headersSent) {
+      return res.status(500).json({ error: error.message });
+    }
+    res.end();
+  }
+});
+
+// 3. Entitlement & Quota Status Endpoint
+app.get("/api/entitlements", (req, res) => {
+  const userId = (req.query.userId as string) || "usr_contril_prod";
+  const entitlement = EntitlementService.checkEntitlement(userId);
+  return res.status(200).json(entitlement);
+});
+
+// 4. Usage Statistics & Daily Tracking Endpoint
+app.get("/api/ai/usage", (req, res) => {
+  const userId = (req.query.userId as string) || "usr_contril_prod";
+  const planId = EntitlementService.getUserPlan(userId);
+  const planConfig = getPlanConfig(planId);
+  const tz = EntitlementService.getUserTimezone(userId);
+  const todayUsage = EntitlementService.getTodayUsage(userId, tz);
+  const remaining = Math.max(0, planConfig.dailyTokenLimit - todayUsage.totalTokens);
+  const resetAt = EntitlementService.getNextResetTimestamp(tz);
+  const history = EntitlementService.getRecentUsageHistory(userId);
+
+  return res.status(200).json({
+    plan: planConfig.id,
+    planName: planConfig.name,
+    dailyTokenLimit: planConfig.dailyTokenLimit,
+    tokensUsedToday: todayUsage.totalTokens,
+    tokensRemainingToday: remaining,
+    requestCountToday: todayUsage.requestCount,
+    resetAt,
+    timezone: tz,
+    recentRequests: history.slice(-10)
   });
-}
+});
 
 // ---------------------------------------------------------------------------
 // 1. AI Daily Brief Generation Endpoint
@@ -193,50 +305,12 @@ app.post("/api/ai/meeting-intelligence", async (req, res) => {
     const { title, transcript, attendees, tone, customInstructions } = req.body;
 
     if (!ai) {
-      const attendeesList = attendees && Array.isArray(attendees) && attendees.length > 0
-        ? attendees
-        : ["Marcus Vance (CFO)", "Elena Rostova (CLO)", "Team Leadership"];
-
-      return res.json({
-        success: true,
-        summary: `Executive sync regarding "${title || 'Strategic Leadership Meeting'}" completed. Key priorities aligned across finance, legal, and operational timelines.`,
-        decisions: [
-          `Approved Q3 budget allocation and expansion milestones for ${title || 'the project'}.`,
-          "Validated legal compliance framework with zero high-risk clauses."
-        ],
-        actionItems: [
-          { task: "Finalize operational agreement draft and execute contracts", owner: "Elena Rostova (CLO)", deadline: "August 10, 2026", completed: false },
-          { task: "Process financial model updates & submit wire transfer details", owner: "Marcus Vance (CFO)", deadline: "August 12, 2026", completed: false },
-          { task: "Send executive briefing summary to board partners", owner: "You", deadline: "August 06, 2026", completed: true }
-        ],
-        followUpEmailDraft: `Subject: Follow-up & Action Plan: ${title || 'Executive Leadership Sync'}
-
-Dear Team,
-
-Thank you for your time during our discussion on "${title || 'our call'}". 
-
-Key Decisions Approved:
-• Approved Q3 budget allocation and expansion milestones.
-• Validated legal compliance framework with zero high-risk clauses.
-
-Assigned Action Items & Deadlines:
-• Elena Rostova (CLO): Finalize operational agreement draft (Deadline: August 10, 2026)
-• Marcus Vance (CFO): Process financial model updates & wire transfers (Deadline: August 12, 2026)
-• Alex Morgan (CEO): Send executive briefing summary to board (Deadline: August 06, 2026 - Completed)
-
-Please let me know if you need any adjustments.
-
-Best regards,
-
-Alex Morgan
-CEO, Contril PrivateOS`,
-        personalizedEmails: attendeesList.map((att: string) => ({
-          recipient: att,
-          recipientEmail: `${att.toLowerCase().replace(/[^a-z]/g, '')}@contril.ai`,
-          subject: `Follow-up & Direct Priorities: ${title || 'Executive Sync'}`,
-          emailText: `Hi ${att.split(' ')[0]},\n\nThank you for attending "${title || 'our call'}". Below are your key assigned action items and deadlines:\n\n• Task: Review assigned deliverables for your department\n  Deadline: August 10, 2026\n\nPlease let me know if you need any support getting this completed.\n\nBest regards,\n\nAlex Morgan`,
-          assignedActionItems: ["Review assigned deliverables for your department (Deadline: Aug 10, 2026)"]
-        }))
+      // Gemini is not configured/available. Do NOT invent a fake meeting
+      // summary -- that would present fabricated content as a successful
+      // real result. Return an honest error instead.
+      return res.status(503).json({
+        success: false,
+        error: "AI service is not configured. Meeting intelligence could not be generated. Please check the Gemini API key configuration."
       });
     }
 
@@ -297,13 +371,11 @@ ${transcript}`;
     return res.json({ success: true, ...parsed });
   } catch (error: any) {
     console.error("Error in /api/ai/meeting-intelligence:", error);
-    return res.json({
-      success: true,
-      summary: "Processed meeting notes and generated executive follow-up email package.",
-      decisions: ["Key project milestones and budget approvals confirmed."],
-      actionItems: [{ task: "Follow up on action items", owner: "Executive Team", deadline: "August 10, 2026", completed: false }],
-      followUpEmailDraft: `Subject: Follow-up: ${req.body.title || 'Executive Meeting'}\n\nHi Team,\n\nThank you for the productive discussion. Please review your assigned action items and deadlines above.\n\nBest regards,\nAlex Morgan`,
-      personalizedEmails: []
+    // Do NOT return fabricated meeting content on a real API error --
+    // that would present invented data as a successful result.
+    return res.status(502).json({
+      success: false,
+      error: "Failed to generate meeting intelligence. Please try again."
     });
   }
 });
@@ -315,10 +387,9 @@ app.post("/api/ai/generate-followup-email", async (req, res) => {
     const { meetingTitle, summary, decisions, actionItems, tone, recipientName, customInstructions } = req.body;
 
     if (!ai) {
-      return res.json({
-        success: true,
-        subject: `Follow-up: ${meetingTitle || 'Meeting Action Items'}`,
-        emailText: `Hi ${recipientName || 'Team'},\n\nFollowing up on our recent sync regarding ${meetingTitle || 'our project'}.\n\nKey Decisions:\n${(decisions || []).map((d: string) => `• ${d}`).join('\n')}\n\nAssigned Deliverables:\n${(actionItems || []).map((a: any) => `• ${a.task || a} (Owner: ${a.owner || 'You'}, Deadline: ${a.deadline || 'ASAP'})`).join('\n')}\n\nPlease let me know if you have any questions.\n\nBest regards,\nAlex Morgan`
+      return res.status(503).json({
+        success: false,
+        error: "AI service is not configured. Follow-up email could not be generated."
       });
     }
 
@@ -355,10 +426,9 @@ Generate a polished follow-up email draft matching the specified tone and direct
     return res.json({ success: true, ...parsed });
   } catch (error: any) {
     console.error("Error in /api/ai/generate-followup-email:", error);
-    return res.json({
-      success: true,
-      subject: `Follow-up: ${req.body.meetingTitle || 'Meeting Updates'}`,
-      emailText: `Hi ${req.body.recipientName || 'Team'},\n\nThank you for attending our recent call. Please review the action items and deadlines discussed.\n\nBest regards,\nAlex Morgan`
+    return res.status(502).json({
+      success: false,
+      error: "Failed to generate follow-up email. Please try again."
     });
   }
 });
@@ -652,151 +722,85 @@ app.post("/api/ai/chat/stream", async (req, res) => {
       res.write(`data: ${JSON.stringify({ text: chunk })}\n\n`);
       await new Promise(resolve => setTimeout(resolve, 5));
     }
-    res.write("data: [DONE]\n\n");
-    return res.end();
-  }
-
-  const ai = getGeminiClient();
-  if (!ai) {
-    console.warn("[Contril Chat Stream] GEMINI_API_KEY is missing or invalid.");
-    res.write(`data: ${JSON.stringify({ error: "Gemini API key is not configured or invalid. Please check your environment variables in Settings > Secrets." })}\n\n`);
-    res.write("data: [DONE]\n\n");
-    return res.end();
-  }
-
   try {
-    const contents: any[] = [];
+    const apiKey = process.env.NVIDIA_API_KEY || config.ai.nvidiaApiKey;
+    const baseUrl = process.env.NVIDIA_BASE_URL || config.ai.nvidiaBaseUrl || 'https://integrate.api.nvidia.com/v1';
+    const model = process.env.AI_MODEL || config.ai.defaultModel || 'meta/llama-3.1-8b-instruct';
+
+    if (!apiKey || apiKey.includes('MY_KEY')) {
+      res.write(`data: ${JSON.stringify({ error: "NVIDIA API key is not configured on server." })}\n\n`);
+      res.write("data: [DONE]\n\n");
+      return res.end();
+    }
+
+    const messages: any[] = [{ role: 'system', content: `${CHIEF_AI_OFFICER_PROMPT}\n\nWorkspace Context:\n- User: ${userName || 'Executive'}\n- Time: ${new Date().toLocaleString()}\n- Timezone: ${timezone || 'Asia/Kolkata'}\n- Apps: ${connectedApps?.join(', ') || 'None'}` }];
+
     if (Array.isArray(history)) {
-      for (const msg of history) {
+      for (const msg of history.slice(-6)) {
         if (msg.text && msg.text.trim()) {
-          const role = msg.role === 'user' ? 'user' : 'model';
-          contents.push({ role, parts: [{ text: msg.text }] });
+          const role = msg.role === 'user' ? 'user' : 'assistant';
+          messages.push({ role, content: msg.text });
         }
       }
     }
-    contents.push({ role: 'user', parts: [{ text: prompt }] });
+    messages.push({ role: 'user', content: prompt });
 
-    // RAG and Workspace Context Building
-    const searchStartTime = Date.now();
-    let liveWorkspaceContext = "";
-    let summaryText = "";
-
-    const getSearchTerm = (txt: string): string => {
-      const match = txt.match(/(?:find|search|lookup|where is|get)\s+([a-zA-Z0-9_\-\.\@\s]+)/i);
-      return match && match[1] ? match[1].trim() : txt.trim();
-    };
-
-    const isSearchIntent = (txt: string, intentName: string) => {
-      const p = txt.toLowerCase();
-      const keywords = ['find', 'search', 'lookup', 'where is', 'get', 'emails', 'files', 'meetings', 'messages', 'retrieve', 'invoice'];
-      return ['email', 'calendar', 'documents', 'search'].includes(intentName) || keywords.some(k => p.includes(k));
-    };
-
-    const searchInt = isSearchIntent(prompt, intent.name);
-    let searchRes: any = null;
-
-    if (searchInt) {
-      const searchTerm = getSearchTerm(prompt);
-      searchRes = await searchWorkspace(searchTerm, connectedApps || [], googleTokens?.accessToken);
-      
-      if (searchRes.results.length > 0) {
-        liveWorkspaceContext += `\n\n## Search Results found in Workspace:\n` + searchRes.results.map((r: any, idx: number) => 
-          `[Match ${idx+1}] Source: ${r.source} (${r.type}) | Title: ${r.title}\nSnippet: ${r.snippet}`
-        ).join("\n\n");
-      } else {
-        liveWorkspaceContext += `\n\n## Search Results found in Workspace:\nNo matching records found in connected accounts.`;
-      }
-      
-      liveWorkspaceContext += `\n\n## Search Workspace Telemetry:\n`;
-      liveWorkspaceContext += `- Connected & Searched: ${searchRes.sourcesSearched.join(', ') || 'None'}\n`;
-      liveWorkspaceContext += `- Disconnected & Skipped: ${searchRes.skippedSources.join(', ') || 'None'}\n`;
-
-      const execTime = Date.now() - searchStartTime;
-      summaryText = `\n\nSearch Summary\n\nSources searched:\n`;
-      if (searchRes.sourcesSearched.length > 0) {
-        summaryText += searchRes.sourcesSearched.map((src: string) => `✓ ${src}`).join('\n') + '\n';
-      } else {
-        summaryText += `None\n`;
-      }
-      summaryText += `\nItems scanned:\n${searchRes.scannedCount} items\n`;
-      summaryText += `\nMatches:\n${searchRes.results.length}\n`;
-      summaryText += `\nExecution time:\n${execTime} ms\n`;
-      summaryText += `\nConfidence:\nHigh\n`;
-    } else {
-      if (googleTokens?.accessToken && !googleTokens.accessToken.startsWith('demo_')) {
-        const p = prompt.toLowerCase();
-        if (p.includes("email") || p.includes("inbox") || p.includes("gmail")) {
-          const emailText = await fetchGmailSummary(googleTokens.accessToken);
-          liveWorkspaceContext += `\n\n### Live Gmail Inbox Context:\n${emailText}`;
-        }
-        if (p.includes("meeting") || p.includes("calendar") || p.includes("schedule")) {
-          const eventList = await fetchGoogleCalendarEvents(googleTokens.accessToken);
-          if (eventList.length > 0) {
-            liveWorkspaceContext += `\n\n### Live Google Calendar Context:\n` + eventList.map(ev => `- Event: ${ev.title} | Time: ${ev.time} | Platform: ${ev.platform}`).join("\n");
-          } else {
-            liveWorkspaceContext += `\n\n### Live Google Calendar Context:\nNo upcoming events found.`;
-          }
-        }
-      }
-    }
-
-    // Active Agent Router Classification
-    const agent = AgentSystem.selectBestAgent(prompt);
-    const systemInstruction = `${CHIEF_AI_OFFICER_PROMPT}
-
-## Active Agent: ${agent.name}
-Role: ${agent.role}
-Reasoning Style: ${agent.reasoningStyle}
-Output Structure: ${agent.outputStructure}
-Special Instructions:
-${agent.systemPrompt}
-- If performing search, do not hallucinate emails, files, or meetings. If no records exist, answer naturally stating 0 matches and providing suggestions.
-- If Gmail is connected but no email matches, list that you searched Gmail but found 0 matches in Inbox, Sent, Spam, Trash.
-- If invoice.pdf was searched, report exactly which workspace channel it was found in (e.g. Google Drive). If not found anywhere, output "I searched all connected services but couldn't find invoice.pdf."
-
-## Current Workspace Context:
-- User Name: ${userName || 'Alex Morgan'}
-- Timezone: ${timezone || 'EST'}
-- Current Server Time: ${new Date().toLocaleString()}
-- Connected Apps: ${connectedApps ? connectedApps.join(", ") : "None"}
-- Active Project: ${activeProject || "None"}
-- Plan Tier: ${profile?.plan || 'PRO'}
-- Persona: ${profile?.persona || 'Executive'}
-- Company: ${profile?.companyName || 'Acme Inc'} (${profile?.industry || 'Technology'}, size: ${profile?.companySize || '1-10'})
-${liveWorkspaceContext}`;
-
-    const responseStream = await ai.models.generateContentStream({
-      model: config.ai.defaultModel,
-      contents,
-      config: {
-        systemInstruction
-      }
+    const nRes = await fetch(`${baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model,
+        messages,
+        temperature: 0.6,
+        max_tokens: 1024,
+        stream: true
+      })
     });
 
-    let fullText = "";
-    for await (const chunk of responseStream) {
-      const chunkText = chunk.text || "";
-      if (chunkText) {
-        fullText += chunkText;
-        res.write(`data: ${JSON.stringify({ text: chunkText })}\n\n`);
+    if (!nRes.ok || !nRes.body) {
+      const errText = await nRes.text();
+      res.write(`data: ${JSON.stringify({ error: `AI inference error: ${errText}` })}\n\n`);
+      res.write("data: [DONE]\n\n");
+      return res.end();
+    }
+
+    const reader = (nRes.body as any).getReader();
+    const decoder = new TextDecoder('utf-8');
+    let buffer = '';
+    let fullText = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed === 'data: [DONE]') continue;
+        if (trimmed.startsWith('data: ')) {
+          try {
+            const json = JSON.parse(trimmed.slice(6));
+            const delta = json.choices?.[0]?.delta?.content;
+            if (delta) {
+              fullText += delta;
+              res.write(`data: ${JSON.stringify({ text: delta })}\n\n`);
+            }
+          } catch {}
+        }
       }
     }
 
-    if (searchInt && summaryText) {
-      fullText += summaryText;
-      res.write(`data: ${JSON.stringify({ text: summaryText })}\n\n`);
-    }
-
-    console.log("[Contril Chat Stream] Stream finished successfully. Total length:", fullText.length);
-    if (fullText.trim()) {
-      setCachedResponse(prompt, fullText);
-    }
     res.write("data: [DONE]\n\n");
     return res.end();
   } catch (error: any) {
     console.error("[Contril Chat Stream] Stream error:", error);
-    const errorMsg = error?.message || "An error occurred while generating AI response.";
-    res.write(`data: ${JSON.stringify({ error: errorMsg })}\n\n`);
+    res.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
     res.write("data: [DONE]\n\n");
     return res.end();
   }
@@ -879,20 +883,23 @@ app.post("/api/ai/converse", async (req, res) => {
       summaryText += `\nExecution time:\n${execTime} ms\n`;
       summaryText += `\nConfidence:\nHigh\n`;
     } else {
+      // Always fetch a lightweight real-data snapshot when the user is
+      // genuinely connected, rather than only when the message happens to
+      // contain specific keywords. This ensures generic questions like
+      // "what should I focus on today" still have real context available,
+      // instead of falling through with an empty liveWorkspaceContext.
       if (googleTokens?.accessToken && !googleTokens.accessToken.startsWith('demo_')) {
-        const p = prompt.toLowerCase();
-        if (p.includes("email") || p.includes("inbox") || p.includes("gmail")) {
-          const emailText = await fetchGmailSummary(googleTokens.accessToken);
-          liveWorkspaceContext += `\n\n### Live Gmail Inbox Context:\n${emailText}`;
+        const emailText = await fetchGmailSummary(googleTokens.accessToken);
+        liveWorkspaceContext += `\n\n### Live Gmail Inbox Context:\n${emailText}`;
+
+        const eventList = await fetchGoogleCalendarEvents(googleTokens.accessToken);
+        if (eventList.length > 0) {
+          liveWorkspaceContext += `\n\n### Live Google Calendar Context:\n` + eventList.map(ev => `- Event: ${ev.title} | Time: ${ev.time} | Platform: ${ev.platform}`).join("\n");
+        } else {
+          liveWorkspaceContext += `\n\n### Live Google Calendar Context:\nNo upcoming events found.`;
         }
-        if (p.includes("meeting") || p.includes("calendar") || p.includes("schedule")) {
-          const eventList = await fetchGoogleCalendarEvents(googleTokens.accessToken);
-          if (eventList.length > 0) {
-            liveWorkspaceContext += `\n\n### Live Google Calendar Context:\n` + eventList.map(ev => `- Event: ${ev.title} | Time: ${ev.time} | Platform: ${ev.platform}`).join("\n");
-          } else {
-            liveWorkspaceContext += `\n\n### Live Google Calendar Context:\nNo upcoming events found.`;
-          }
-        }
+      } else {
+        liveWorkspaceContext += `\n\n### Workspace Status:\nNo Google account connected. Do not reference any emails, meetings, or calendar events -- none are available.`;
       }
     }
 
@@ -911,14 +918,19 @@ ${agent.systemPrompt}
 - If invoice.pdf was searched, report exactly which workspace channel it was found in (e.g. Google Drive). If not found anywhere, output "I searched all connected services but couldn't find invoice.pdf."
 
 ## Current Workspace Context:
-- User Name: ${userName || 'Alex Morgan'}
-- Timezone: ${timezone || 'EST'}
+- User Name: ${userName || 'Not provided'}
+- Timezone: ${timezone || 'Not provided'}
 - Current Server Time: ${new Date().toLocaleString()}
 - Connected Apps: ${connectedApps ? connectedApps.join(", ") : "None"}
 - Active Project: ${activeProject || "None"}
-- Plan Tier: ${profile?.plan || 'PRO'}
-- Persona: ${profile?.persona || 'Executive'}
-- Company: ${profile?.companyName || 'Acme Inc'} (${profile?.industry || 'Technology'}, size: ${profile?.companySize || '1-10'})
+- Plan Tier: ${profile?.plan || 'FREE'}
+- Persona: ${profile?.persona || 'Not provided'}
+- Company: ${profile?.companyName || 'Not provided'}
+IMPORTANT: Any field above marked "Not provided" or "None" means that real
+data is genuinely unavailable. Do NOT invent a plausible name, company, or
+detail to fill this gap. Do not address the user by any name other than what
+is explicitly provided above. If asked something that depends on missing
+context, say so honestly rather than assuming a persona.
 ${liveWorkspaceContext}`;
 
     const response = await ai.models.generateContent({

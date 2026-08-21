@@ -52,54 +52,39 @@ class ContrilRepository(
                 return CommandResponse(
                     conversationId = "tool_conn_${java.util.UUID.randomUUID().toString().take(6)}",
                     responseText = toolResult.message,
-                    steps = steps
+                    steps = steps,
+                    tokensUsed = 0,
+                    requiresConnectionService = toolResult.serviceName
                 )
             }
             is com.contril.app.data.api.ToolExecutionResult.Success -> {
-                if (toolResult.proposedPlan != null) {
-                    return CommandResponse(
-                        conversationId = "tool_plan_${java.util.UUID.randomUUID().toString().take(6)}",
-                        responseText = toolResult.summary,
-                        steps = steps,
-                        proposedPlan = toolResult.proposedPlan
-                    )
+                if (toolResult.tokensUsed > 0 && prefRepository != null) {
+                    prefRepository.recordAiTokenUsage(toolResult.tokensUsed.toLong(), isOvernight = false)
                 }
-                if (toolResult.pendingAction != null) {
-                    return CommandResponse(
-                        conversationId = "tool_act_${java.util.UUID.randomUUID().toString().take(6)}",
-                        responseText = toolResult.summary,
-                        steps = steps,
-                        pendingAction = toolResult.pendingAction
-                    )
-                }
-                // Pass tool output context to Gemini for natural language synthesis
-                val response = com.contril.app.data.api.GeminiClient.generateAiResponse(
-                    prompt = prompt,
-                    autonomyMode = autonomyMode,
-                    connectedServices = connectedServices,
-                    userContext = "Tool Output: ${toolResult.summary}"
+                return CommandResponse(
+                    conversationId = "res_${java.util.UUID.randomUUID().toString().take(6)}",
+                    responseText = toolResult.summary,
+                    steps = steps,
+                    pendingAction = toolResult.pendingAction,
+                    proposedPlan = toolResult.proposedPlan,
+                    tokensUsed = toolResult.tokensUsed
                 )
-                if (response.tokensUsed > 0 && prefRepository != null) {
-                    prefRepository.recordAiTokenUsage(response.tokensUsed.toLong(), isOvernight = false)
-                }
-                return response
             }
             is com.contril.app.data.api.ToolExecutionResult.Failure -> {
                 return CommandResponse(
                     conversationId = "tool_err_${java.util.UUID.randomUUID().toString().take(6)}",
                     responseText = "Contril encountered an error: ${toolResult.errorMessage}",
-                    steps = steps
+                    steps = steps,
+                    tokensUsed = 0
                 )
             }
             null -> {
-                val response = com.contril.app.data.api.GeminiClient.generateAiResponse(
+                val response = com.contril.app.data.api.ContrilAiGatewayClient.generateAiResponse(
                     prompt = prompt,
                     autonomyMode = autonomyMode,
-                    connectedServices = connectedServices
+                    connectedServices = connectedServices,
+                    prefRepository = prefRepository
                 )
-                if (response.tokensUsed > 0 && prefRepository != null) {
-                    prefRepository.recordAiTokenUsage(response.tokensUsed.toLong(), isOvernight = false)
-                }
                 return response
             }
         }

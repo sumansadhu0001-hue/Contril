@@ -5,7 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.contril.app.data.api.ApiResult
 import com.contril.app.data.api.ContrilBackendClient
-import com.contril.app.data.api.GeminiClient
+import com.contril.app.data.api.ContrilAiGatewayClient
 import com.contril.app.data.model.ActionStatus
 import com.contril.app.data.model.EmailDeletionLog
 import com.contril.app.data.model.EmailDeletionPlan
@@ -446,7 +446,7 @@ class InboxViewModel(
                 - Do NOT include subject line or placeholders like [Your Name]. Sign off as 'Suman'.
             """.trimIndent()
 
-            val aiResponse = GeminiClient.generateAiResponse(prompt = prompt)
+            val aiResponse = ContrilAiGatewayClient.generateAiResponse(prompt = prompt)
             val cleanedDraft = aiResponse.responseText.replace("```markdown", "").replace("```", "").trim()
 
             _uiState.update {

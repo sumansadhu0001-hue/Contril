@@ -74,7 +74,7 @@ fun PaywallModal(
             ) {
                 listOf(
                     "Unlimited AI interactions & tool executions",
-                    "Priority Gemini 1.5 Pro processing tier",
+                    "Priority NVIDIA Cloud AI processing tier",
                     "Autonomous Gmail & Calendar workflows",
                     "Extended multi-turn workspace memory"
                 ).forEach { feature ->

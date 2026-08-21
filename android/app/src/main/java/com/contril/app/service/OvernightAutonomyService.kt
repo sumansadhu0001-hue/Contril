@@ -16,7 +16,7 @@ import androidx.core.app.ServiceCompat
 import com.contril.app.MainActivity
 import com.contril.app.R
 import com.contril.app.data.api.ContrilBackendClient
-import com.contril.app.data.api.GeminiClient
+import com.contril.app.data.api.ContrilAiGatewayClient
 import com.contril.app.data.model.ActivityEventType
 import com.contril.app.data.model.ExtractedEvent
 import com.contril.app.data.model.OvernightActivityLog
@@ -210,7 +210,7 @@ class OvernightAutonomyService : Service() {
                 }
             """.trimIndent()
 
-            val aiResult = GeminiClient.generateContent(prompt).getOrNull()
+            val aiResult = ContrilAiGatewayClient.generateAiResponse(prompt).responseText
             if (!aiResult.isNullOrBlank()) {
                 try {
                     val cleanJson = aiResult.replace("```json", "").replace("```", "").trim()
