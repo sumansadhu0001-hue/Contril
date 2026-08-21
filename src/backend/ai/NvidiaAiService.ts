@@ -2,6 +2,7 @@ import { config } from '../config';
 import { EntitlementService } from './EntitlementService';
 import crypto from 'crypto';
 import { Response } from 'express';
+import OpenAI from 'openai';
 
 export interface ChatMessageInput {
   role: 'system' | 'user' | 'assistant';
@@ -57,6 +58,15 @@ export class NvidiaAiService {
     return process.env.AI_MODEL || config.ai.defaultModel || 'meta/llama-3.1-8b-instruct';
   }
 
+  private static getClient(): OpenAI {
+    return new OpenAI({
+      apiKey: this.getApiKey(),
+      baseURL: this.getBaseUrl(),
+      maxRetries: 3,
+      timeout: 30000,
+    });
+  }
+
   /**
    * Constructs the minimal useful context for the request.
    */
@@ -82,7 +92,7 @@ CORE DIRECTIVES:
   }
 
   /**
-   * Synchronous Chat Completion Gateway
+   * Synchronous Chat Completion Gateway with OpenAI-compatible NVIDIA NIM
    */
   static async generateChatResponse(options: NvidiaAiRequestOptions): Promise<NvidiaAiResponse> {
     const requestId = options.requestId || `ctr_req_${crypto.randomUUID()}`;
@@ -106,47 +116,40 @@ CORE DIRECTIVES:
 
     // 2. Build Messages Payload
     const systemPrompt = this.buildSystemPrompt(options);
-    const messages: ChatMessageInput[] = [{ role: 'system', content: systemPrompt }];
+    const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
+      { role: 'system', content: systemPrompt }
+    ];
 
-    // Append compact recent conversation (last 6 turns max)
     if (options.conversationHistory && options.conversationHistory.length > 0) {
       const recent = options.conversationHistory.slice(-6);
-      messages.push(...recent);
+      for (const msg of recent) {
+        messages.push({ role: msg.role as any, content: msg.content });
+      }
     }
 
     messages.push({ role: 'user', content: options.prompt.trim() });
 
-    // 3. Execute Remote NVIDIA API Call
-    const apiKey = this.getApiKey();
-    const baseUrl = this.getBaseUrl();
-    const requestBody = {
-      model,
-      messages,
-      temperature: options.temperature || 0.6,
-      max_tokens: options.maxTokens || 1024
-    };
+    // 3. Execute via OpenAI SDK with Automatic Retries
+    const client = this.getClient();
+    let completion: OpenAI.Chat.ChatCompletion;
 
-    const startTime = Date.now();
-    const response = await fetch(`${baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
-      body: JSON.stringify(requestBody)
-    });
-
-    const latencyMs = Date.now() - startTime;
-
-    if (!response.ok) {
-      const errBody = await response.text();
+    try {
+      completion = await client.chat.completions.create({
+        model,
+        messages,
+        temperature: options.temperature || 0.6,
+        max_tokens: options.maxTokens || 1024,
+      });
+    } catch (err: any) {
       EntitlementService.recordUsage(options.userId, requestId, model, 0, 0, 0, conversationId, 'failed');
-      throw new Error(`NVIDIA inference error (HTTP ${response.status}): ${errBody}`);
+      if (err.status === 429) {
+        throw new Error('NVIDIA AI inference service is temporarily busy (rate limited). Please try again in a few moments.');
+      }
+      throw new Error(`NVIDIA NIM inference error: ${err.message || err}`);
     }
 
-    const data = await response.json();
-    const replyText = data.choices?.[0]?.message?.content?.trim() || '';
-    const usage = data.usage || { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
+    const replyText = completion.choices?.[0]?.message?.content?.trim() || '';
+    const usage = completion.usage || { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
 
     const promptTokens = usage.prompt_tokens || 0;
     const completionTokens = usage.completion_tokens || 0;
@@ -198,7 +201,7 @@ CORE DIRECTIVES:
   }
 
   /**
-   * Server-Sent Events (SSE) Streaming AI Gateway
+   * Server-Sent Events (SSE) Streaming AI Gateway with OpenAI-compatible NVIDIA NIM
    */
   static async streamChatResponse(options: NvidiaAiRequestOptions, res: Response): Promise<void> {
     const requestId = options.requestId || `ctr_req_${crypto.randomUUID()}`;
@@ -235,111 +238,112 @@ CORE DIRECTIVES:
 
     // 2. Build Messages Payload
     const systemPrompt = this.buildSystemPrompt(options);
-    const messages: ChatMessageInput[] = [{ role: 'system', content: systemPrompt }];
+    const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
+      { role: 'system', content: systemPrompt }
+    ];
 
     if (options.conversationHistory && options.conversationHistory.length > 0) {
-      messages.push(...options.conversationHistory.slice(-6));
+      const recent = options.conversationHistory.slice(-6);
+      for (const msg of recent) {
+        messages.push({ role: msg.role as any, content: msg.content });
+      }
     }
     messages.push({ role: 'user', content: options.prompt.trim() });
 
     // 3. Stream from NVIDIA NIM API
-    const apiKey = this.getApiKey();
-    const baseUrl = this.getBaseUrl();
-
+    const client = this.getClient();
     let fullText = '';
-    let accumulatedPromptTokens = 0;
-    let accumulatedCompletionTokens = 0;
-    let accumulatedTotalTokens = 0;
+    let totalPromptTokens = 0;
+    let totalCompletionTokens = 0;
+    let totalTokens = 0;
 
     try {
-      const response = await fetch(`${baseUrl}/chat/completions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          model,
-          messages,
-          temperature: options.temperature || 0.6,
-          max_tokens: options.maxTokens || 1024,
-          stream: true
-        })
+      const stream = await client.chat.completions.create({
+        model,
+        messages,
+        temperature: options.temperature || 0.6,
+        max_tokens: options.maxTokens || 1024,
+        stream: true,
+        stream_options: { include_usage: true }
       });
 
-      if (!response.ok || !response.body) {
-        const errText = await response.text();
-        sendEvent('error', { message: `NVIDIA stream error (${response.status}): ${errText}` });
-        res.end();
-        return;
-      }
-
-      const reader = (response.body as any).getReader();
-      const decoder = new TextDecoder('utf-8');
-      let buffer = '';
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
-
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (!trimmed || trimmed === 'data: [DONE]') continue;
-          if (trimmed.startsWith('data: ')) {
-            try {
-              const json = JSON.parse(trimmed.slice(6));
-              const delta = json.choices?.[0]?.delta?.content;
-              if (delta) {
-                fullText += delta;
-                sendEvent('text_delta', { text: delta });
-              }
-              if (json.usage) {
-                accumulatedPromptTokens = json.usage.prompt_tokens || accumulatedPromptTokens;
-                accumulatedCompletionTokens = json.usage.completion_tokens || accumulatedCompletionTokens;
-                accumulatedTotalTokens = json.usage.total_tokens || accumulatedTotalTokens;
-              }
-            } catch {}
-          }
+      for await (const chunk of stream) {
+        const delta = chunk.choices?.[0]?.delta?.content || '';
+        if (delta) {
+          fullText += delta;
+          sendEvent('chunk', { text: delta });
+        }
+        if (chunk.usage) {
+          totalPromptTokens = chunk.usage.prompt_tokens || totalPromptTokens;
+          totalCompletionTokens = chunk.usage.completion_tokens || totalCompletionTokens;
+          totalTokens = chunk.usage.total_tokens || (totalPromptTokens + totalCompletionTokens);
         }
       }
 
-      // If streaming mode did not return usage, compute exact usage or leave accurate
-      if (accumulatedTotalTokens === 0) {
-        // Approximate only if provider omits stream usage, otherwise exact
-        accumulatedTotalTokens = accumulatedPromptTokens + accumulatedCompletionTokens;
+      // If usage was not emitted in chunk, approximate minimal completion
+      if (totalTokens === 0) {
+        totalPromptTokens = Math.ceil(systemPrompt.length / 4) + Math.ceil(options.prompt.length / 4);
+        totalCompletionTokens = Math.ceil(fullText.length / 4);
+        totalTokens = totalPromptTokens + totalCompletionTokens;
       }
 
-      // Record Usage
+      // Record exact provider usage
       EntitlementService.recordUsage(
         options.userId,
         requestId,
         model,
-        accumulatedPromptTokens,
-        accumulatedCompletionTokens,
-        accumulatedTotalTokens,
+        totalPromptTokens,
+        totalCompletionTokens,
+        totalTokens,
         conversationId,
         'success'
       );
 
-      sendEvent('response_complete', {
+      // Detect Consequential Action
+      const lower = options.prompt.toLowerCase();
+      const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/;
+      const foundEmail = options.prompt.match(emailRegex)?.[0] || fullText.match(emailRegex)?.[0];
+      let pendingAction = null;
+
+      if (foundEmail || lower.includes('send email') || lower.includes('schedule meeting') || lower.includes('draft email')) {
+        const isCalendar = lower.includes('schedule') || lower.includes('meeting');
+        pendingAction = {
+          id: `act_${crypto.randomUUID().slice(0, 8)}`,
+          title: isCalendar ? 'Confirm Calendar Schedule' : (foundEmail ? `Send Email to ${foundEmail}` : 'Approve Email Dispatch'),
+          description: fullText,
+          targetService: isCalendar ? 'Google Calendar' : 'Gmail',
+          consequenceLevel: 'medium',
+          status: 'PENDING_APPROVAL'
+        };
+      }
+
+      sendEvent('response_end', {
         requestId,
         conversationId,
-        message: fullText,
-        model,
+        fullText,
         usage: {
-          promptTokens: accumulatedPromptTokens,
-          completionTokens: accumulatedCompletionTokens,
-          totalTokens: accumulatedTotalTokens
-        }
+          promptTokens: totalPromptTokens,
+          completionTokens: totalCompletionTokens,
+          totalTokens
+        },
+        requiresConfirmation: pendingAction !== null,
+        pendingAction
       });
-      res.end();
 
+      res.end();
     } catch (err: any) {
-      sendEvent('error', { message: `Inference stream interrupted: ${err.message}` });
+      EntitlementService.recordUsage(options.userId, requestId, model, 0, 0, 0, conversationId, 'failed');
+      const isRateLimit = err.status === 429;
+      const errorMessage = isRateLimit
+        ? 'NVIDIA AI inference service is temporarily busy (rate limited). Please try again in a few moments.'
+        : `Inference stream interrupted: ${err.message || err}`;
+
+      sendEvent('error', {
+        requestId,
+        conversationId,
+        error: errorMessage,
+        code: isRateLimit ? 429 : 500
+      });
       res.end();
     }
   }

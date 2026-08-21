@@ -1,5 +1,3 @@
-import fetch from 'node-fetch';
-
 export interface SearchResultItem {
   source: 'Gmail' | 'Google Calendar' | 'Google Drive' | 'Google Docs' | 'Slack' | 'GitHub';
   type: string;

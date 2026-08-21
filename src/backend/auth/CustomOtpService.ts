@@ -273,7 +273,7 @@ export class CustomOtpService {
 
       // Confirm user email on Supabase Auth
       let finalUserId = otpRecord.user_id;
-      let userName = cleanEmail.substringBefore ? cleanEmail.split('@')[0] : cleanEmail;
+      let userName = cleanEmail.includes('@') ? cleanEmail.split('@')[0] : cleanEmail;
 
       if (finalUserId) {
         console.info(`[Contril Auth] Confirming user email in Supabase Auth for UUID: ${finalUserId}`);
@@ -292,7 +292,7 @@ export class CustomOtpService {
         success: true,
         userId: finalUserId,
         user: {
-          id: finalUserId || `usr_${System.currentTimeMillis ? Date.now() : 'verified'}`,
+          id: finalUserId || `usr_${Date.now()}`,
           email: cleanEmail,
           name: userName
         },
