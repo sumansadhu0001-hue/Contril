@@ -88,7 +88,7 @@
                     android:path="/callback" />
             </intent-filter>
 
-            <!-- Netlify Web-to-App Bridge Intent Filter -->
+            <!-- Web-to-App Bridge Intent Filters (Netlify & Vercel) -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -96,6 +96,14 @@
                 <data
                     android:scheme="https"
                     android:host="contril.netlify.app" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="contril.vercel.app" />
             </intent-filter>
 
             <!-- Fallback Deep Link Filter -->

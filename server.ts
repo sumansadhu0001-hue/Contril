@@ -765,4 +765,8 @@ async function startServer() {
   });
 }
 
-startServer();
+export default app;
+
+if (!process.env.VERCEL && process.env.NODE_ENV !== "test") {
+  startServer();
+}
