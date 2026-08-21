@@ -29,15 +29,15 @@ export const CONTRIL_PLAY_STORE_URL =
 
 export const CONTRIL_APK_CONFIG: AndroidReleaseInfo = {
   version: '0.2.0-native',
-  releaseDate: 'August 18, 2026',
-  fileSize: '13.0 MB',
+  releaseDate: 'August 21, 2026',
+  fileSize: '13.1 MB',
   minAndroidSdk: 'API 26',
   minAndroidVersion: 'Android 8.0 (Oreo) or higher',
   downloadUrl: CONTRIL_ANDROID_APK_URL,
   playStoreUrl: CONTRIL_PLAY_STORE_URL,
   // Set to 'PLAY_STORE' once approved on Google Play Console for a 1-line switchover
   distributionMode: 'DIRECT_APK',
-  sha256Checksum: 'cd97e6cfc284f7da2747d18f0e2364d85b70cd8edfe2905954a1ce46f5d1a628',
+  sha256Checksum: '027aed9c199bbf7581b6eb913de997cb138bca4387edd1bd5eb1fd385eb3308a',
   channel: 'stable',
   installNotice: 'Currently available as a direct download while we complete Play Store review — you may see a standard Android security prompt during install; this is expected and safe.',
   changelog: [
