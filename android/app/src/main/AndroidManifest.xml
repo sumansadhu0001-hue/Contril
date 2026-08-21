@@ -95,7 +95,7 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data
                     android:scheme="https"
-                    android:host="contril.netlify.app" />
+                    android:host="contril-ai.vercel.app" />
             </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />

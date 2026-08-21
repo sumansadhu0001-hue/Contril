@@ -1,4 +1,4 @@
-# Robots.txt for Contril AI Chief of Staff (https://contril.netlify.app)
+# Robots.txt for Contril AI Chief of Staff (https://contril-ai.vercel.app)
 User-agent: *
 Allow: /
 Disallow: /admin
@@ -7,5 +7,5 @@ Disallow: /app/
 Disallow: /auth/
 
 # Host & Sitemap
-Host: https://contril.netlify.app
-Sitemap: https://contril.netlify.app/sitemap.xml
+Host: https://contril-ai.vercel.app
+Sitemap: https://contril-ai.vercel.app/sitemap.xml

@@ -126,7 +126,7 @@ class MainActivity : ComponentActivity() {
             }
 
             val isContrilScheme = uri.scheme == "contril" && ((uri.host == "auth" && uri.path == "/callback") || uri.host == "login-callback" || uri.host == "auth")
-            val isHttpsCallback = uri.scheme == "https" && (uri.host == "contril.netlify.app" || uri.host == "contril.app")
+            val isHttpsCallback = uri.scheme == "https" && (uri.host == "contril-ai.vercel.app" || uri.host == "contril.app")
 
             if (isContrilScheme || isHttpsCallback) {
                 var token: String? = null

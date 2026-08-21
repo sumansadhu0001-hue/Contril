@@ -11,7 +11,7 @@ export const getBaseUrl = (): string => {
   if (typeof window !== 'undefined' && window.location && window.location.origin) {
     return window.location.origin;
   }
-  return 'https://contril.netlify.app';
+  return 'https://contril-ai.vercel.app';
 };
 
 export const PAGE_SEO_METADATA: Record<string, PageSeoConfig> = {

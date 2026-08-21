@@ -15,7 +15,7 @@ object SupabaseAuthClient {
 
     private const val SUPABASE_URL = "https://qjyowojnvbfezznezxrr.supabase.co"
     private const val SUPABASE_ANON_KEY = "sb_publishable_FPaC7OtL6iAsYiQ_JDS9IA_ZmTuYeyT"
-    private const val OAUTH_REDIRECT_URI = "https://contril.netlify.app/auth/callback"
+    private const val OAUTH_REDIRECT_URI = "https://contril-ai.vercel.app/auth/callback"
 
     private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
 
