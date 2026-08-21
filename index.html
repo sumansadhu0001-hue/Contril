@@ -124,18 +124,14 @@
     <script>
       (function() {
         try {
+          var path = window.location.pathname || '';
           var hash = window.location.hash || '';
           var search = window.location.search || '';
-          if (hash.includes('access_token=') || search.includes('access_token=')) {
-            var nativeUrl = 'contril://auth/callback' + hash + (search ? '&' + search.substring(1) : '');
-            window.location.href = nativeUrl;
-            setTimeout(function() {
-              var btn = document.getElementById('native-launch-btn');
-              if (btn) {
-                btn.href = nativeUrl;
-                btn.style.display = 'inline-flex';
-              }
-            }, 300);
+          if (path.includes('/auth/callback') || hash.includes('auth/callback') || hash.includes('access_token=') || search.includes('access_token=')) {
+            var nativeUrl = 'contril://auth/callback' + hash + (search ? (hash ? '&' : '?') + search.substring(1) : '');
+            if (path.includes('/auth/callback') || hash.includes('auth/callback')) {
+              window.location.href = nativeUrl;
+            }
           }
         } catch (e) {}
       })();
@@ -145,15 +141,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   </head>
   <body class="bg-[#F7FAFF] dark:bg-[#070A0F] text-[#0F172A] dark:text-[#F8FAFC] antialiased font-sans min-h-screen selection:bg-blue-600 selection:text-white">
-    <div id="root">
-      <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:80vh; padding:20px; font-family:sans-serif; text-align:center;">
-        <h2 style="font-size:22px; font-weight:bold; color:#1E3A8A; margin-bottom:8px;">Authenticating with Contril...</h2>
-        <p style="color:#64748B; font-size:14px; margin-bottom:24px;">Returning you securely to the Android application.</p>
-        <a id="native-launch-btn" href="contril://auth/callback" style="display:none; padding:12px 24px; background-color:#2563EB; color:#ffffff; font-weight:600; border-radius:12px; text-decoration:none; box-shadow:0 4px 12px rgba(37,99,235,0.25);">
-          Open in Contril App
-        </a>
-      </div>
-    </div>
+    <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

@@ -29,6 +29,7 @@ import { MemoryView } from './ui/memory/MemoryView';
 import { IntegrationsView } from './ui/integrations/IntegrationsView';
 import { SettingsView } from './ui/settings/SettingsView';
 import { AuthView } from './ui/auth/AuthView';
+import { OAuthCallbackView } from './ui/auth/OAuthCallbackView';
 import { OnboardingView } from './ui/onboarding/OnboardingView';
 import { WorkspaceView } from './ui/workspace/WorkspaceView';
 
@@ -72,6 +73,10 @@ export default function App() {
     const pathname = window.location.pathname.replace(/^\/+|\/+$/g, '');
     const hash = window.location.hash.replace(/^#\/?/, '');
     
+    if (pathname.startsWith('auth/callback') || hash.startsWith('auth/callback')) {
+      return 'auth/callback';
+    }
+
     // Priority to hash if present, otherwise pathname
     const active = hash || pathname;
     if (!active) return '/';
@@ -140,16 +145,6 @@ export default function App() {
     const fullHash = cleanTarget === '/' ? '' : `#${cleanTarget}${extraId ? `/${extraId}` : ''}`;
     window.history.pushState(null, '', fullHash || fullUrl);
   };
-
-  // Android device auto-redirection on initial visit to root '/'
-  useEffect(() => {
-    const isRoot = currentRoute === '/' || currentRoute === '';
-    const hasSkipped = sessionStorage.getItem('contril_skip_android_redirect');
-    if (deviceInfo.isAndroidPhone && isRoot && !hasSkipped) {
-      sessionStorage.setItem('contril_skip_android_redirect', 'true');
-      navigateTo('download/android');
-    }
-  }, [deviceInfo]);
 
   useEffect(() => {
     const handleLocationChange = () => {
@@ -355,7 +350,12 @@ export default function App() {
     );
   }
 
-  // 2. Browser App Deprecated -> Redirect cleanly to Android Download Portal
+  // 2. Dedicated OAuth Callback Route (e.g. /auth/callback)
+  if (currentRoute === 'auth/callback') {
+    return <OAuthCallbackView onNavigate={navigateTo} />;
+  }
+
+  // 3. Browser App Deprecated -> Redirect cleanly to Android Download Portal
   if (currentRoute === 'login' || currentRoute === 'signup' || currentRoute === 'forgot-password' || currentRoute === 'app' || ['focus', 'workspace', 'inbox', 'meetings', 'docs', 'memory', 'settings', 'profile', 'chat'].includes(currentRoute)) {
     return (
       <div className="min-h-screen bg-[#F8FAFC] dark:bg-[#070B14] text-[#0B1220] dark:text-[#F8FAFC] flex flex-col justify-between">
