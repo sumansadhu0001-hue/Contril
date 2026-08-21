@@ -200,7 +200,7 @@ export const DownloadView: React.FC<DownloadViewProps> = ({
                 </li>
                 <li className="flex items-center gap-2.5 p-3 rounded-xl bg-neutral-50 dark:bg-white/5 border border-neutral-200/60 dark:border-white/5">
                   <CheckCircle2 className="w-4 h-4 text-[#2563EB] dark:text-[#38BDF8] shrink-0" />
-                  <span>Gemini 3.6 Flash / High-Speed Intelligence</span>
+                  <span>NVIDIA NIM / High-Speed AI Intelligence</span>
                 </li>
               </ul>
             </div>
