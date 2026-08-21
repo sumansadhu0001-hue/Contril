@@ -21,38 +21,50 @@ export const PublicFooter: React.FC<PublicFooterProps> = ({ onNavigate }) => {
         </div>
 
         {/* Navigation Links */}
-        <div className="flex flex-wrap items-center gap-6">
-          <button 
-            onClick={() => onNavigate('/')} 
+        <nav aria-label="Footer Navigation" className="flex flex-wrap items-center gap-6">
+          <a 
+            href="/"
+            onClick={(e) => { e.preventDefault(); onNavigate('/'); }} 
             className="hover:text-[#0B1220] dark:hover:text-white transition-colors cursor-pointer"
           >
             Home
-          </button>
-          <button 
-            onClick={() => onNavigate('about')} 
+          </a>
+          <a 
+            href="/#about"
+            onClick={(e) => { e.preventDefault(); onNavigate('about'); }} 
             className="hover:text-[#0B1220] dark:hover:text-white transition-colors cursor-pointer"
           >
             About
-          </button>
-          <button 
-            onClick={() => onNavigate('how-it-works')} 
+          </a>
+          <a 
+            href="/#how-it-works"
+            onClick={(e) => { e.preventDefault(); onNavigate('how-it-works'); }} 
             className="hover:text-[#0B1220] dark:hover:text-white transition-colors cursor-pointer"
           >
             How it works
-          </button>
-          <button 
-            onClick={() => onNavigate('download')} 
+          </a>
+          <a 
+            href="/#download"
+            onClick={(e) => { e.preventDefault(); onNavigate('download'); }} 
             className="hover:text-[#0B1220] dark:hover:text-white transition-colors cursor-pointer"
           >
             Download
-          </button>
-          <button 
-            onClick={() => onNavigate('download')} 
-            className="text-[#2563EB] dark:text-[#38BDF8] font-medium hover:underline cursor-pointer"
+          </a>
+          <a 
+            href="/#privacy"
+            onClick={(e) => { e.preventDefault(); onNavigate('privacy'); }} 
+            className="hover:text-[#0B1220] dark:hover:text-white transition-colors cursor-pointer"
           >
-            Download Android APK ↓
-          </button>
-        </div>
+            Privacy Policy
+          </a>
+          <a 
+            href="/#terms"
+            onClick={(e) => { e.preventDefault(); onNavigate('terms'); }} 
+            className="hover:text-[#0B1220] dark:hover:text-white transition-colors cursor-pointer"
+          >
+            Terms of Service
+          </a>
+        </nav>
 
         {/* Experimental Preview Notice */}
         <div className="font-mono text-[11px] text-[#64748B] dark:text-[#94A3B8]">

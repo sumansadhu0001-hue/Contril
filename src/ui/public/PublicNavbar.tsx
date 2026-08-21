@@ -49,13 +49,17 @@ export const PublicNavbar: React.FC<PublicNavbarProps> = ({
         </div>
 
         {/* Center Navigation Links */}
-        <nav className="hidden md:flex items-center gap-8 lg:gap-10">
+        <nav aria-label="Main Navigation" className="hidden md:flex items-center gap-8 lg:gap-10">
           {navLinks.map((link) => {
             const isActive = currentRoute === link.route || (link.route === 'download' && currentRoute === 'download/android');
             return (
-              <button
+              <a
                 key={link.route}
-                onClick={() => onNavigate(link.route)}
+                href={`/#${link.route}`}
+                onClick={(e) => {
+                  e.preventDefault();
+                  onNavigate(link.route);
+                }}
                 className={`text-sm transition-colors cursor-pointer ${
                   isActive
                     ? 'text-[#2563EB] dark:text-[#38BDF8] font-semibold'
@@ -63,7 +67,7 @@ export const PublicNavbar: React.FC<PublicNavbarProps> = ({
                 }`}
               >
                 {link.label}
-              </button>
+              </a>
             );
           })}
         </nav>
@@ -88,7 +92,7 @@ export const PublicNavbar: React.FC<PublicNavbarProps> = ({
 
               <button
                 onClick={() => onSelectThemePreference('system')}
-                title="System Preference"
+                title="System Theme"
                 className={`p-1.5 rounded transition-colors cursor-pointer ${
                   themePreference === 'system'
                     ? 'text-[#2563EB] font-medium'
@@ -113,13 +117,17 @@ export const PublicNavbar: React.FC<PublicNavbarProps> = ({
           )}
 
           {/* Primary Action Button - Direct Android APK Download */}
-          <button
-            onClick={() => onNavigate('download')}
+          <a
+            href="/#download"
+            onClick={(e) => {
+              e.preventDefault();
+              onNavigate('download');
+            }}
             className="px-5 py-2.5 rounded-full bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-semibold transition-all shadow-[0_4px_16px_rgba(37,99,235,0.25)] hover:shadow-[0_6px_20px_rgba(37,99,235,0.35)] hover:-translate-y-0.5 cursor-pointer flex items-center gap-1.5"
           >
             <span>Download APK</span>
             <ArrowRight className="w-3.5 h-3.5" />
-          </button>
+          </a>
         </div>
 
         {/* Mobile Menu Toggle */}
